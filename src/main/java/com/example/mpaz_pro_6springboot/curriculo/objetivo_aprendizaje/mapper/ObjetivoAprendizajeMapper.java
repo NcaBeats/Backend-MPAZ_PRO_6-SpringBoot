@@ -7,6 +7,7 @@ import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.Obj
 import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -26,5 +27,6 @@ public interface ObjetivoAprendizajeMapper {
 
     void updateEntity(ObjetivoAprendizajeUpdateRequest request, @MappingTarget ObjetivoAprendizaje entity);
 
+    @Mapping(target = "unidadId", source = "unidad.id")
     ObjetivoAprendizajeResponse toResponse(ObjetivoAprendizaje entity);
 }

@@ -8,6 +8,7 @@ import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.mapper.Inform
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.mapper.ObjetivoAprendizajeMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -23,8 +24,6 @@ public interface DetalleInformeOaMapper {
     DetalleInformeOa toEntity(DetalleInformeOaCreateRequest request);
 
     void updateEntity(DetalleInformeOaUpdateRequest request, @MappingTarget DetalleInformeOa entity);
-
-    DetalleInformeOaResponse toResponse(DetalleInformeOa entity);
 
     @Mapping(target = "informeId", source = "informe.id")
     @Mapping(target = "oaId", source = "oa.id")

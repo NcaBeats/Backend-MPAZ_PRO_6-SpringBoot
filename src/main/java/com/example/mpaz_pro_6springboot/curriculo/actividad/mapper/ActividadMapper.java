@@ -7,6 +7,7 @@ import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -25,5 +26,6 @@ public interface ActividadMapper {
 
     void updateEntity(ActividadUpdateRequest request, @MappingTarget Actividad entity);
 
+    @Mapping(target = "unidadId", source = "unidad.id")
     ActividadResponse toResponse(Actividad entity);
 }

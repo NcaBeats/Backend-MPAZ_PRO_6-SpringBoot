@@ -7,6 +7,7 @@ import com.example.mpaz_pro_6springboot.curriculo.unidad.dto.response.UnidadResp
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -28,5 +29,7 @@ public interface UnidadMapper {
 
     void updateEntity(UnidadUpdateRequest request, @MappingTarget Unidad entity);
 
+    @Mapping(target = "asignaturaId", source = "asignatura.id")
+    @Mapping(target = "autorizadaPorId", source = "autorizadaPor.id")
     UnidadResponse toResponse(Unidad entity);
 }

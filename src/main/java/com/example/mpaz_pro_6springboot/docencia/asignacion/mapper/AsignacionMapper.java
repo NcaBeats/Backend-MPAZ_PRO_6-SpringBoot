@@ -9,6 +9,7 @@ import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
 import com.example.mpaz_pro_6springboot.identidad.usuario.mapper.UsuarioMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -30,5 +31,8 @@ public interface AsignacionMapper {
 
     void updateEntity(AsignacionUpdateRequest request, @MappingTarget Asignacion entity);
 
+    @Mapping(target = "cursoId", source = "curso.id")
+    @Mapping(target = "unidadId", source = "unidad.id")
+    @Mapping(target = "docenteId", source = "docente.id")
     AsignacionResponse toResponse(Asignacion entity);
 }

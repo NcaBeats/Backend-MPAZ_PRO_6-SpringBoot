@@ -8,6 +8,7 @@ import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
 import com.example.mpaz_pro_6springboot.identidad.usuario.mapper.UsuarioMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -28,5 +29,8 @@ public interface InformePedagogicoMapper {
 
     void updateEntity(InformePedagogicoUpdateRequest request, @MappingTarget InformePedagogico entity);
 
+    @Mapping(target = "estudianteId", source = "estudiante.id")
+    @Mapping(target = "unidadId", source = "unidad.id")
+    @Mapping(target = "docenteId", source = "docente.id")
     InformePedagogicoResponse toResponse(InformePedagogico entity);
 }

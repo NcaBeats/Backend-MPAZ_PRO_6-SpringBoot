@@ -7,6 +7,7 @@ import com.example.mpaz_pro_6springboot.identidad.usuario.dto.response.UsuarioRe
 import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -30,5 +31,6 @@ public interface UsuarioMapper {
 
     void updateEntity(UsuarioUpdateRequest request, @MappingTarget Usuario entity);
 
+    @Mapping(target = "cursoId", source = "curso.id")
     UsuarioResponse toResponse(Usuario entity);
 }

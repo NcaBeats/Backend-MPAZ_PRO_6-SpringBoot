@@ -7,9 +7,9 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionO
 import com.example.mpaz_pro_6springboot.docencia.asignacion.mapper.AsignacionMapper;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.mapper.ObjetivoAprendizajeMapper;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
-import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOaId;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -26,8 +26,7 @@ public interface AsignacionOaMapper {
 
     void updateEntity(AsignacionOaUpdateRequest request, @MappingTarget AsignacionOa entity);
 
-    AsignacionOaResponse toResponse(AsignacionOa entity);
-
+    /** La PK es embebida en AsignacionOaId, asi que los ids salen de ahi. */
     @Mapping(target = "asignacionId", source = "id.asignacionId")
     @Mapping(target = "oaId", source = "id.oaId")
     AsignacionOaResponse toResponse(AsignacionOa entity);

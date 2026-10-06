@@ -8,6 +8,7 @@ import com.example.mpaz_pro_6springboot.curriculo.actividad.mapper.ActividadMapp
 import com.example.mpaz_pro_6springboot.identidad.usuario.mapper.UsuarioMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -25,5 +26,7 @@ public interface IntentoMapper {
 
     void updateEntity(IntentoUpdateRequest request, @MappingTarget Intento entity);
 
+    @Mapping(target = "estudianteId", source = "estudiante.id")
+    @Mapping(target = "actividadId", source = "actividad.id")
     IntentoResponse toResponse(Intento entity);
 }

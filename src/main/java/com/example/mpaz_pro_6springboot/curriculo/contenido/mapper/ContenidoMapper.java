@@ -8,6 +8,7 @@ import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.mapper.Ob
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.mapper.RecursoContenidoMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -24,5 +25,6 @@ public interface ContenidoMapper {
 
     void updateEntity(ContenidoUpdateRequest request, @MappingTarget Contenido entity);
 
+    @Mapping(target = "oaId", source = "oa.id")
     ContenidoResponse toResponse(Contenido entity);
 }

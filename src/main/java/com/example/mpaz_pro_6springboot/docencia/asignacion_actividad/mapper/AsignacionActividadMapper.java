@@ -7,9 +7,9 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.Asig
 import com.example.mpaz_pro_6springboot.curriculo.actividad.mapper.ActividadMapper;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.mapper.AsignacionMapper;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
-import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividadId;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -26,8 +26,7 @@ public interface AsignacionActividadMapper {
 
     void updateEntity(AsignacionActividadUpdateRequest request, @MappingTarget AsignacionActividad entity);
 
-    AsignacionActividadResponse toResponse(AsignacionActividad entity);
-
+    /** La PK es embebida en AsignacionActividadId, asi que los ids salen de ahi. */
     @Mapping(target = "asignacionId", source = "id.asignacionId")
     @Mapping(target = "actividadId", source = "id.actividadId")
     AsignacionActividadResponse toResponse(AsignacionActividad entity);

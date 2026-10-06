@@ -6,6 +6,7 @@ import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.response.Alter
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.model.Alternativa;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -21,5 +22,6 @@ public interface AlternativaMapper {
 
     void updateEntity(AlternativaUpdateRequest request, @MappingTarget Alternativa entity);
 
+    @Mapping(target = "preguntaId", source = "pregunta.id")
     AlternativaResponse toResponse(Alternativa entity);
 }

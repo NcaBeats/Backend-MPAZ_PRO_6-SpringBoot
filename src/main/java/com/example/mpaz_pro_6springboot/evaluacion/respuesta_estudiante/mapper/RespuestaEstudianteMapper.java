@@ -9,6 +9,7 @@ import com.example.mpaz_pro_6springboot.evaluacion.intento.mapper.IntentoMapper;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.mapper.PreguntaMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -26,5 +27,7 @@ public interface RespuestaEstudianteMapper {
 
     void updateEntity(RespuestaEstudianteUpdateRequest request, @MappingTarget RespuestaEstudiante entity);
 
+    @Mapping(target = "intentoId", source = "intento.id")
+    @Mapping(target = "preguntaId", source = "pregunta.id")
     RespuestaEstudianteResponse toResponse(RespuestaEstudiante entity);
 }

@@ -6,6 +6,7 @@ import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.dto.response
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
@@ -20,5 +21,6 @@ public interface RecursoContenidoMapper {
 
     void updateEntity(RecursoContenidoUpdateRequest request, @MappingTarget RecursoContenido entity);
 
+    @Mapping(target = "contenidoId", source = "contenido.id")
     RecursoContenidoResponse toResponse(RecursoContenido entity);
 }
