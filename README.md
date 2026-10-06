@@ -159,6 +159,7 @@ Solo contiene lo que varia por entorno (sin duplicados ni valores fijos):
 | `POSTGRES_PASSWORD` | `secret` | Contrasena (cambiar en entornos reales) |
 | `POSTGRES_PORT` | `5432` | Opcional, solo si el 5432 esta ocupado |
 | `DB_HOST` | `localhost` | Opcional, solo si la BD no esta en local |
+| `SERVER_PORT` | `8080` | Opcional, puerto de la app (ver `server.port` en `application.yaml`) |
 
 No se versiona: `.env` esta en `.gitignore`. Solo `.env.example` se commitea.
 
