@@ -20,4 +20,6 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
     List<Curso> findByAnioOrderByNombre(@Param("anio") Integer anio);
 
     boolean existsByNombreAndAnio(String nombre, Integer anio);
+
+    List<Curso> findAllByAnio(Integer anio);
 }
