@@ -141,14 +141,52 @@ git clone <url-repositorio>
 cd Backend-MPAZ_PRO_6-SpringBoot
 ```
 
-### 9.2. Levantar BD con Docker
+### 9.2. Variables de entorno (.env)
+
+El proyecto usa un unico archivo `.env` en la raiz (ver `.env.example`):
+
+```bash
+copy .env.example .env   # Windows
+cp .env.example .env     # Linux/macOS
+```
+
+Solo contiene lo que varia por entorno (sin duplicados ni valores fijos):
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `POSTGRES_DB` | `mpaz` | Nombre de la BD |
+| `POSTGRES_USER` | `mpaz` | Usuario de la BD |
+| `POSTGRES_PASSWORD` | `secret` | Contrasena (cambiar en entornos reales) |
+| `POSTGRES_PORT` | `5432` | Opcional, solo si el 5432 esta ocupado |
+| `DB_HOST` | `localhost` | Opcional, solo si la BD no esta en local |
+
+No se versiona: `.env` esta en `.gitignore`. Solo `.env.example` se commitea.
+
+### 9.3. Como lee cada parte el mismo `.env` (el "hueco")
+
+- **Docker Compose** (`compose.yaml`) lee el `.env` automaticamente si esta junto al archivo. Sintaxis `${VAR:-default}`.
+- **Spring Boot** (`application.yaml`) lee variables de entorno del proceso con sintaxis `${VAR:default}`, NO carga el `.env` solo.
+
+Por eso `application.yaml` incluye:
+
+```yaml
+spring:
+  config:
+    import: optional:file:.env[.properties]
+```
+
+Sin esa linea, al correr con `./mvnw spring-boot:run` la app ignoraria tu `.env` y usaria los defaults, aunque `docker compose up` si los haya usado. Con esa linea, ambos leen el mismo archivo.
+
+Si aun asi la app no toma un cambio del `.env`: reinicia el proceso (las variables se leen al arrancar, no en caliente) o exportalas a mano en tu IDE.
+
+### 9.4. Levantar BD con Docker
 ```bash
 docker compose up -d
 docker compose ps
 ```
 
-### 9.3. application.yaml
-Configurado para mpaz/mpaz, ddl-auto=validate, Flyway habilitado.
+### 9.5. application.yaml
+`datasource` usa `${POSTGRES_DB/USER/PASSWORD/PORT:default}` con los mismos nombres del `.env`. `ddl-auto: validate` y Flyway habilitado se mantienen fijos (no van al `.env`).
 
 ## 10. Ejecución
 

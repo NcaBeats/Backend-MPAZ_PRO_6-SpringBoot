@@ -1,13 +1,14 @@
 spring:
   application:
     name: MPAZ_PRO_6-SpringBoot
+  config:
+    import: optional:file:.env[.properties]
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/mpaz
-    username: mpaz
-    password: secret
+    url: jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mpaz}
+    username: ${POSTGRES_USER:mpaz}
+    password: ${POSTGRES_PASSWORD:secret}
 
-  # El .sql es la fuente de verdad: Flyway crea el esquema, Hibernate solo lo valida.
   jpa:
     hibernate:
       ddl-auto: validate
