@@ -19,7 +19,6 @@ public interface UsuarioMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "curso", ignore = true)
     @Mapping(target = "intentos", ignore = true)
     @Mapping(target = "respuestasEstudiante", ignore = true)
