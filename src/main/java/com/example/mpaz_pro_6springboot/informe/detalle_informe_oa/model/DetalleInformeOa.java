@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.model;
+﻿package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.model;
 
 import com.example.mpaz_pro_6springboot.common.enums.NivelOa;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;
