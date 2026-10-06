@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.identidad.usuario;
+package com.example.mpaz_pro_6springboot.identidad.usuario.model;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;

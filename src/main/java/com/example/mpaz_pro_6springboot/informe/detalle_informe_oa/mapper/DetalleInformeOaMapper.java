@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa;
+package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.mapper;
 
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.dto.request.DetalleInformeOaCreateRequest;
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.dto.request.DetalleInformeOaUpdateRequest;

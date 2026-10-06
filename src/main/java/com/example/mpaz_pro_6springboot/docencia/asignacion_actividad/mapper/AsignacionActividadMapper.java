@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.mapper;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.dto.request.AsignacionActividadCreateRequest;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.dto.request.AsignacionActividadUpdateRequest;

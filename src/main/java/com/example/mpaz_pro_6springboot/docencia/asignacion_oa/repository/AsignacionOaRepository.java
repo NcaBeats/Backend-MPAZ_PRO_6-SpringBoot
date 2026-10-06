@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_oa;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_oa.repository;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOa;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOaId;

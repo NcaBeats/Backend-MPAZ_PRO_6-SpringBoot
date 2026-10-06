@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante;
+package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.model.Alternativa;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;

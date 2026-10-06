@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.identidad.curso;
+package com.example.mpaz_pro_6springboot.identidad.curso.mapper;
 
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.request.CursoCreateRequest;
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.request.CursoUpdateRequest;

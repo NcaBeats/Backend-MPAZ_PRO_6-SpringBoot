@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje;
+package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.dto.request.ObjetivoAprendizajeCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.dto.request.ObjetivoAprendizajeUpdateRequest;

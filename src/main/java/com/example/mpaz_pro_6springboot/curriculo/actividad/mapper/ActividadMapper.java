@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.actividad;
+package com.example.mpaz_pro_6springboot.curriculo.actividad.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.actividad.dto.request.ActividadCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.dto.request.ActividadUpdateRequest;

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model;
 
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;

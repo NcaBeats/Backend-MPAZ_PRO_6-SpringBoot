@@ -1,8 +1,9 @@
-package com.example.mpaz_pro_6springboot.evaluacion.intento;
+package com.example.mpaz_pro_6springboot.evaluacion.intento.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
 import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

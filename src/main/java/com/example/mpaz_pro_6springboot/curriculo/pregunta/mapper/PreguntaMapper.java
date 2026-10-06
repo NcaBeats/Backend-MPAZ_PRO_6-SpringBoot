@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.pregunta;
+package com.example.mpaz_pro_6springboot.curriculo.pregunta.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.dto.request.PreguntaCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.dto.request.PreguntaUpdateRequest;

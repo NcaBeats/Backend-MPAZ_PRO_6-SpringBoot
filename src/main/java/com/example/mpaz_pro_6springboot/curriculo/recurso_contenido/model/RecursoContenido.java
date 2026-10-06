@@ -1,8 +1,8 @@
-package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido;
+package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
-import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.enums.OrigenMaterial;
-import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.enums.TipoRecurso;
+import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
+import com.example.mpaz_pro_6springboot.common.enums.TipoRecurso;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

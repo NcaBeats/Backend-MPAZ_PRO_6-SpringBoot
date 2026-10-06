@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_oa;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;

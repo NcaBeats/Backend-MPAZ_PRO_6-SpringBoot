@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.asignatura;
+package com.example.mpaz_pro_6springboot.curriculo.asignatura.repository;
 
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.model.Asignatura;
 import org.springframework.data.jpa.repository.JpaRepository;

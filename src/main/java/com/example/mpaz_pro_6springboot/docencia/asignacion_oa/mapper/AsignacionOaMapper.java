@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_oa;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_oa.mapper;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.dto.request.AsignacionOaCreateRequest;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.dto.request.AsignacionOaUpdateRequest;

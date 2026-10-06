@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa;
+package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.repository;
 
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.model.DetalleInformeOa;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.identidad.curso;
+package com.example.mpaz_pro_6springboot.identidad.curso.repository;
 
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import org.springframework.data.jpa.repository.JpaRepository;

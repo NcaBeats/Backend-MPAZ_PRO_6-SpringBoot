@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.evaluacion.intento;
+package com.example.mpaz_pro_6springboot.evaluacion.intento.mapper;
 
 import com.example.mpaz_pro_6springboot.evaluacion.intento.dto.request.IntentoCreateRequest;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.dto.request.IntentoUpdateRequest;

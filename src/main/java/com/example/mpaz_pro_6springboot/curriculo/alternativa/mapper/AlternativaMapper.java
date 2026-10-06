@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.alternativa;
+package com.example.mpaz_pro_6springboot.curriculo.alternativa.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.request.AlternativaCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.request.AlternativaUpdateRequest;

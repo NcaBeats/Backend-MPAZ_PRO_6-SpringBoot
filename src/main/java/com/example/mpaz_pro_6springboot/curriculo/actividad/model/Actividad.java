@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.actividad;
+package com.example.mpaz_pro_6springboot.curriculo.actividad.model;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
@@ -32,7 +32,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "actividad", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_actividad_unidad_titulo", columnNames = {"unidad_id", "titulo"})
+    // Soporta la FK compuesta de seccion 4: pregunta (actividad_id, unidad_id) -> actividad (id, unidad_id)
+    @UniqueConstraint(name = "uk_actividad_id_unidad", columnNames = {"id", "unidad_id"})
 })
 @Getter
 @Setter

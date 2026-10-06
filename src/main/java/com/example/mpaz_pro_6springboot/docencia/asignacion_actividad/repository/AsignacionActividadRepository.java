@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad;
+package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividadId;

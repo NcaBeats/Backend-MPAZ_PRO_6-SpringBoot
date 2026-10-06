@@ -1,9 +1,9 @@
-package com.example.mpaz_pro_6springboot.curriculo.pregunta;
+package com.example.mpaz_pro_6springboot.curriculo.pregunta.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.model.Alternativa;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
-import com.example.mpaz_pro_6springboot.curriculo.pregunta.enums.Dificultad;
+import com.example.mpaz_pro_6springboot.common.enums.Dificultad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
 import jakarta.persistence.CascadeType;
@@ -19,7 +19,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -32,9 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "pregunta", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_pregunta_actividad_orden", columnNames = {"actividad_id", "orden"})
-})
+@Table(name = "pregunta")
 @Getter
 @Setter
 @Builder

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.unidad;
+package com.example.mpaz_pro_6springboot.curriculo.unidad.repository;
 
 import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;

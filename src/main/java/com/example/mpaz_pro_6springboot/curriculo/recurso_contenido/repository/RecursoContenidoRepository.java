@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido;
+package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.repository;
 
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
 import org.springframework.data.jpa.repository.JpaRepository;

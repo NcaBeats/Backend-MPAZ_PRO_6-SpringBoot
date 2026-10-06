@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.contenido;
+package com.example.mpaz_pro_6springboot.curriculo.contenido.model;
 
 import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;

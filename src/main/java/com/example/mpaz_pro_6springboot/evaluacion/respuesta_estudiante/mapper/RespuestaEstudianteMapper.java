@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante;
+package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.mapper;
 
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.dto.request.RespuestaEstudianteCreateRequest;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.dto.request.RespuestaEstudianteUpdateRequest;

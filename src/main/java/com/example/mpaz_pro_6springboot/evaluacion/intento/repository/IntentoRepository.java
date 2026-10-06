@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.evaluacion.intento;
+package com.example.mpaz_pro_6springboot.evaluacion.intento.repository;
 
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import org.springframework.data.jpa.repository.JpaRepository;

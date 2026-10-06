@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.asignatura;
+package com.example.mpaz_pro_6springboot.curriculo.asignatura.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import jakarta.persistence.CascadeType;

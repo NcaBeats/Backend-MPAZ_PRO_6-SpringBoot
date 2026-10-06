@@ -1,7 +1,8 @@
-package com.example.mpaz_pro_6springboot.curriculo.alternativa;
+package com.example.mpaz_pro_6springboot.curriculo.alternativa.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

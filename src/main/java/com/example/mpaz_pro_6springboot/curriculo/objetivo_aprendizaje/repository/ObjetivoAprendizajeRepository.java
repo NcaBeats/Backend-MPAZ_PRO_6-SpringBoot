@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje;
+package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repository;
 
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import org.springframework.data.jpa.repository.JpaRepository;

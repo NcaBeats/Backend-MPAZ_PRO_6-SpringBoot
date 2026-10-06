@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.unidad;
+package com.example.mpaz_pro_6springboot.curriculo.unidad.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.mapper.AsignaturaMapper;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.dto.request.UnidadCreateRequest;

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje;
+package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
@@ -30,7 +30,9 @@ import java.util.List;
 
 @Entity
 @Table(name = "objetivo_aprendizaje", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_oa_unidad_codigo", columnNames = {"unidad_id", "codigo"})
+    @UniqueConstraint(name = "uk_oa_unidad_codigo", columnNames = {"unidad_id", "codigo"}),
+    // Soporta las FK compuestas de seccion 4: (oa_id, unidad_id) desde pregunta, asignacion_oa y asignacion_actividad
+    @UniqueConstraint(name = "uk_oa_id_unidad", columnNames = {"id", "unidad_id"})
 })
 @Getter
 @Setter

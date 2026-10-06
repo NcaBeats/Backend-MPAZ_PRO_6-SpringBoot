@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.unidad;
+package com.example.mpaz_pro_6springboot.curriculo.unidad.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.model.Asignatura;
@@ -6,7 +6,7 @@ import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.Obj
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;
-import com.example.mpaz_pro_6springboot.curriculo.unidad.enums.EstadoContenido;
+import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,7 +20,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -34,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "unidad", uniqueConstraints = @UniqueConstraint(name = "uk_unidad_asignatura_titulo", columnNames = {"asignatura_id", "titulo"}))
+@Table(name = "unidad")
 @Getter
 @Setter
 @Builder

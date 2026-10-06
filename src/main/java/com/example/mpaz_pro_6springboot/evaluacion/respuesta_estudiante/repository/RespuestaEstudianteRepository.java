@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante;
+package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.repository;
 
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
 import org.springframework.data.jpa.repository.JpaRepository;

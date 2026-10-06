@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.actividad;
+package com.example.mpaz_pro_6springboot.curriculo.actividad.repository;
 
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;

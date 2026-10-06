@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.informe.informe_pedagogico;
+package com.example.mpaz_pro_6springboot.informe.informe_pedagogico.mapper;
 
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.dto.request.InformePedagogicoCreateRequest;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.dto.request.InformePedagogicoUpdateRequest;

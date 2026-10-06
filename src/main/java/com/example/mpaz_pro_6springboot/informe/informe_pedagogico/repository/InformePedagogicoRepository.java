@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.informe.informe_pedagogico;
+package com.example.mpaz_pro_6springboot.informe.informe_pedagogico.repository;
 
 import com.example.mpaz_pro_6springboot.common.enums.EstadoInforme;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.curriculo.contenido;
+package com.example.mpaz_pro_6springboot.curriculo.contenido.mapper;
 
 import com.example.mpaz_pro_6springboot.curriculo.contenido.dto.request.ContenidoCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.dto.request.ContenidoUpdateRequest;

@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.identidad.curso;
+package com.example.mpaz_pro_6springboot.identidad.curso.model;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
@@ -11,7 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -24,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "curso", uniqueConstraints = @UniqueConstraint(name = "uk_curso_nombre_anio", columnNames = {"nombre", "anio"}))
+@Table(name = "curso")
 @Getter
 @Setter
 @Builder

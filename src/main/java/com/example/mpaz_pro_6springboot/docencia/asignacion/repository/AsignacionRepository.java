@@ -1,4 +1,4 @@
-package com.example.mpaz_pro_6springboot.docencia.asignacion;
+package com.example.mpaz_pro_6springboot.docencia.asignacion.repository;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import org.springframework.data.jpa.repository.JpaRepository;
