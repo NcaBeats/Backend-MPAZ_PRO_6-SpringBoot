@@ -40,7 +40,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"curso", "intentos", "respuestasEstudiante", "informesEstudiante", "informesDocente", "unidadesAutorizadas", "asignacionesDocente"})
+@ToString(exclude = {"curso", "intentos", "informesEstudiante", "informesDocente", "unidadesAutorizadas", "asignacionesDocente"})
 public class Usuario {
 
     @Id
@@ -70,10 +70,8 @@ public class Usuario {
     @Builder.Default
     private List<Intento> intentos = new ArrayList<>();
 
-    @OneToMany(mappedBy = "estudiante", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<RespuestaEstudiante> respuestasEstudiante = new ArrayList<>();
-
+    // No hay Lista<RespuestaEstudiante>: respuesta_estudiante no tiene estudiante_id,
+    // se llega al estudiante por intento.estudiante_id (seccion 3).
     @OneToMany(mappedBy = "estudiante", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<InformePedagogico> informesEstudiante = new ArrayList<>();

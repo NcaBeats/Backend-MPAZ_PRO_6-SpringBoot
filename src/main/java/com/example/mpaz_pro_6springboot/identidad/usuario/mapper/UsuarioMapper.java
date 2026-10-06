@@ -21,7 +21,6 @@ public interface UsuarioMapper {
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "curso", ignore = true)
     @Mapping(target = "intentos", ignore = true)
-    @Mapping(target = "respuestasEstudiante", ignore = true)
     @Mapping(target = "informesEstudiante", ignore = true)
     @Mapping(target = "informesDocente", ignore = true)
     @Mapping(target = "unidadesAutorizadas", ignore = true)

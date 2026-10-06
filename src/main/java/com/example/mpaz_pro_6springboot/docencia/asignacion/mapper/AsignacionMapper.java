@@ -26,7 +26,6 @@ public interface AsignacionMapper {
     @Mapping(target = "fecha", ignore = true)
     @Mapping(target = "asignacionesOa", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
-    @Mapping(target = "informes", ignore = true)
     Asignacion toEntity(AsignacionCreateRequest request);
 
     void updateEntity(AsignacionUpdateRequest request, @MappingTarget Asignacion entity);

@@ -41,7 +41,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"curso", "unidad", "docente", "asignacionesOa", "asignacionesActividad", "informes"})
+@ToString(exclude = {"curso", "unidad", "docente", "asignacionesOa", "asignacionesActividad"})
 public class Asignacion {
 
     @Id
@@ -76,7 +76,7 @@ public class Asignacion {
     @Builder.Default
     private List<AsignacionActividad> asignacionesActividad = new ArrayList<>();
 
-    @OneToMany(mappedBy = "asignacion", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<InformePedagogico> informes = new ArrayList<>();
+    // No hay Lista<InformePedagogico>: informe_pedagogico no tiene asignacion_id.
+    // El informe se liga al estudiante, a la unidad y al docente (seccion 3, tabla
+    // informe_pedagogico), no a la asignacion.
 }
