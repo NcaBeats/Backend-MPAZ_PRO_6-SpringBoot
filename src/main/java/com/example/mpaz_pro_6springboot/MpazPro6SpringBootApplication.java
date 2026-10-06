@@ -9,5 +9,4 @@ public class MpazPro6SpringBootApplication {
     public static void main(String[] args) {
         SpringApplication.run(MpazPro6SpringBootApplication.class, args);
     }
-
 }
