@@ -1,106 +1,83 @@
 package com.example.mpaz_pro_6springboot.identidad.curso.service;
 
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-
+import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.identidad.curso.repository.CursoRepository;
-
+import com.example.mpaz_pro_6springboot.identidad.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CursoService {
 
-    private final CursoRepository cRepo;
+    private final CursoRepository cursoRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final AsignacionRepository asignacionRepository;
 
-
-    // --------------------------------------------
-    //              MÉTODOS GET
-    // --------------------------------------------
-    public List<Curso> findAllCurso(){
-        List<Curso> cursos = cRepo.findAll();
+    public List<Curso> findAll(Integer anio) {
+        List<Curso> cursos = anio == null
+                ? cursoRepository.findAllByOrderByAnioAscNombreAsc()
+                : cursoRepository.findByAnioOrderByNombre(anio);
         return cursos;
     }
 
-    public Curso findCursoById(Long id){
-        Curso curso = cRepo.findById(id).orElse(null);
-        return curso;
+    public Curso findById(Long id) {
+        return getCurso(id);
     }
 
-    public List<Curso> findAllByCursoAnio(Integer anio){
-        List<Curso> cursos = cRepo.findAllByAnio(anio);
-
-        return cursos;
-    }
-
-
-    // --------------------------------------------
-    //              MÉTODOS POST
-    // --------------------------------------------
-
-    public Curso saveCurso(Curso c){
-        if(cRepo.existsByNombreAndAnio(c.getNombre(), c.getAnio())){
-            return null;
+    @Transactional
+    public Curso create(Curso curso) {
+        if (cursoRepository.existsByNombreAndAnio(curso.getNombre(), curso.getAnio())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un curso con ese nombre y año");
         }
 
-        return cRepo.save(c);
+        return cursoRepository.save(curso);
     }
 
-    // --------------------------------------------
-    //              MÉTODOS PUT
-    // --------------------------------------------
-
-    public Curso updateAnio(Long id, Integer anio){
-        Curso c = cRepo.findById(id).orElse(null);
-
-        if(c == null){
-            return null;
+    @Transactional
+    public Curso update(Long id, Curso cambios) {
+        if (cambios.getNombre() == null && cambios.getAnio() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debe proporcionar al menos un campo para actualizar");
         }
 
-        c.setAnio(anio);
-        return cRepo.save(c);
+        Curso curso = getCurso(id);
+        String nombre = cambios.getNombre() == null ? curso.getNombre() : cambios.getNombre();
+        Integer anio = cambios.getAnio() == null ? curso.getAnio() : cambios.getAnio();
+        if (cursoRepository.existsByNombreAndAnioAndIdNot(nombre, anio, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un curso con ese nombre y año");
+        }
+
+        if (cambios.getNombre() != null) {
+            curso.setNombre(cambios.getNombre());
+        }
+        if (cambios.getAnio() != null) {
+            curso.setAnio(cambios.getAnio());
+        }
+        return cursoRepository.save(curso);
     }
 
-    public Curso updateNombre(Long id, String nombre){
-        Curso c = cRepo.findById(id).orElse(null);
-
-        if(c == null){
-            return null;
+    @Transactional
+    public void delete(Long id) {
+        Curso curso = getCurso(id);
+        if (usuarioRepository.existsByCursoId(id) || asignacionRepository.existsByCursoId(id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "No se puede eliminar un curso que tiene estudiantes o asignaciones asociadas"
+            );
         }
 
-        c.setNombre(nombre);
-        return cRepo.save(c);
+        cursoRepository.delete(curso);
     }
 
-    public Curso uodateNombreAnio(Long id, String nombre, Integer anio){
-        Curso c = cRepo.findById(id).orElse(null);
-
-        if(c == null){
-            return null;
-        }
-
-        c.setNombre(nombre);
-        c.setAnio(anio);
-        return cRepo.save(c);
-    }
-
-
-    // --------------------------------------------
-    //              MÉTODOS DELETE
-    // --------------------------------------------
-
-    public boolean deleteCurso(Long id){
-
-        Curso c = cRepo.findById(id).orElse(null);
-
-        if(c == null){
-            return false;
-        }
-
-        cRepo.delete(c);
-
-        return true;
+    private Curso getCurso(Long id) {
+        return cursoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Curso no encontrado"));
     }
 }

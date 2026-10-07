@@ -19,7 +19,11 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
     @Query("SELECT c FROM Curso c WHERE c.anio = :anio ORDER BY c.nombre")
     List<Curso> findByAnioOrderByNombre(@Param("anio") Integer anio);
 
+    List<Curso> findAllByOrderByAnioAscNombreAsc();
+
     boolean existsByNombreAndAnio(String nombre, Integer anio);
+
+    boolean existsByNombreAndAnioAndIdNot(String nombre, Integer anio, Long id);
 
     List<Curso> findAllByAnio(Integer anio);
 }

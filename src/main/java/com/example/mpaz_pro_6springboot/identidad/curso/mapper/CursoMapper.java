@@ -20,6 +20,11 @@ public interface CursoMapper {
     @Mapping(target = "asignaciones", ignore = true)
     Curso toEntity(CursoCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "usuarios", ignore = true)
+    @Mapping(target = "asignaciones", ignore = true)
+    Curso toEntity(CursoUpdateRequest request);
+
     void updateEntity(CursoUpdateRequest request, @MappingTarget Curso entity);
 
     CursoResponse toResponse(Curso entity);
