@@ -15,4 +15,6 @@ public interface AsignaturaRepository extends JpaRepository<Asignatura, Long> {
     List<Asignatura> findAllByOrderByNombreAsc();
 
     boolean existsByNombre(String nombre);
+
+    boolean existsByNombreAndIdNot(String nombre, Long id);
 }

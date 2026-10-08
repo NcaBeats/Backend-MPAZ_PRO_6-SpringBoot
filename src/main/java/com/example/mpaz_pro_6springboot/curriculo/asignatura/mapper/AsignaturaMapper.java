@@ -19,6 +19,10 @@ public interface AsignaturaMapper {
     @Mapping(target = "unidades", ignore = true)
     Asignatura toEntity(AsignaturaCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "unidades", ignore = true)
+    Asignatura toEntity(AsignaturaUpdateRequest request);
+
     void updateEntity(AsignaturaUpdateRequest request, @MappingTarget Asignatura entity);
 
     AsignaturaResponse toResponse(Asignatura entity);

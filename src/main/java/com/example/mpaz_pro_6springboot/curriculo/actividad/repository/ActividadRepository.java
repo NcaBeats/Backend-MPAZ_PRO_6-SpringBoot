@@ -25,4 +25,6 @@ public interface ActividadRepository extends JpaRepository<Actividad, Long> {
     Optional<Actividad> findPruebaFinalByUnidadId(@Param("unidadId") Long unidadId);
 
     boolean existsByUnidadIdAndTitulo(Long unidadId, String titulo);
+
+    boolean existsByUnidadId(Long unidadId);
 }

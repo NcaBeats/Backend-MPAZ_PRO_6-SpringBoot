@@ -27,6 +27,15 @@ public interface UnidadMapper {
     @Mapping(target = "informes", ignore = true)
     Unidad toEntity(UnidadCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "asignatura", ignore = true)
+    @Mapping(target = "autorizadaPor", ignore = true)
+    @Mapping(target = "objetivosAprendizaje", ignore = true)
+    @Mapping(target = "actividades", ignore = true)
+    @Mapping(target = "asignaciones", ignore = true)
+    @Mapping(target = "informes", ignore = true)
+    Unidad toEntity(UnidadUpdateRequest request);
+
     void updateEntity(UnidadUpdateRequest request, @MappingTarget Unidad entity);
 
     @Mapping(target = "asignaturaId", source = "asignatura.id")

@@ -24,4 +24,8 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     Optional<Asignacion> findWithMaxIntentosByCursoAndUnidad(@Param("cursoId") Long cursoId, @Param("unidadId") Long unidadId);
 
     boolean existsByCursoIdAndUnidadId(Long cursoId, Long unidadId);
+
+    boolean existsByCursoId(Long cursoId);
+
+    boolean existsByUnidadId(Long unidadId);
 }

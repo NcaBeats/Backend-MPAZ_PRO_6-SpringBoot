@@ -22,4 +22,6 @@ public interface ObjetivoAprendizajeRepository extends JpaRepository<ObjetivoApr
     List<ObjetivoAprendizaje> findByUnidadIdWithCodigo(@Param("unidadId") Long unidadId);
 
     boolean existsByUnidadIdAndCodigo(Long unidadId, String codigo);
+
+    boolean existsByUnidadId(Long unidadId);
 }

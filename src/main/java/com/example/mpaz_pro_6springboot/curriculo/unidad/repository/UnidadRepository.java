@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface UnidadRepository extends JpaRepository<Unidad, Long> {
 
+    List<Unidad> findAllByOrderByAsignaturaIdAscOrdenAsc();
+
     List<Unidad> findByAsignaturaId(Long asignaturaId);
 
     List<Unidad> findByAsignaturaIdOrderByOrdenAsc(Long asignaturaId);
@@ -27,4 +29,6 @@ public interface UnidadRepository extends JpaRepository<Unidad, Long> {
     List<Unidad> findAutorizadasByAsignaturaId(@Param("asignaturaId") Long asignaturaId);
 
     boolean existsByAsignaturaIdAndTitulo(Long asignaturaId, String titulo);
+
+    boolean existsByAsignaturaId(Long asignaturaId);
 }

@@ -23,6 +23,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByUsername(String username);
 
+    boolean existsByCursoId(Long cursoId);
+
     @Query("SELECT u FROM Usuario u WHERE u.rol = :rol AND u.curso IS NULL")
     List<Usuario> findDocentesSinCurso(@Param("rol") Rol rol);
 }
