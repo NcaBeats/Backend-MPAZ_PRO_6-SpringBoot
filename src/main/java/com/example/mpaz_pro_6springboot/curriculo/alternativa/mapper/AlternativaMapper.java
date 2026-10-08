@@ -20,6 +20,11 @@ public interface AlternativaMapper {
     @Mapping(target = "respuestasEstudiante", ignore = true)
     Alternativa toEntity(AlternativaCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "pregunta", ignore = true)
+    @Mapping(target = "respuestasEstudiante", ignore = true)
+    Alternativa toEntity(AlternativaUpdateRequest request);
+
     void updateEntity(AlternativaUpdateRequest request, @MappingTarget Alternativa entity);
 
     @Mapping(target = "preguntaId", source = "pregunta.id")

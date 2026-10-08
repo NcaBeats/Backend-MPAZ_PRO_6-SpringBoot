@@ -201,16 +201,33 @@ Ruta base: `/api/asignaciones/{asignacionId}/actividades`
 
 La respuesta `AsignacionActividadResponse` incluye `asignacionId`, `actividadId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o actividad inexistente devuelve `404 Not Found`; asociar una actividad de otra unidad o una prueba final devuelve `400 Bad Request`; intentar asociar nuevamente una actividad ya asociada devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
 
+## Alternativas
+
+Ruta base: `/api/alternativas`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/alternativas` | Lista alternativas; acepta el filtro opcional `?preguntaId={id}`. | `200 OK`, lista de `AlternativaResponse` |
+| GET | `/api/alternativas/{id}` | Obtiene una alternativa por ID. | `200 OK`, `AlternativaResponse` |
+| POST | `/api/alternativas` | Crea una alternativa asociada a una pregunta existente. | `201 Created`, `AlternativaResponse` y encabezado `Location` |
+| PUT | `/api/alternativas/{id}` | Actualiza el texto o si la alternativa es correcta. | `200 OK`, `AlternativaResponse` |
+| DELETE | `/api/alternativas/{id}` | Elimina una alternativa que no haya sido seleccionada en respuestas de estudiantes. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "preguntaId": 1,
+  "texto": "Tres cuartos",
+  "esCorrecta": true
+}
+```
+
+`preguntaId` y `texto` son obligatorios; `esCorrecta` es opcional y por defecto toma `false`. El texto no puede estar en blanco y admite hasta 500 caracteres. Solo se admite una alternativa correcta por pregunta; intentar crear o marcar como correcta una alternativa cuando ya existe otra devuelve `409 Conflict`. La creación devuelve `404 Not Found` si la pregunta no existe. El filtro `preguntaId` debe ser positivo y devuelve `404 Not Found` si no existe la pregunta.
+
+La actualización acepta `texto`, `esCorrecta` o ambos; requiere al menos uno y solo aplica los valores no nulos. El texto, si se envía, no puede estar en blanco y admite hasta 500 caracteres. Una alternativa inexistente produce `404 Not Found`. No se puede eliminar una alternativa usada en una respuesta de estudiante (`409 Conflict`).
+
 ## Endpoints pendientes
-
-### Alternativas
-
-- `GET /api/alternativas`
-- `GET /api/alternativas?preguntaId={preguntaId}`
-- `GET /api/alternativas/{id}`
-- `POST /api/alternativas`
-- `PUT /api/alternativas/{id}`
-- `DELETE /api/alternativas/{id}`
 
 ### Respuestas de estudiantes
 

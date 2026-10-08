@@ -12,5 +12,13 @@ public interface AlternativaRepository extends JpaRepository<Alternativa, Long> 
 
     List<Alternativa> findByPreguntaId(Long preguntaId);
 
+    List<Alternativa> findByPreguntaIdOrderByIdAsc(Long preguntaId);
+
+    List<Alternativa> findAllByOrderByPreguntaIdAscIdAsc();
+
     Optional<Alternativa> findByPreguntaIdAndEsCorrectaTrue(Long preguntaId);
+
+    boolean existsByPreguntaIdAndEsCorrectaTrue(Long preguntaId);
+
+    boolean existsByPreguntaIdAndEsCorrectaTrueAndIdNot(Long preguntaId, Long id);
 }
