@@ -189,13 +189,19 @@ Ruta base: `/api/asignaciones/{asignacionId}/objetivos-aprendizaje`
 
 La respuesta `AsignacionOaResponse` incluye `asignacionId`, `oaId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o un objetivo inexistente devuelve `404 Not Found`; asociar un objetivo de otra unidad devuelve `400 Bad Request`; intentar asociar nuevamente un objetivo ya asociado devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
 
+## Actividades de una asignación
+
+Ruta base: `/api/asignaciones/{asignacionId}/actividades`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/asignaciones/{asignacionId}/actividades` | Lista las actividades asociadas a una asignación. | `200 OK`, lista de `AsignacionActividadResponse` |
+| POST | `/api/asignaciones/{asignacionId}/actividades/{actividadId}` | Asocia a la asignación una actividad de su unidad. | `201 Created`, `AsignacionActividadResponse` y encabezado `Location` |
+| DELETE | `/api/asignaciones/{asignacionId}/actividades/{actividadId}` | Quita la asociación entre la asignación y la actividad. | `204 No Content` |
+
+La respuesta `AsignacionActividadResponse` incluye `asignacionId`, `actividadId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o actividad inexistente devuelve `404 Not Found`; asociar una actividad de otra unidad o una prueba final devuelve `400 Bad Request`; intentar asociar nuevamente una actividad ya asociada devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
+
 ## Endpoints pendientes
-
-### Actividades de una asignación
-
-- `GET /api/asignaciones/{asignacionId}/actividades`
-- `POST /api/asignaciones/{asignacionId}/actividades/{actividadId}`
-- `DELETE /api/asignaciones/{asignacionId}/actividades/{actividadId}`
 
 ### Alternativas
 
