@@ -43,6 +43,6 @@ public class AsignacionOa {
     @JoinColumn(name = "oa_id", insertable = false, updatable = false)
     private ObjetivoAprendizaje objetivoAprendizaje;
 
-    @Column(name = "unidad_id", nullable = false, insertable = false, updatable = false)
+    @Column(name = "unidad_id", nullable = false)
     private Long unidadId;
 }

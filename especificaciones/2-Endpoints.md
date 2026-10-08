@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje y Contenido.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido y la asociación de objetivos de aprendizaje a asignaciones.
 
 ## Convenciones
 
@@ -176,3 +176,93 @@ Solicitud de creación:
 `oaId`, `titulo`, `explicacion` y `origen` son obligatorios; `ejemplos`, `instrucciones` y `orden` son opcionales. El título admite hasta 200 caracteres; título y explicación no pueden estar en blanco. El orden debe ser mayor que cero y, si se omite, toma el valor `1`. `origen` admite `PROPIO`, `PUBLICO` o `AUTORIZADO`. La creación devuelve `404 Not Found` si el objetivo indicado no existe. El filtro `oaId` debe ser positivo y también devuelve `404 Not Found` si el objetivo no existe.
 
 La actualización requiere al menos un campo no nulo. Solo se aplican los valores enviados; título y explicación no pueden estar en blanco, el orden debe ser mayor que cero y el origen debe ser uno de los valores permitidos. Un contenido inexistente produce `404 Not Found`. Al eliminar un contenido, sus recursos asociados se eliminan en cascada.
+
+## Objetivos de aprendizaje de una asignación
+
+Ruta base: `/api/asignaciones/{asignacionId}/objetivos-aprendizaje`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/asignaciones/{asignacionId}/objetivos-aprendizaje` | Lista los objetivos asociados a una asignación. | `200 OK`, lista de `AsignacionOaResponse` |
+| POST | `/api/asignaciones/{asignacionId}/objetivos-aprendizaje/{oaId}` | Asocia a la asignación un objetivo de aprendizaje de su unidad. | `201 Created`, `AsignacionOaResponse` y encabezado `Location` |
+| DELETE | `/api/asignaciones/{asignacionId}/objetivos-aprendizaje/{oaId}` | Quita la asociación entre la asignación y el objetivo. | `204 No Content` |
+
+La respuesta `AsignacionOaResponse` incluye `asignacionId`, `oaId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o un objetivo inexistente devuelve `404 Not Found`; asociar un objetivo de otra unidad devuelve `400 Bad Request`; intentar asociar nuevamente un objetivo ya asociado devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
+
+## Endpoints pendientes
+
+### Actividades de una asignación
+
+- `GET /api/asignaciones/{asignacionId}/actividades`
+- `POST /api/asignaciones/{asignacionId}/actividades/{actividadId}`
+- `DELETE /api/asignaciones/{asignacionId}/actividades/{actividadId}`
+
+### Alternativas
+
+- `GET /api/alternativas`
+- `GET /api/alternativas?preguntaId={preguntaId}`
+- `GET /api/alternativas/{id}`
+- `POST /api/alternativas`
+- `PUT /api/alternativas/{id}`
+- `DELETE /api/alternativas/{id}`
+
+### Respuestas de estudiantes
+
+- `GET /api/intentos/{intentoId}/respuestas`
+- `POST /api/intentos/{intentoId}/respuestas`
+
+### Intentos
+
+- `GET /api/intentos?estudianteId={estudianteId}`
+- `GET /api/intentos?estudianteId={estudianteId}&actividadId={actividadId}`
+- `GET /api/intentos/{id}`
+- `POST /api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos`
+- `PATCH /api/intentos/{id}/completar`
+
+### Actividades
+
+- `GET /api/actividades`
+- `GET /api/actividades?unidadId={unidadId}`
+- `GET /api/actividades/{id}`
+- `POST /api/actividades`
+- `PUT /api/actividades/{id}`
+- `DELETE /api/actividades/{id}`
+
+### Preguntas
+
+- `GET /api/preguntas`
+- `GET /api/preguntas?actividadId={actividadId}`
+- `GET /api/preguntas?oaId={oaId}`
+- `GET /api/preguntas/{id}`
+- `POST /api/preguntas`
+- `PUT /api/preguntas/{id}`
+- `DELETE /api/preguntas/{id}`
+
+### Informes pedagógicos
+
+- `GET /api/informes-pedagogicos`
+- `GET /api/informes-pedagogicos?estudianteId={estudianteId}`
+- `GET /api/informes-pedagogicos?unidadId={unidadId}`
+- `GET /api/informes-pedagogicos/{id}`
+- `POST /api/informes-pedagogicos`
+- `PATCH /api/informes-pedagogicos/{id}/validacion`
+- `GET /api/informes-pedagogicos/{informeId}/objetivos-aprendizaje`
+
+### Asignaciones
+
+- `GET /api/asignaciones`
+- `GET /api/asignaciones?cursoId={cursoId}`
+- `GET /api/asignaciones?unidadId={unidadId}`
+- `GET /api/asignaciones?docenteId={docenteId}`
+- `GET /api/asignaciones/{id}`
+- `POST /api/asignaciones`
+- `PUT /api/asignaciones/{id}`
+- `DELETE /api/asignaciones/{id}`
+
+### Usuarios
+
+- `GET /api/usuarios`
+- `GET /api/usuarios/{id}`
+- `POST /api/usuarios`
+- `PUT /api/usuarios/{id}`
+- `DELETE /api/usuarios/{id}`
