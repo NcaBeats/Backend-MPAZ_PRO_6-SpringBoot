@@ -388,6 +388,11 @@ PostgreSQL **no** indexa automáticamente las claves foráneas:
 - El `.sql` es la **fuente de verdad** (Flyway, `V1__esquema.sql` y `V2__seed.sql`); `ddl-auto: validate`, nunca `update`. Una migración ya ejecutada no se edita: se agrega una nueva.
 - Enums: `enum` de Java + `@Enumerated(EnumType.STRING)`, nunca `ORDINAL`.
 - Entidades: clases normales (no `record`) y sin `@Data` de Lombok. DTO: `record`.
+- **Controller:** capa de comunicación HTTP. Recibe y valida DTOs de solicitud, usa el Mapper para convertir entre DTOs y entidades, invoca el Service y transforma el resultado con el Mapper a DTOs de respuesta. No contiene reglas de negocio ni accede directamente al Repository.
+- **Service:** capa de aplicación y negocio. Aplica las reglas del caso de uso y coordina las operaciones del Repository. No se encarga de HTTP ni de convertir DTOs con el Mapper.
+- **Mapper:** conversión entre DTOs y entidades; no consulta repositories ni resuelve relaciones. Cuando una operación requiere asociar una entidad relacionada, el Service la obtiene mediante el Repository (por ejemplo, con `getReferenceById`) y establece la relación.
+- **Repository:** capa de persistencia. Expone consultas y operaciones de almacenamiento; no implementa reglas propias de los casos de uso.
+- Los Services o Controllers existentes que todavía no respeten esta división deben alinearse con ella al modificarse.
 - `asignacion_oa` y `asignacion_actividad` tienen clave compuesta: `@EmbeddedId` (clase `@Embeddable` que implementa `Serializable` con `equals` y `hashCode`).
 - Las FK compuestas y los `CHECK` viven en la migración SQL. Las entidades deben llenar siempre `unidad_id` en `pregunta`, `asignacion_oa` y `asignacion_actividad`, o la base rechaza el guardado.
 - Autenticación propia con Spring Security: BCrypt para `password_hash` y JWT con el rol. Autorizar **por rol y por dueño** (un estudiante solo ve sus datos).
