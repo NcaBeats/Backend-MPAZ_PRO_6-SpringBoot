@@ -15,4 +15,6 @@ public interface DetalleInformeOaRepository extends JpaRepository<DetalleInforme
     Optional<DetalleInformeOa> findByInformeIdAndOaId(Long informeId, Long oaId);
 
     boolean existsByInformeIdAndOaId(Long informeId, Long oaId);
+
+    boolean existsByOaId(Long oaId);
 }

@@ -16,12 +16,16 @@ public interface ObjetivoAprendizajeRepository extends JpaRepository<ObjetivoApr
 
     List<ObjetivoAprendizaje> findByUnidadIdOrderByCodigoAsc(Long unidadId);
 
+    List<ObjetivoAprendizaje> findAllByOrderByUnidadIdAscCodigoAsc();
+
     Optional<ObjetivoAprendizaje> findByUnidadIdAndCodigo(Long unidadId, String codigo);
 
     @Query("SELECT oa FROM ObjetivoAprendizaje oa WHERE oa.unidad.id = :unidadId AND oa.codigo IS NOT NULL ORDER BY oa.codigo")
     List<ObjetivoAprendizaje> findByUnidadIdWithCodigo(@Param("unidadId") Long unidadId);
 
     boolean existsByUnidadIdAndCodigo(Long unidadId, String codigo);
+
+    boolean existsByUnidadIdAndCodigoAndIdNot(Long unidadId, String codigo, Long id);
 
     boolean existsByUnidadId(Long unidadId);
 }

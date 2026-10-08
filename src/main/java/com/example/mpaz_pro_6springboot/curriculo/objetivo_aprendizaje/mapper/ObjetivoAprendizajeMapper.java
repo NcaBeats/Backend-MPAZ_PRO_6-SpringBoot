@@ -25,6 +25,14 @@ public interface ObjetivoAprendizajeMapper {
     @Mapping(target = "detallesInforme", ignore = true)
     ObjetivoAprendizaje toEntity(ObjetivoAprendizajeCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "contenidos", ignore = true)
+    @Mapping(target = "preguntas", ignore = true)
+    @Mapping(target = "asignacionesOa", ignore = true)
+    @Mapping(target = "detallesInforme", ignore = true)
+    ObjetivoAprendizaje toEntity(ObjetivoAprendizajeUpdateRequest request);
+
     void updateEntity(ObjetivoAprendizajeUpdateRequest request, @MappingTarget ObjetivoAprendizaje entity);
 
     @Mapping(target = "unidadId", source = "unidad.id")

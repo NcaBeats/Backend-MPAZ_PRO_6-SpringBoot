@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.dto.request;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ObjetivoAprendizajeUpdateRequest(
@@ -7,8 +8,10 @@ public record ObjetivoAprendizajeUpdateRequest(
         @Size(max = 50)
         String codigo,
 
+        @Pattern(regexp = "(?s).*\\S.*")
         String descripcion,
 
+        @Pattern(regexp = "(?s).*\\S.*")
         @Size(max = 100)
         String eje,
 

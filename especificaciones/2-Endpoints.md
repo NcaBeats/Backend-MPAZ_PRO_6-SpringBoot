@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido y Curso.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad y ObjetivoAprendizaje.
 
 ## Convenciones
 
@@ -17,7 +17,7 @@ Este documento resume las API REST implementadas hasta el momento para Asignatur
 - **Mapper:** convierte entre DTOs y entidades. No accede a repositories ni resuelve asociaciones; la búsqueda y asignación de entidades relacionadas corresponde al Service.
 - **Repository:** realiza la persistencia y consultas, sin asumir la lógica del caso de uso.
 
-Esta separación es la convención arquitectónica del backend. Los endpoints de Asignatura, RecursoContenido y Curso documentados a continuación ya la siguen: sus Controllers convierten los DTOs con el Mapper y sus Services reciben/devuelven entidades, aplican reglas y coordinan los Repositories.
+Esta separación es la convención arquitectónica del backend. Los endpoints documentados a continuación siguen este patrón: sus Controllers convierten los DTOs con el Mapper y sus Services reciben/devuelven entidades, aplican reglas y coordinan los Repositories.
 
 ## Asignaturas
 
@@ -118,3 +118,31 @@ Solicitud de creación:
 `asignaturaId`, `titulo` y `estado` son obligatorios. `nivelEducativo` y `orden` son opcionales y por defecto toman `"Sexto Basico"` y `1`. El título admite hasta 200 caracteres, el nivel hasta 50 y el orden debe ser mayor que cero. El filtro `asignaturaId` también debe ser positivo. La creación devuelve `404 Not Found` si la asignatura no existe. El filtro `asignaturaId` devuelve `404 Not Found` si la asignatura no existe.
 
 La actualización acepta cualquier combinación no vacía de `nivelEducativo`, `titulo`, `orden`, `estado`, `autorizadaPorId` y `fechaAutorizacion`. Para cambiar el estado a `AUTORIZADO` o `PUBLICADO` se requieren ambos datos de autorización y el usuario debe tener rol `UTP`; la creación no admite esos estados porque no incluye datos de autorización. Un autorizante inexistente produce `404 Not Found`, una autorización incompleta o un usuario sin rol UTP produce `400 Bad Request`. No se puede eliminar una unidad con entidades dependientes (`409 Conflict`).
+
+## Objetivos de aprendizaje
+
+Ruta base: `/api/objetivos-aprendizaje`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/objetivos-aprendizaje` | Lista objetivos ordenados por unidad y código; acepta el filtro opcional `?unidadId={id}`. | `200 OK`, lista de `ObjetivoAprendizajeResponse` |
+| GET | `/api/objetivos-aprendizaje/{id}` | Obtiene un objetivo de aprendizaje por ID. | `200 OK`, `ObjetivoAprendizajeResponse` |
+| POST | `/api/objetivos-aprendizaje` | Crea un objetivo asociado a una unidad existente. | `201 Created`, `ObjetivoAprendizajeResponse` y encabezado `Location` |
+| PUT | `/api/objetivos-aprendizaje/{id}` | Actualiza código, descripción, eje o texto de referencia; requiere al menos un campo. No cambia la unidad asociada. | `200 OK`, `ObjetivoAprendizajeResponse` |
+| DELETE | `/api/objetivos-aprendizaje/{id}` | Elimina un objetivo sin contenidos, preguntas, asignaciones ni informes asociados. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "unidadId": 1,
+  "codigo": "OA01",
+  "descripcion": "Representar fracciones propias e impropias",
+  "eje": "Números",
+  "textoReferencia": "Texto escolar de Matemática"
+}
+```
+
+`unidadId`, `descripcion` y `eje` son obligatorios. `codigo` y `textoReferencia` son opcionales. La descripción no puede estar en blanco; el código admite hasta 50 caracteres, el eje es obligatorio y admite hasta 100 caracteres, y el texto de referencia admite hasta 500. El código, cuando se informa, debe ser único dentro de la unidad; un duplicado produce `409 Conflict`. La creación devuelve `404 Not Found` si la unidad no existe. El filtro `unidadId` debe ser positivo y también devuelve `404 Not Found` si la unidad no existe.
+
+La actualización acepta cualquier combinación no vacía de `codigo`, `descripcion`, `eje` y `textoReferencia`; se aplican solo los valores no nulos enviados, y `descripcion` y `eje` no pueden estar en blanco. El código conserva la unicidad dentro de su unidad (`409 Conflict`). Un objetivo inexistente produce `404 Not Found`. No se puede eliminar un objetivo con contenidos, preguntas, asignaciones o detalles de informes asociados (`409 Conflict`).

@@ -19,4 +19,6 @@ public interface PreguntaRepository extends JpaRepository<Pregunta, Long> {
     List<Pregunta> findByUnidadId(Long unidadId);
 
     Optional<Pregunta> findByActividadIdAndOrden(Long actividadId, Integer orden);
+
+    boolean existsByOaId(Long oaId);
 }
