@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad y ObjetivoAprendizaje.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje y Contenido.
 
 ## Convenciones
 
@@ -146,3 +146,33 @@ Solicitud de creación:
 `unidadId`, `descripcion` y `eje` son obligatorios. `codigo` y `textoReferencia` son opcionales. La descripción no puede estar en blanco; el código admite hasta 50 caracteres, el eje es obligatorio y admite hasta 100 caracteres, y el texto de referencia admite hasta 500. El código, cuando se informa, debe ser único dentro de la unidad; un duplicado produce `409 Conflict`. La creación devuelve `404 Not Found` si la unidad no existe. El filtro `unidadId` debe ser positivo y también devuelve `404 Not Found` si la unidad no existe.
 
 La actualización acepta cualquier combinación no vacía de `codigo`, `descripcion`, `eje` y `textoReferencia`; se aplican solo los valores no nulos enviados, y `descripcion` y `eje` no pueden estar en blanco. El código conserva la unicidad dentro de su unidad (`409 Conflict`). Un objetivo inexistente produce `404 Not Found`. No se puede eliminar un objetivo con contenidos, preguntas, asignaciones o detalles de informes asociados (`409 Conflict`).
+
+## Contenidos
+
+Ruta base: `/api/contenidos`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/contenidos` | Lista contenidos ordenados por objetivo de aprendizaje y orden; acepta el filtro opcional `?oaId={id}`. | `200 OK`, lista de `ContenidoResponse` |
+| GET | `/api/contenidos/{id}` | Obtiene un contenido por ID. | `200 OK`, `ContenidoResponse` |
+| POST | `/api/contenidos` | Crea un contenido asociado a un objetivo de aprendizaje existente. | `201 Created`, `ContenidoResponse` y encabezado `Location` |
+| PUT | `/api/contenidos/{id}` | Actualiza título, explicación, ejemplos, instrucciones, orden u origen. No cambia el objetivo asociado. | `200 OK`, `ContenidoResponse` |
+| DELETE | `/api/contenidos/{id}` | Elimina un contenido y sus recursos de contenido asociados. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "oaId": 1,
+  "titulo": "Representación de fracciones",
+  "explicacion": "Una fracción representa partes iguales de un todo.",
+  "ejemplos": "3/4 representa tres de cuatro partes iguales.",
+  "instrucciones": "Observa el numerador y el denominador.",
+  "orden": 1,
+  "origen": "PROPIO"
+}
+```
+
+`oaId`, `titulo`, `explicacion` y `origen` son obligatorios; `ejemplos`, `instrucciones` y `orden` son opcionales. El título admite hasta 200 caracteres; título y explicación no pueden estar en blanco. El orden debe ser mayor que cero y, si se omite, toma el valor `1`. `origen` admite `PROPIO`, `PUBLICO` o `AUTORIZADO`. La creación devuelve `404 Not Found` si el objetivo indicado no existe. El filtro `oaId` debe ser positivo y también devuelve `404 Not Found` si el objetivo no existe.
+
+La actualización requiere al menos un campo no nulo. Solo se aplican los valores enviados; título y explicación no pueden estar en blanco, el orden debe ser mayor que cero y el origen debe ser uno de los valores permitidos. Un contenido inexistente produce `404 Not Found`. Al eliminar un contenido, sus recursos asociados se eliminan en cascada.

@@ -11,7 +11,9 @@ public interface ContenidoRepository extends JpaRepository<Contenido, Long> {
 
     List<Contenido> findByOaId(Long oaId);
 
-    List<Contenido> findByOaIdOrderByOrdenAsc(Long oaId);
+    List<Contenido> findByOaIdOrderByOrdenAscIdAsc(Long oaId);
+
+    List<Contenido> findAllByOrderByOaIdAscOrdenAscIdAsc();
 
     boolean existsByOaId(Long oaId);
 }

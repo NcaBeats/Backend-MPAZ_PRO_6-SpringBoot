@@ -2,13 +2,16 @@ package com.example.mpaz_pro_6springboot.curriculo.contenido.dto.request;
 
 import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ContenidoUpdateRequest(
 
+        @Pattern(regexp = "(?s).*\\S.*")
         @Size(max = 200)
         String titulo,
 
+        @Pattern(regexp = "(?s).*\\S.*")
         String explicacion,
 
         String ejemplos,
