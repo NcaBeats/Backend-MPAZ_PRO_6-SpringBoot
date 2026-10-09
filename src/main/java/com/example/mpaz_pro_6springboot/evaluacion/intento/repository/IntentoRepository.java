@@ -40,5 +40,7 @@ public interface IntentoRepository extends JpaRepository<Intento, Long> {
 
     boolean existsByActividadId(Long actividadId);
 
+    boolean existsByEstudianteId(Long estudianteId);
+
     boolean existsByActividadUnidadIdAndEstudianteCursoId(Long unidadId, Long cursoId);
 }

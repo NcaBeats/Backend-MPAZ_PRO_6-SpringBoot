@@ -36,5 +36,9 @@ public interface InformePedagogicoRepository extends JpaRepository<InformePedago
 
     boolean existsByEstudianteIdAndUnidadId(Long estudianteId, Long unidadId);
 
+    boolean existsByEstudianteId(Long estudianteId);
+
+    boolean existsByDocenteId(Long docenteId);
+
     boolean existsByUnidadId(Long unidadId);
 }

@@ -27,6 +27,16 @@ public interface UsuarioMapper {
     @Mapping(target = "asignacionesDocente", ignore = true)
     Usuario toEntity(UsuarioCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "curso", ignore = true)
+    @Mapping(target = "intentos", ignore = true)
+    @Mapping(target = "informesEstudiante", ignore = true)
+    @Mapping(target = "informesDocente", ignore = true)
+    @Mapping(target = "unidadesAutorizadas", ignore = true)
+    @Mapping(target = "asignacionesDocente", ignore = true)
+    Usuario toEntity(UsuarioUpdateRequest request);
+
     void updateEntity(UsuarioUpdateRequest request, @MappingTarget Usuario entity);
 
     @Mapping(target = "cursoId", source = "curso.id")

@@ -1,6 +1,7 @@
 package com.example.mpaz_pro_6springboot.docencia.asignacion.repository;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
+import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,6 +27,9 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
     List<Asignacion> findByDocenteIdOrderByIdAsc(Long docenteId);
 
+    @Query("SELECT DISTINCT a.curso FROM Asignacion a WHERE a.docente.id = :docenteId ORDER BY a.curso.id")
+    List<Curso> findCursosByDocenteId(@Param("docenteId") Long docenteId);
+
     List<Asignacion> findByCursoIdAndUnidadIdOrderByIdAsc(Long cursoId, Long unidadId);
 
     List<Asignacion> findByCursoIdAndDocenteIdOrderByIdAsc(Long cursoId, Long docenteId);
@@ -44,4 +48,6 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     boolean existsByCursoId(Long cursoId);
 
     boolean existsByUnidadId(Long unidadId);
+
+    boolean existsByDocenteId(Long docenteId);
 }

@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
+    List<Usuario> findAllByOrderByIdAsc();
+
     Optional<Usuario> findByUsername(String username);
 
     List<Usuario> findByRol(Rol rol);
@@ -22,6 +24,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     List<Usuario> findByRolAndCursoId(Rol rol, Long cursoId);
 
     boolean existsByUsername(String username);
+
+    boolean existsByUsernameAndIdNot(String username, Long id);
 
     boolean existsByCursoId(Long cursoId);
 

@@ -31,4 +31,6 @@ public interface UnidadRepository extends JpaRepository<Unidad, Long> {
     boolean existsByAsignaturaIdAndTitulo(Long asignaturaId, String titulo);
 
     boolean existsByAsignaturaId(Long asignaturaId);
+
+    boolean existsByAutorizadaPorId(Long autorizadaPorId);
 }

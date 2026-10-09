@@ -74,6 +74,17 @@ public class AsignacionService {
         return getAsignacion(id);
     }
 
+    public List<Curso> findCursosByDocente(Long docenteId) {
+        Usuario docente = getUsuario(docenteId);
+        if (docente.getRol() != Rol.DOCENTE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El usuario debe tener rol DOCENTE"
+            );
+        }
+        return asignacionRepository.findCursosByDocenteId(docenteId);
+    }
+
     @Transactional
     public Asignacion create(Asignacion asignacion, Long cursoId, Long unidadId, Long docenteId) {
         Curso curso = getCurso(cursoId);

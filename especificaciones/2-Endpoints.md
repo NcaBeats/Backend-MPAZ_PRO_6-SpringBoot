@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -361,12 +361,36 @@ Solicitud de creación:
 
 Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si el docente no tiene rol `DOCENTE` se devuelve `400 Bad Request` (regla 2). Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente produce `404 Not Found`. No se puede eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso (`409 Conflict`). Los filtros `cursoId`, `unidadId` y `docenteId` deben ser positivos.
 
-## Endpoints pendientes
+## Usuarios
 
-### Usuarios
+Ruta base: `/api/usuarios`
 
-- `GET /api/usuarios`
-- `GET /api/usuarios/{id}`
-- `POST /api/usuarios`
-- `PUT /api/usuarios/{id}`
-- `DELETE /api/usuarios/{id}`
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/usuarios` | Lista usuarios ordenados por ID. | `200 OK`, lista de `UsuarioResponse` |
+| GET | `/api/usuarios/{id}` | Obtiene un usuario por ID. | `200 OK`, `UsuarioResponse` |
+| GET | `/api/usuarios/{id}/cursos` | Lista los cursos distintos que maneja un docente (derivados de sus `asignacion`). | `200 OK`, lista de `CursoResponse` |
+| POST | `/api/usuarios` | Crea un usuario (UTP, DOCENTE o ESTUDIANTE). | `201 Created`, `UsuarioResponse` y encabezado `Location` |
+| PUT | `/api/usuarios/{id}` | Actualiza `nombre`, `username`, `password`, `rol`, `cursoId` o una combinación no vacía. | `200 OK`, `UsuarioResponse` |
+| DELETE | `/api/usuarios/{id}` | Elimina un usuario sin intentos, informes, unidades autorizadas ni asignaciones. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "nombre": "Camila Rivas",
+  "username": "camila",
+  "password": "secreto123",
+  "rol": "ESTUDIANTE",
+  "cursoId": 1
+}
+```
+
+`nombre`, `username`, `password` y `rol` son obligatorios; `cursoId` es opcional. La contraseña viaja en texto plano por HTTPS y el Service la guarda **siempre** como hash BCrypt en `password_hash` (nunca en claro); `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
+
+- Crear rechaza un `username` ya registrado (`409 Conflict`) y un `cursoId` inexistente (`404 Not Found`).
+- `cursoId` se asigna solo a estudiantes: usarlo en un usuario `UTP` o `DOCENTE` devuelve `400 Bad Request`.
+- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, y un usuario inexistente produce `404 Not Found`.
+- Eliminar un usuario referenciado por intentos, informes, unidades autorizadas o asignaciones devuelve `409 Conflict`.
+
+`GET /api/usuarios/{id}/cursos` devuelve los cursos distintos en los que el docente tiene alguna asignación, ordenados por ID. Un usuario inexistente produce `404 Not Found` y un rol distinto de `DOCENTE` produce `400 Bad Request`.
