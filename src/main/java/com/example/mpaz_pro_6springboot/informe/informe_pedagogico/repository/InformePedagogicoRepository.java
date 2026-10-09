@@ -13,9 +13,17 @@ import java.util.Optional;
 @Repository
 public interface InformePedagogicoRepository extends JpaRepository<InformePedagogico, Long> {
 
+    List<InformePedagogico> findAllByOrderByIdAsc();
+
     List<InformePedagogico> findByEstudianteId(Long estudianteId);
 
+    List<InformePedagogico> findByEstudianteIdOrderByIdAsc(Long estudianteId);
+
     List<InformePedagogico> findByUnidadId(Long unidadId);
+
+    List<InformePedagogico> findByUnidadIdOrderByIdAsc(Long unidadId);
+
+    List<InformePedagogico> findByEstudianteIdAndUnidadIdOrderByIdAsc(Long estudianteId, Long unidadId);
 
     List<InformePedagogico> findByDocenteId(Long docenteId);
 

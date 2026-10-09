@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -314,17 +314,25 @@ El cuerpo de la creación incluye `preguntaId` y `alternativaId`, ambos obligato
 
 Un `intentoId`, `preguntaId` o `alternativaId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si la alternativa no pertenece a la pregunta indicada o si la pregunta no pertenece a la actividad del intento (regla 9 del modelo). Registrar una respuesta en un intento ya completado o sobre una pregunta ya respondida devuelve `409 Conflict` (unicidad `intento_id, pregunta_id`). El `intentoId` de la ruta debe ser positivo.
 
+## Informes pedagógicos
+
+Ruta base: `/api/informes-pedagogicos`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/informes-pedagogicos` | Lista informes ordenados por ID; acepta los filtros opcionales combinables `?estudianteId={id}` y `?unidadId={id}`. | `200 OK`, lista de `InformePedagogicoResponse` |
+| GET | `/api/informes-pedagogicos/{id}` | Obtiene un informe por ID. | `200 OK`, `InformePedagogicoResponse` |
+| POST | `/api/informes-pedagogicos` | Genera el informe consolidado de un estudiante en una unidad. | `201 Created`, `InformePedagogicoResponse` y encabezado `Location` |
+| PATCH | `/api/informes-pedagogicos/{id}/validacion` | Valida el informe (lo marca como `VALIDADO`). | `200 OK`, `InformePedagogicoResponse` |
+| GET | `/api/informes-pedagogicos/{informeId}/objetivos-aprendizaje` | Lista el detalle por OA (snapshot) del informe. | `200 OK`, lista de `DetalleInformeOaResponse` |
+
+El cuerpo de la generación incluye `estudianteId`, `unidadId` y `docenteId`, todos obligatorios. El Service calcula `fechaGeneracion` (instante actual), deja `fechaValidacion` nula, fija el estado inicial `PENDIENTE_VALIDACION` y **genera el detalle por OA**: recorre las actividades de la unidad, toma el último intento completado del estudiante en cada una y agrupa sus `respuesta_estudiante` por OA (reglas 4 y 11 del modelo). El nivel por OA es `FORTALEZA` si `correctas * 100.0 / totalPreguntas >= 70`, y `REFUERZO` en caso contrario (regla 7).
+
+Un `estudianteId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si el estudiante no tiene rol `ESTUDIANTE` (regla 1), si el docente no tiene rol `DOCENTE` (regla 2) o si no hay respuestas de intentos completados para consolidar (regla 4). Generar un segundo informe del mismo estudiante y unidad devuelve `409 Conflict` (unicidad `estudiante_id, unidad_id`).
+
+`PATCH /api/informes-pedagogicos/{id}/validacion` no recibe cuerpo: fija `estado = VALIDADO` y `fechaValidacion` al instante actual. Un informe inexistente produce `404 Not Found`; validar un informe ya validado devuelve `409 Conflict`. Los filtros `estudianteId` y `unidadId` deben ser positivos.
+
 ## Endpoints pendientes
-
-### Informes pedagógicos
-
-- `GET /api/informes-pedagogicos`
-- `GET /api/informes-pedagogicos?estudianteId={estudianteId}`
-- `GET /api/informes-pedagogicos?unidadId={unidadId}`
-- `GET /api/informes-pedagogicos/{id}`
-- `POST /api/informes-pedagogicos`
-- `PATCH /api/informes-pedagogicos/{id}/validacion`
-- `GET /api/informes-pedagogicos/{informeId}/objetivos-aprendizaje`
 
 ### Asignaciones
 
