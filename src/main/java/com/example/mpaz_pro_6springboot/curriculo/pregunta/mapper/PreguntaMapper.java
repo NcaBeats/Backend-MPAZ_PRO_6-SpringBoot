@@ -28,6 +28,14 @@ public interface PreguntaMapper {
     @Mapping(target = "respuestasEstudiante", ignore = true)
     Pregunta toEntity(PreguntaCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "actividad", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "oa", ignore = true)
+    @Mapping(target = "alternativas", ignore = true)
+    @Mapping(target = "respuestasEstudiante", ignore = true)
+    Pregunta toEntity(PreguntaUpdateRequest request);
+
     void updateEntity(PreguntaUpdateRequest request, @MappingTarget Pregunta entity);
 
     @Mapping(target = "actividadId", source = "actividad.id")

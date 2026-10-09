@@ -14,7 +14,13 @@ public interface PreguntaRepository extends JpaRepository<Pregunta, Long> {
 
     List<Pregunta> findByActividadIdOrderByOrdenAsc(Long actividadId);
 
+    List<Pregunta> findAllByOrderByActividadIdAscOrdenAscIdAsc();
+
     List<Pregunta> findByOaId(Long oaId);
+
+    List<Pregunta> findByOaIdOrderByOrdenAscIdAsc(Long oaId);
+
+    List<Pregunta> findByActividadIdAndOaIdOrderByOrdenAscIdAsc(Long actividadId, Long oaId);
 
     List<Pregunta> findByUnidadId(Long unidadId);
 

@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -254,6 +254,36 @@ Solicitud de creación:
 
 Se rechaza con `409 Conflict` un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad (solo se admite una por unidad). La actualización acepta cualquier combinación no vacía de `titulo`, `tipo` y `orden`; el título, si se envía, no puede estar en blanco y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Un identificador de actividad inexistente produce `404 Not Found`. No se puede eliminar una actividad con preguntas, asignaciones o intentos asociados (`409 Conflict`).
 
+## Preguntas
+
+Ruta base: `/api/preguntas`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/preguntas` | Lista preguntas ordenadas por actividad y orden; acepta los filtros opcionales `?actividadId={id}` y `?oaId={id}` (combinables). | `200 OK`, lista de `PreguntaResponse` |
+| GET | `/api/preguntas/{id}` | Obtiene una pregunta por ID. | `200 OK`, `PreguntaResponse` |
+| POST | `/api/preguntas` | Crea una pregunta asociada a una actividad y a un objetivo de aprendizaje existentes. | `201 Created`, `PreguntaResponse` y encabezado `Location` |
+| PUT | `/api/preguntas/{id}` | Actualiza enunciado, criterio, dificultad u orden; requiere al menos un campo. No cambia la actividad, la unidad ni el objetivo asociados. | `200 OK`, `PreguntaResponse` |
+| DELETE | `/api/preguntas/{id}` | Elimina una pregunta sin alternativas ni respuestas de estudiantes asociadas. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "actividadId": 1,
+  "unidadId": 1,
+  "oaId": 1,
+  "enunciado": "¿Qué fracción representa la figura?",
+  "criterioRespuesta": "Reconocer el numerador y el denominador",
+  "dificultad": "MEDIA",
+  "orden": 1
+}
+```
+
+`actividadId`, `unidadId`, `oaId`, `enunciado` y `dificultad` son obligatorios; `criterioRespuesta` y `orden` son opcionales (el orden por defecto toma `1`). El enunciado no puede estar en blanco y admite texto libre; el orden debe ser mayor que cero. `dificultad` admite los valores del enum `dificultad`. La creación devuelve `404 Not Found` si la actividad o el objetivo indicados no existen, y `400 Bad Request` si la actividad, la unidad y el objetivo de aprendizaje no pertenecen a la misma unidad. Los filtros `actividadId` y `oaId` deben ser positivos y devuelven `404 Not Found` si la actividad o el objetivo no existen.
+
+La actualización acepta cualquier combinación no vacía de `enunciado`, `criterioRespuesta`, `dificultad` y `orden`; solo se aplican los valores no nulos y el enunciado, si se envía, no puede estar en blanco. Una pregunta inexistente produce `404 Not Found`. No se puede eliminar una pregunta con alternativas o respuestas de estudiantes asociadas (`409 Conflict`).
+
 ## Endpoints pendientes
 
 ### Respuestas de estudiantes
@@ -268,16 +298,6 @@ Se rechaza con `409 Conflict` un título ya usado dentro de la unidad y una segu
 - `GET /api/intentos/{id}`
 - `POST /api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos`
 - `PATCH /api/intentos/{id}/completar`
-
-### Preguntas
-
-- `GET /api/preguntas`
-- `GET /api/preguntas?actividadId={actividadId}`
-- `GET /api/preguntas?oaId={oaId}`
-- `GET /api/preguntas/{id}`
-- `POST /api/preguntas`
-- `PUT /api/preguntas/{id}`
-- `DELETE /api/preguntas/{id}`
 
 ### Informes pedagógicos
 

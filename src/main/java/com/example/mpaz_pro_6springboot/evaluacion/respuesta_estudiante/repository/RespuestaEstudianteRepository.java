@@ -14,6 +14,8 @@ public interface RespuestaEstudianteRepository extends JpaRepository<RespuestaEs
 
     List<RespuestaEstudiante> findByPreguntaId(Long preguntaId);
 
+    boolean existsByPreguntaId(Long preguntaId);
+
     Optional<RespuestaEstudiante> findByIntentoIdAndPreguntaId(Long intentoId, Long preguntaId);
 
     boolean existsByIntentoIdAndPreguntaId(Long intentoId, Long preguntaId);
