@@ -12,11 +12,27 @@ import java.util.Optional;
 @Repository
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
+    List<Asignacion> findAllByOrderByIdAsc();
+
     List<Asignacion> findByCursoId(Long cursoId);
+
+    List<Asignacion> findByCursoIdOrderByIdAsc(Long cursoId);
 
     List<Asignacion> findByUnidadId(Long unidadId);
 
+    List<Asignacion> findByUnidadIdOrderByIdAsc(Long unidadId);
+
     List<Asignacion> findByDocenteId(Long docenteId);
+
+    List<Asignacion> findByDocenteIdOrderByIdAsc(Long docenteId);
+
+    List<Asignacion> findByCursoIdAndUnidadIdOrderByIdAsc(Long cursoId, Long unidadId);
+
+    List<Asignacion> findByCursoIdAndDocenteIdOrderByIdAsc(Long cursoId, Long docenteId);
+
+    List<Asignacion> findByUnidadIdAndDocenteIdOrderByIdAsc(Long unidadId, Long docenteId);
+
+    List<Asignacion> findByCursoIdAndUnidadIdAndDocenteIdOrderByIdAsc(Long cursoId, Long unidadId, Long docenteId);
 
     Optional<Asignacion> findByCursoIdAndUnidadId(Long cursoId, Long unidadId);
 

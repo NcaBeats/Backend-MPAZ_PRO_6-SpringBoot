@@ -65,6 +65,9 @@ public class Asignacion {
     @Column(name = "max_intentos")
     private Integer maxIntentos;
 
+    @Column(name = "prueba_final_habilitada", nullable = false)
+    private Boolean pruebaFinalHabilitada;
+
     @Column(name = "fecha", nullable = false)
     private Instant fecha;
 

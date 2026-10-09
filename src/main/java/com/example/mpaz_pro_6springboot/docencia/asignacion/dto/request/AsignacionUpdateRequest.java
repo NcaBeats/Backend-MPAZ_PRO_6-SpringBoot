@@ -9,6 +9,8 @@ public record AsignacionUpdateRequest(
         @Min(1)
         Integer maxIntentos,
 
+        Boolean pruebaFinalHabilitada,
+
         Instant fecha
 ) {
 }

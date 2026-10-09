@@ -8,6 +8,7 @@ public record AsignacionResponse(
         Long unidadId,
         Long docenteId,
         Integer maxIntentos,
+        Boolean pruebaFinalHabilitada,
         Instant fecha
 ) {
 }

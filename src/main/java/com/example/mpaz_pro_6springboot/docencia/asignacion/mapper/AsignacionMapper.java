@@ -23,10 +23,17 @@ public interface AsignacionMapper {
     @Mapping(target = "curso", ignore = true)
     @Mapping(target = "unidad", ignore = true)
     @Mapping(target = "docente", ignore = true)
-    @Mapping(target = "fecha", ignore = true)
     @Mapping(target = "asignacionesOa", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
     Asignacion toEntity(AsignacionCreateRequest request);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "curso", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "docente", ignore = true)
+    @Mapping(target = "asignacionesOa", ignore = true)
+    @Mapping(target = "asignacionesActividad", ignore = true)
+    Asignacion toEntity(AsignacionUpdateRequest request);
 
     void updateEntity(AsignacionUpdateRequest request, @MappingTarget Asignacion entity);
 

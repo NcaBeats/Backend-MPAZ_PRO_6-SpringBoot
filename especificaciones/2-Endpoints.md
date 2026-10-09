@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -332,18 +332,36 @@ Un `estudianteId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`
 
 `PATCH /api/informes-pedagogicos/{id}/validacion` no recibe cuerpo: fija `estado = VALIDADO` y `fechaValidacion` al instante actual. Un informe inexistente produce `404 Not Found`; validar un informe ya validado devuelve `409 Conflict`. Los filtros `estudianteId` y `unidadId` deben ser positivos.
 
+## Asignaciones
+
+Ruta base: `/api/asignaciones`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/asignaciones` | Lista asignaciones ordenadas por ID; acepta los filtros opcionales combinables `?cursoId={id}`, `?unidadId={id}` y `?docenteId={id}`. | `200 OK`, lista de `AsignacionResponse` |
+| GET | `/api/asignaciones/{id}` | Obtiene una asignación por ID. | `200 OK`, `AsignacionResponse` |
+| POST | `/api/asignaciones` | Crea la asignación de una unidad a un curso, con su docente. | `201 Created`, `AsignacionResponse` y encabezado `Location` |
+| PUT | `/api/asignaciones/{id}` | Actualiza `maxIntentos`, `pruebaFinalHabilitada`, `fecha` o una combinación no vacía de ellos. | `200 OK`, `AsignacionResponse` |
+| DELETE | `/api/asignaciones/{id}` | Elimina una asignación sin objetivos, actividades ni intentos asociados. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "cursoId": 1,
+  "unidadId": 1,
+  "docenteId": 2,
+  "maxIntentos": 2,
+  "pruebaFinalHabilitada": true,
+  "fecha": "2026-04-06T08:00:00Z"
+}
+```
+
+`cursoId`, `unidadId`, `docenteId` y `fecha` son obligatorios. `maxIntentos` y `pruebaFinalHabilitada` son opcionales: si se omite `maxIntentos` el Service aplica `1`, y si se omite `pruebaFinalHabilitada` queda `false`. La disponibilidad de la prueba final depende **solo** de `pruebaFinalHabilitada`; `maxIntentos` es únicamente el límite de intentos de la `PRUEBA_FINAL` (nulo = sin límite). Esto desacopla la decisión 3 del modelo original, que usaba la ausencia de `maxIntentos` como "prueba final no habilitada".
+
+Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si el docente no tiene rol `DOCENTE` se devuelve `400 Bad Request` (regla 2). Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente produce `404 Not Found`. No se puede eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso (`409 Conflict`). Los filtros `cursoId`, `unidadId` y `docenteId` deben ser positivos.
+
 ## Endpoints pendientes
-
-### Asignaciones
-
-- `GET /api/asignaciones`
-- `GET /api/asignaciones?cursoId={cursoId}`
-- `GET /api/asignaciones?unidadId={unidadId}`
-- `GET /api/asignaciones?docenteId={docenteId}`
-- `GET /api/asignaciones/{id}`
-- `POST /api/asignaciones`
-- `PUT /api/asignaciones/{id}`
-- `DELETE /api/asignaciones/{id}`
 
 ### Usuarios
 

@@ -20,4 +20,6 @@ public interface AsignacionOaRepository extends JpaRepository<AsignacionOa, Asig
     boolean existsByAsignacionIdAndObjetivoAprendizajeId(Long asignacionId, Long oaId);
 
     boolean existsByObjetivoAprendizajeId(Long oaId);
+
+    boolean existsByAsignacionId(Long asignacionId);
 }

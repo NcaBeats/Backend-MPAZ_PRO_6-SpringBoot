@@ -96,19 +96,21 @@ public class IntentoService {
         }
 
         if (actividad.getTipo() == TipoActividad.PRUEBA_FINAL) {
-            Integer maxIntentos = asignacion.getMaxIntentos();
-            if (maxIntentos == null) {
+            if (!Boolean.TRUE.equals(asignacion.getPruebaFinalHabilitada())) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "La prueba final no está habilitada para la unidad (falta el máximo de intentos)"
+                        "La prueba final no está habilitada para la unidad"
                 );
             }
-            long usados = intentoRepository.countByEstudianteIdAndActividadId(estudianteId, actividadId);
-            if (usados >= maxIntentos) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Se alcanzó el límite de intentos de la prueba final"
-                );
+            Integer maxIntentos = asignacion.getMaxIntentos();
+            if (maxIntentos != null) {
+                long usados = intentoRepository.countByEstudianteIdAndActividadId(estudianteId, actividadId);
+                if (usados >= maxIntentos) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Se alcanzó el límite de intentos de la prueba final"
+                    );
+                }
             }
         }
 

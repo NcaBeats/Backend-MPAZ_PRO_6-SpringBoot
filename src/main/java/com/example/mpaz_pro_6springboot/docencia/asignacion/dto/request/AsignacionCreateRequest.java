@@ -20,6 +20,9 @@ public record AsignacionCreateRequest(
         @Min(1)
         Integer maxIntentos,
 
+        /** Habilita la prueba final de la unidad. Si se omite, queda deshabilitada. */
+        boolean pruebaFinalHabilitada,
+
         @NotNull
         Instant fecha
 ) {
