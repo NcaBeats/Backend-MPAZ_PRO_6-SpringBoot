@@ -18,4 +18,6 @@ public interface AsignacionActividadRepository extends JpaRepository<AsignacionA
     Optional<AsignacionActividad> findByAsignacionIdAndActividadId(Long asignacionId, Long actividadId);
 
     boolean existsByAsignacionIdAndActividadId(Long asignacionId, Long actividadId);
+
+    boolean existsByActividadId(Long actividadId);
 }

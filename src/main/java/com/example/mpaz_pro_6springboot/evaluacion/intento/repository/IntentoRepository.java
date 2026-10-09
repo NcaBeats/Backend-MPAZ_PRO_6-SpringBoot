@@ -28,4 +28,6 @@ public interface IntentoRepository extends JpaRepository<Intento, Long> {
     long countByEstudianteIdAndActividadId(Long estudianteId, Long actividadId);
 
     boolean existsByEstudianteIdAndActividadIdAndNumero(Long estudianteId, Long actividadId, Integer numero);
+
+    boolean existsByActividadId(Long actividadId);
 }

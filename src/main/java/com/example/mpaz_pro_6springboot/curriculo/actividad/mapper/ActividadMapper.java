@@ -24,6 +24,13 @@ public interface ActividadMapper {
     @Mapping(target = "intentos", ignore = true)
     Actividad toEntity(ActividadCreateRequest request);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "preguntas", ignore = true)
+    @Mapping(target = "asignacionesActividad", ignore = true)
+    @Mapping(target = "intentos", ignore = true)
+    Actividad toEntity(ActividadUpdateRequest request);
+
     void updateEntity(ActividadUpdateRequest request, @MappingTarget Actividad entity);
 
     @Mapping(target = "unidadId", source = "unidad.id")

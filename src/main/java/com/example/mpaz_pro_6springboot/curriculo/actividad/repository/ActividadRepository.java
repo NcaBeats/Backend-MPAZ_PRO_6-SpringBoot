@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface ActividadRepository extends JpaRepository<Actividad, Long> {
 
+    List<Actividad> findAllByOrderByUnidadIdAscOrdenAscIdAsc();
+
     List<Actividad> findByUnidadId(Long unidadId);
 
     List<Actividad> findByUnidadIdOrderByOrdenAsc(Long unidadId);
@@ -25,6 +27,12 @@ public interface ActividadRepository extends JpaRepository<Actividad, Long> {
     Optional<Actividad> findPruebaFinalByUnidadId(@Param("unidadId") Long unidadId);
 
     boolean existsByUnidadIdAndTitulo(Long unidadId, String titulo);
+
+    boolean existsByUnidadIdAndTituloAndIdNot(Long unidadId, String titulo, Long id);
+
+    boolean existsByUnidadIdAndTipo(Long unidadId, TipoActividad tipo);
+
+    boolean existsByUnidadIdAndTipoAndIdNot(Long unidadId, TipoActividad tipo, Long id);
 
     boolean existsByUnidadId(Long unidadId);
 }

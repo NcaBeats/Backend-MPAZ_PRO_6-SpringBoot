@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido y la asociación de objetivos de aprendizaje a asignaciones.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -227,6 +227,33 @@ Solicitud de creación:
 
 La actualización acepta `texto`, `esCorrecta` o ambos; requiere al menos uno y solo aplica los valores no nulos. El texto, si se envía, no puede estar en blanco y admite hasta 500 caracteres. Una alternativa inexistente produce `404 Not Found`. No se puede eliminar una alternativa usada en una respuesta de estudiante (`409 Conflict`).
 
+## Actividades
+
+Ruta base: `/api/actividades`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/actividades` | Lista actividades ordenadas por unidad y orden; acepta el filtro opcional `?unidadId={id}`. | `200 OK`, lista de `ActividadResponse` |
+| GET | `/api/actividades/{id}` | Obtiene una actividad por ID. | `200 OK`, `ActividadResponse` |
+| POST | `/api/actividades` | Crea una actividad asociada a una unidad existente. | `201 Created`, `ActividadResponse` y encabezado `Location` |
+| PUT | `/api/actividades/{id}` | Actualiza título, tipo u orden; requiere al menos un campo. No cambia la unidad asociada. | `200 OK`, `ActividadResponse` |
+| DELETE | `/api/actividades/{id}` | Elimina una actividad sin preguntas, asignaciones ni intentos asociados. | `204 No Content` |
+
+Solicitud de creación:
+
+```json
+{
+  "unidadId": 1,
+  "titulo": "Explorar un texto informativo",
+  "tipo": "ACTIVIDAD",
+  "orden": 1
+}
+```
+
+`unidadId`, `titulo` y `tipo` son obligatorios; `orden` es opcional y por defecto toma `1`. El título no puede estar en blanco y admite hasta 200 caracteres; el orden debe ser mayor que cero. `tipo` admite `ACTIVIDAD`, `DESAFIO` o `PRUEBA_FINAL`. La creación devuelve `404 Not Found` si la unidad indicada no existe. El filtro `unidadId` debe ser positivo y también devuelve `404 Not Found` si la unidad no existe.
+
+Se rechaza con `409 Conflict` un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad (solo se admite una por unidad). La actualización acepta cualquier combinación no vacía de `titulo`, `tipo` y `orden`; el título, si se envía, no puede estar en blanco y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Un identificador de actividad inexistente produce `404 Not Found`. No se puede eliminar una actividad con preguntas, asignaciones o intentos asociados (`409 Conflict`).
+
 ## Endpoints pendientes
 
 ### Respuestas de estudiantes
@@ -241,15 +268,6 @@ La actualización acepta `texto`, `esCorrecta` o ambos; requiere al menos uno y 
 - `GET /api/intentos/{id}`
 - `POST /api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos`
 - `PATCH /api/intentos/{id}/completar`
-
-### Actividades
-
-- `GET /api/actividades`
-- `GET /api/actividades?unidadId={unidadId}`
-- `GET /api/actividades/{id}`
-- `POST /api/actividades`
-- `PUT /api/actividades/{id}`
-- `DELETE /api/actividades/{id}`
 
 ### Preguntas
 
