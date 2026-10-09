@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -284,20 +284,29 @@ Solicitud de creación:
 
 La actualización acepta cualquier combinación no vacía de `enunciado`, `criterioRespuesta`, `dificultad` y `orden`; solo se aplican los valores no nulos y el enunciado, si se envía, no puede estar en blanco. Una pregunta inexistente produce `404 Not Found`. No se puede eliminar una pregunta con alternativas o respuestas de estudiantes asociadas (`409 Conflict`).
 
+## Intentos
+
+Ruta base: `/api/intentos`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/intentos` | Lista intentos ordenados por estudiante, actividad y número; acepta los filtros opcionales `?estudianteId={id}` y `?actividadId={id}` (combinables). | `200 OK`, lista de `IntentoResponse` |
+| GET | `/api/intentos/{id}` | Obtiene un intento por ID. | `200 OK`, `IntentoResponse` |
+| POST | `/api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos` | Inicia un nuevo intento de un estudiante en una actividad. | `201 Created`, `IntentoResponse` y encabezado `Location` |
+| PATCH | `/api/intentos/{id}/completar` | Marca el intento como completado fijando la fecha de fin. | `200 OK`, `IntentoResponse` |
+
+La creación se realiza sin cuerpo de solicitud: el Service fija `fechaInicio` al instante actual y calcula `numero` como el correlativo siguiente del par estudiante-actividad. El estado de realización se deduce de `fechaFin` (nula = en progreso, con valor = completado).
+
+Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para iniciar un intento el usuario debe tener rol `ESTUDIANTE` y curso asignado, la unidad de la actividad debe estar `AUTORIZADO` o `PUBLICADO`, y la actividad debe estar asignada al curso del estudiante (`asignacion_actividad`); en caso contrario se devuelve `400 Bad Request`. Si la actividad es `PRUEBA_FINAL`, se exige que la asignación tenga `maxIntentos` (si no, `400 Bad Request`) y que el estudiante no haya alcanzado el límite; superar el límite devuelve `409 Conflict`. Los filtros `estudianteId` y `actividadId` deben ser positivos.
+
+`PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente produce `404 Not Found`; completar un intento ya completado devuelve `409 Conflict`.
+
 ## Endpoints pendientes
 
 ### Respuestas de estudiantes
 
 - `GET /api/intentos/{intentoId}/respuestas`
 - `POST /api/intentos/{intentoId}/respuestas`
-
-### Intentos
-
-- `GET /api/intentos?estudianteId={estudianteId}`
-- `GET /api/intentos?estudianteId={estudianteId}&actividadId={actividadId}`
-- `GET /api/intentos/{id}`
-- `POST /api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos`
-- `PATCH /api/intentos/{id}/completar`
 
 ### Informes pedagógicos
 
