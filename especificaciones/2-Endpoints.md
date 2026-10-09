@@ -39,7 +39,7 @@ Solicitud de creación:
 }
 ```
 
-El nombre es obligatorio, no puede estar en blanco y admite hasta 100 caracteres. En la actualización también es obligatorio. Los nombres duplicados se rechazan con `409 Conflict`. No se puede eliminar una asignatura con unidades asociadas (`409 Conflict`).
+El nombre es obligatorio (también en la actualización), debe contener texto y admite hasta 100 caracteres. Los nombres duplicados devuelven `409 Conflict`. Eliminar una asignatura con unidades asociadas devuelve `409 Conflict`.
 
 ## Recursos de contenido
 
@@ -50,7 +50,7 @@ Ruta base: `/api/recursos-contenido`
 | GET | `/api/recursos-contenido` | Lista todos los recursos; acepta el filtro opcional `?contenidoId={id}`. | `200 OK`, lista de `RecursoContenidoResponse` |
 | GET | `/api/recursos-contenido/{id}` | Obtiene un recurso por ID. | `200 OK`, `RecursoContenidoResponse` |
 | POST | `/api/recursos-contenido` | Crea un recurso asociado a un contenido existente. | `201 Created`, `RecursoContenidoResponse` y encabezado `Location` |
-| PUT | `/api/recursos-contenido/{id}` | Actualiza tipo, URL, descripción u origen. No cambia el contenido asociado. | `200 OK`, `RecursoContenidoResponse` |
+| PUT | `/api/recursos-contenido/{id}` | Actualiza tipo, URL, descripción u origen; el contenido asociado se mantiene. | `200 OK`, `RecursoContenidoResponse` |
 | DELETE | `/api/recursos-contenido/{id}` | Elimina un recurso. | `204 No Content` |
 
 Solicitud de creación:
@@ -65,7 +65,7 @@ Solicitud de creación:
 }
 ```
 
-`contenidoId`, `tipo`, `url` y `origen` son obligatorios; `descripcion` es opcional. La URL no puede estar en blanco y ambos textos admiten hasta 500 caracteres. La creación devuelve `404 Not Found` si no existe el contenido indicado.
+`contenidoId`, `tipo`, `url` y `origen` son obligatorios; `descripcion` es opcional. La URL debe contener texto y ambos textos admiten hasta 500 caracteres. La creación devuelve `404 Not Found` si el contenido indicado no existe.
 
 ## Cursos
 
@@ -89,7 +89,7 @@ Solicitud de creación:
 }
 ```
 
-El nombre es obligatorio y admite hasta 50 caracteres. El año es obligatorio y debe estar entre 2000 y 2100. El filtro `anio`, cuando se envía, usa el mismo rango. Se rechazan los pares nombre-año duplicados con `409 Conflict`. No se puede eliminar un curso que tenga estudiantes o asignaciones asociadas (`409 Conflict`).
+El nombre es obligatorio y admite hasta 50 caracteres. El año es obligatorio y debe estar entre 2000 y 2100; el filtro `anio` usa el mismo rango. Los pares nombre-año duplicados devuelven `409 Conflict`. Eliminar un curso con estudiantes o asignaciones asociadas devuelve `409 Conflict`.
 
 ## Unidades
 
@@ -115,9 +115,9 @@ Solicitud de creación:
 }
 ```
 
-`asignaturaId`, `titulo` y `estado` son obligatorios. `nivelEducativo` y `orden` son opcionales y por defecto toman `"Sexto Basico"` y `1`. El título admite hasta 200 caracteres, el nivel hasta 50 y el orden debe ser mayor que cero. El filtro `asignaturaId` también debe ser positivo. La creación devuelve `404 Not Found` si la asignatura no existe. El filtro `asignaturaId` devuelve `404 Not Found` si la asignatura no existe.
+`asignaturaId`, `titulo` y `estado` son obligatorios. `nivelEducativo` y `orden` son opcionales y por defecto toman `"Sexto Basico"` y `1`. El título admite hasta 200 caracteres, el nivel hasta 50 y el orden debe ser mayor que cero. El filtro `asignaturaId` debe ser positivo. Tanto al crear como al filtrar, una asignatura inexistente devuelve `404 Not Found`.
 
-La actualización acepta cualquier combinación no vacía de `nivelEducativo`, `titulo`, `orden`, `estado`, `autorizadaPorId` y `fechaAutorizacion`. Para cambiar el estado a `AUTORIZADO` o `PUBLICADO` se requieren ambos datos de autorización y el usuario debe tener rol `UTP`; la creación no admite esos estados porque no incluye datos de autorización. Un autorizante inexistente produce `404 Not Found`, una autorización incompleta o un usuario sin rol UTP produce `400 Bad Request`. No se puede eliminar una unidad con entidades dependientes (`409 Conflict`).
+La actualización acepta cualquier combinación no vacía de `nivelEducativo`, `titulo`, `orden`, `estado`, `autorizadaPorId` y `fechaAutorizacion`. Los estados `AUTORIZADO` y `PUBLICADO` requieren un autorizante con rol `UTP` y una `fechaAutorizacion`; la creación solo admite los estados iniciales. Un autorizante inexistente devuelve `404 Not Found`, y una autorización incompleta o un usuario sin rol `UTP` devuelve `400 Bad Request`. Eliminar una unidad con objetivos, actividades, asignaciones o informes asociados devuelve `409 Conflict`.
 
 ## Objetivos de aprendizaje
 
@@ -128,7 +128,7 @@ Ruta base: `/api/objetivos-aprendizaje`
 | GET | `/api/objetivos-aprendizaje` | Lista objetivos ordenados por unidad y código; acepta el filtro opcional `?unidadId={id}`. | `200 OK`, lista de `ObjetivoAprendizajeResponse` |
 | GET | `/api/objetivos-aprendizaje/{id}` | Obtiene un objetivo de aprendizaje por ID. | `200 OK`, `ObjetivoAprendizajeResponse` |
 | POST | `/api/objetivos-aprendizaje` | Crea un objetivo asociado a una unidad existente. | `201 Created`, `ObjetivoAprendizajeResponse` y encabezado `Location` |
-| PUT | `/api/objetivos-aprendizaje/{id}` | Actualiza código, descripción, eje o texto de referencia; requiere al menos un campo. No cambia la unidad asociada. | `200 OK`, `ObjetivoAprendizajeResponse` |
+| PUT | `/api/objetivos-aprendizaje/{id}` | Actualiza código, descripción, eje o texto de referencia; requiere al menos un campo. La unidad asociada se mantiene. | `200 OK`, `ObjetivoAprendizajeResponse` |
 | DELETE | `/api/objetivos-aprendizaje/{id}` | Elimina un objetivo sin contenidos, preguntas, asignaciones ni informes asociados. | `204 No Content` |
 
 Solicitud de creación:
@@ -143,9 +143,9 @@ Solicitud de creación:
 }
 ```
 
-`unidadId`, `descripcion` y `eje` son obligatorios. `codigo` y `textoReferencia` son opcionales. La descripción no puede estar en blanco; el código admite hasta 50 caracteres, el eje es obligatorio y admite hasta 100 caracteres, y el texto de referencia admite hasta 500. El código, cuando se informa, debe ser único dentro de la unidad; un duplicado produce `409 Conflict`. La creación devuelve `404 Not Found` si la unidad no existe. El filtro `unidadId` debe ser positivo y también devuelve `404 Not Found` si la unidad no existe.
+`unidadId`, `descripcion` y `eje` son obligatorios; `codigo` y `textoReferencia` son opcionales. La descripción debe contener texto, el código admite hasta 50 caracteres, el eje hasta 100 y el texto de referencia hasta 500. El código, cuando se informa, es único dentro de la unidad; un duplicado devuelve `409 Conflict`. La creación devuelve `404 Not Found` si la unidad no existe. El filtro `unidadId` debe ser positivo y devuelve `404 Not Found` si la unidad no existe.
 
-La actualización acepta cualquier combinación no vacía de `codigo`, `descripcion`, `eje` y `textoReferencia`; se aplican solo los valores no nulos enviados, y `descripcion` y `eje` no pueden estar en blanco. El código conserva la unicidad dentro de su unidad (`409 Conflict`). Un objetivo inexistente produce `404 Not Found`. No se puede eliminar un objetivo con contenidos, preguntas, asignaciones o detalles de informes asociados (`409 Conflict`).
+La actualización acepta cualquier combinación no vacía de `codigo`, `descripcion`, `eje` y `textoReferencia`, aplicando solo los valores enviados; `descripcion` y `eje` deben contener texto. El código conserva la unicidad dentro de su unidad (`409 Conflict`). Un objetivo inexistente devuelve `404 Not Found`. Eliminar un objetivo con contenidos, preguntas, asignaciones o detalles de informes asociados devuelve `409 Conflict`.
 
 ## Contenidos
 
@@ -156,7 +156,7 @@ Ruta base: `/api/contenidos`
 | GET | `/api/contenidos` | Lista contenidos ordenados por objetivo de aprendizaje y orden; acepta el filtro opcional `?oaId={id}`. | `200 OK`, lista de `ContenidoResponse` |
 | GET | `/api/contenidos/{id}` | Obtiene un contenido por ID. | `200 OK`, `ContenidoResponse` |
 | POST | `/api/contenidos` | Crea un contenido asociado a un objetivo de aprendizaje existente. | `201 Created`, `ContenidoResponse` y encabezado `Location` |
-| PUT | `/api/contenidos/{id}` | Actualiza título, explicación, ejemplos, instrucciones, orden u origen. No cambia el objetivo asociado. | `200 OK`, `ContenidoResponse` |
+| PUT | `/api/contenidos/{id}` | Actualiza título, explicación, ejemplos, instrucciones, orden u origen. El objetivo asociado se mantiene. | `200 OK`, `ContenidoResponse` |
 | DELETE | `/api/contenidos/{id}` | Elimina un contenido y sus recursos de contenido asociados. | `204 No Content` |
 
 Solicitud de creación:
@@ -173,9 +173,9 @@ Solicitud de creación:
 }
 ```
 
-`oaId`, `titulo`, `explicacion` y `origen` son obligatorios; `ejemplos`, `instrucciones` y `orden` son opcionales. El título admite hasta 200 caracteres; título y explicación no pueden estar en blanco. El orden debe ser mayor que cero y, si se omite, toma el valor `1`. `origen` admite `PROPIO`, `PUBLICO` o `AUTORIZADO`. La creación devuelve `404 Not Found` si el objetivo indicado no existe. El filtro `oaId` debe ser positivo y también devuelve `404 Not Found` si el objetivo no existe.
+`oaId`, `titulo`, `explicacion` y `origen` son obligatorios; `ejemplos`, `instrucciones` y `orden` son opcionales. El título admite hasta 200 caracteres; título y explicación deben contener texto. El orden debe ser mayor que cero y, si se omite, toma el valor `1`. `origen` admite `PROPIO`, `PUBLICO` o `AUTORIZADO`. La creación devuelve `404 Not Found` si el objetivo indicado no existe. El filtro `oaId` debe ser positivo y devuelve `404 Not Found` si el objetivo no existe.
 
-La actualización requiere al menos un campo no nulo. Solo se aplican los valores enviados; título y explicación no pueden estar en blanco, el orden debe ser mayor que cero y el origen debe ser uno de los valores permitidos. Un contenido inexistente produce `404 Not Found`. Al eliminar un contenido, sus recursos asociados se eliminan en cascada.
+La actualización requiere al menos un campo no nulo y aplica solo los valores enviados; título y explicación deben contener texto, el orden debe ser mayor que cero y el origen debe ser uno de los valores permitidos. Un contenido inexistente devuelve `404 Not Found`. Al eliminar un contenido, sus recursos asociados se eliminan en cascada.
 
 ## Objetivos de aprendizaje de una asignación
 
@@ -187,7 +187,7 @@ Ruta base: `/api/asignaciones/{asignacionId}/objetivos-aprendizaje`
 | POST | `/api/asignaciones/{asignacionId}/objetivos-aprendizaje/{oaId}` | Asocia a la asignación un objetivo de aprendizaje de su unidad. | `201 Created`, `AsignacionOaResponse` y encabezado `Location` |
 | DELETE | `/api/asignaciones/{asignacionId}/objetivos-aprendizaje/{oaId}` | Quita la asociación entre la asignación y el objetivo. | `204 No Content` |
 
-La respuesta `AsignacionOaResponse` incluye `asignacionId`, `oaId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o un objetivo inexistente devuelve `404 Not Found`; asociar un objetivo de otra unidad devuelve `400 Bad Request`; intentar asociar nuevamente un objetivo ya asociado devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
+La respuesta `AsignacionOaResponse` incluye `asignacionId`, `oaId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o un objetivo inexistente devuelve `404 Not Found`; asociar un objetivo de otra unidad devuelve `400 Bad Request`; asociar un objetivo ya asociado devuelve `409 Conflict`. Quitar una asociación inexistente devuelve `404 Not Found`.
 
 ## Actividades de una asignación
 
@@ -199,7 +199,7 @@ Ruta base: `/api/asignaciones/{asignacionId}/actividades`
 | POST | `/api/asignaciones/{asignacionId}/actividades/{actividadId}` | Asocia a la asignación una actividad de su unidad. | `201 Created`, `AsignacionActividadResponse` y encabezado `Location` |
 | DELETE | `/api/asignaciones/{asignacionId}/actividades/{actividadId}` | Quita la asociación entre la asignación y la actividad. | `204 No Content` |
 
-La respuesta `AsignacionActividadResponse` incluye `asignacionId`, `actividadId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o actividad inexistente devuelve `404 Not Found`; asociar una actividad de otra unidad o una prueba final devuelve `400 Bad Request`; intentar asociar nuevamente una actividad ya asociada devuelve `409 Conflict`. Al quitar una asociación inexistente se devuelve `404 Not Found`.
+La respuesta `AsignacionActividadResponse` incluye `asignacionId`, `actividadId` y `unidadId`. La asociación se crea sin cuerpo de solicitud. Ambos identificadores de ruta deben ser positivos. Una asignación o actividad inexistente devuelve `404 Not Found`; asociar una actividad de otra unidad o una prueba final devuelve `400 Bad Request`; asociar una actividad ya asociada devuelve `409 Conflict`. Quitar una asociación inexistente devuelve `404 Not Found`.
 
 ## Alternativas
 
@@ -223,9 +223,9 @@ Solicitud de creación:
 }
 ```
 
-`preguntaId` y `texto` son obligatorios; `esCorrecta` es opcional y por defecto toma `false`. El texto no puede estar en blanco y admite hasta 500 caracteres. Solo se admite una alternativa correcta por pregunta; intentar crear o marcar como correcta una alternativa cuando ya existe otra devuelve `409 Conflict`. La creación devuelve `404 Not Found` si la pregunta no existe. El filtro `preguntaId` debe ser positivo y devuelve `404 Not Found` si no existe la pregunta.
+`preguntaId` y `texto` son obligatorios; `esCorrecta` es opcional y por defecto toma `false`. El texto debe contener texto y admite hasta 500 caracteres. Se admite solo una alternativa correcta por pregunta; crear o marcar una segunda correcta devuelve `409 Conflict`. La creación devuelve `404 Not Found` si la pregunta no existe. El filtro `preguntaId` debe ser positivo y devuelve `404 Not Found` si la pregunta no existe.
 
-La actualización acepta `texto`, `esCorrecta` o ambos; requiere al menos uno y solo aplica los valores no nulos. El texto, si se envía, no puede estar en blanco y admite hasta 500 caracteres. Una alternativa inexistente produce `404 Not Found`. No se puede eliminar una alternativa usada en una respuesta de estudiante (`409 Conflict`).
+La actualización acepta `texto`, `esCorrecta` o ambos, aplicando solo los valores no nulos. El texto, si se envía, debe contener texto y admite hasta 500 caracteres. Una alternativa inexistente devuelve `404 Not Found`. Eliminar una alternativa usada en una respuesta de estudiante devuelve `409 Conflict`.
 
 ## Actividades
 
@@ -236,7 +236,7 @@ Ruta base: `/api/actividades`
 | GET | `/api/actividades` | Lista actividades ordenadas por unidad y orden; acepta el filtro opcional `?unidadId={id}`. | `200 OK`, lista de `ActividadResponse` |
 | GET | `/api/actividades/{id}` | Obtiene una actividad por ID. | `200 OK`, `ActividadResponse` |
 | POST | `/api/actividades` | Crea una actividad asociada a una unidad existente. | `201 Created`, `ActividadResponse` y encabezado `Location` |
-| PUT | `/api/actividades/{id}` | Actualiza título, tipo u orden; requiere al menos un campo. No cambia la unidad asociada. | `200 OK`, `ActividadResponse` |
+| PUT | `/api/actividades/{id}` | Actualiza título, tipo u orden; requiere al menos un campo. La unidad asociada se mantiene. | `200 OK`, `ActividadResponse` |
 | DELETE | `/api/actividades/{id}` | Elimina una actividad sin preguntas, asignaciones ni intentos asociados. | `204 No Content` |
 
 Solicitud de creación:
@@ -250,9 +250,9 @@ Solicitud de creación:
 }
 ```
 
-`unidadId`, `titulo` y `tipo` son obligatorios; `orden` es opcional y por defecto toma `1`. El título no puede estar en blanco y admite hasta 200 caracteres; el orden debe ser mayor que cero. `tipo` admite `ACTIVIDAD`, `DESAFIO` o `PRUEBA_FINAL`. La creación devuelve `404 Not Found` si la unidad indicada no existe. El filtro `unidadId` debe ser positivo y también devuelve `404 Not Found` si la unidad no existe.
+`unidadId`, `titulo` y `tipo` son obligatorios; `orden` es opcional y por defecto toma `1`. El título debe contener texto y admite hasta 200 caracteres; el orden debe ser mayor que cero. `tipo` admite `ACTIVIDAD`, `DESAFIO` o `PRUEBA_FINAL`. La creación devuelve `404 Not Found` si la unidad indicada no existe. El filtro `unidadId` debe ser positivo y devuelve `404 Not Found` si la unidad no existe.
 
-Se rechaza con `409 Conflict` un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad (solo se admite una por unidad). La actualización acepta cualquier combinación no vacía de `titulo`, `tipo` y `orden`; el título, si se envía, no puede estar en blanco y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Un identificador de actividad inexistente produce `404 Not Found`. No se puede eliminar una actividad con preguntas, asignaciones o intentos asociados (`409 Conflict`).
+Un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad devuelven `409 Conflict`. La actualización acepta cualquier combinación no vacía de `titulo`, `tipo` y `orden`; el título, si se envía, debe contener texto y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Un identificador de actividad inexistente devuelve `404 Not Found`. Eliminar una actividad con preguntas, asignaciones o intentos asociados devuelve `409 Conflict`.
 
 ## Preguntas
 
@@ -263,7 +263,7 @@ Ruta base: `/api/preguntas`
 | GET | `/api/preguntas` | Lista preguntas ordenadas por actividad y orden; acepta los filtros opcionales `?actividadId={id}` y `?oaId={id}` (combinables). | `200 OK`, lista de `PreguntaResponse` |
 | GET | `/api/preguntas/{id}` | Obtiene una pregunta por ID. | `200 OK`, `PreguntaResponse` |
 | POST | `/api/preguntas` | Crea una pregunta asociada a una actividad y a un objetivo de aprendizaje existentes. | `201 Created`, `PreguntaResponse` y encabezado `Location` |
-| PUT | `/api/preguntas/{id}` | Actualiza enunciado, criterio, dificultad u orden; requiere al menos un campo. No cambia la actividad, la unidad ni el objetivo asociados. | `200 OK`, `PreguntaResponse` |
+| PUT | `/api/preguntas/{id}` | Actualiza enunciado, criterio, dificultad u orden; requiere al menos un campo. La actividad, la unidad y el objetivo asociados se mantienen. | `200 OK`, `PreguntaResponse` |
 | DELETE | `/api/preguntas/{id}` | Elimina una pregunta sin alternativas ni respuestas de estudiantes asociadas. | `204 No Content` |
 
 Solicitud de creación:
@@ -280,9 +280,9 @@ Solicitud de creación:
 }
 ```
 
-`actividadId`, `unidadId`, `oaId`, `enunciado` y `dificultad` son obligatorios; `criterioRespuesta` y `orden` son opcionales (el orden por defecto toma `1`). El enunciado no puede estar en blanco y admite texto libre; el orden debe ser mayor que cero. `dificultad` admite los valores del enum `dificultad`. La creación devuelve `404 Not Found` si la actividad o el objetivo indicados no existen, y `400 Bad Request` si la actividad, la unidad y el objetivo de aprendizaje no pertenecen a la misma unidad. Los filtros `actividadId` y `oaId` deben ser positivos y devuelven `404 Not Found` si la actividad o el objetivo no existen.
+`actividadId`, `unidadId`, `oaId`, `enunciado` y `dificultad` son obligatorios; `criterioRespuesta` y `orden` son opcionales (el orden por defecto toma `1`). El enunciado debe contener texto y admite texto libre; el orden debe ser mayor que cero. `dificultad` admite los valores del enum `dificultad`. La creación devuelve `404 Not Found` si la actividad o el objetivo no existen, y `400 Bad Request` si la actividad, la unidad y el objetivo de aprendizaje no pertenecen a la misma unidad. Los filtros `actividadId` y `oaId` deben ser positivos y devuelven `404 Not Found` si la actividad o el objetivo no existen.
 
-La actualización acepta cualquier combinación no vacía de `enunciado`, `criterioRespuesta`, `dificultad` y `orden`; solo se aplican los valores no nulos y el enunciado, si se envía, no puede estar en blanco. Una pregunta inexistente produce `404 Not Found`. No se puede eliminar una pregunta con alternativas o respuestas de estudiantes asociadas (`409 Conflict`).
+La actualización acepta cualquier combinación no vacía de `enunciado`, `criterioRespuesta`, `dificultad` y `orden`, aplicando solo los valores no nulos; el enunciado, si se envía, debe contener texto. Una pregunta inexistente devuelve `404 Not Found`. Eliminar una pregunta con alternativas o respuestas de estudiantes asociadas devuelve `409 Conflict`.
 
 ## Intentos
 
@@ -297,9 +297,9 @@ Ruta base: `/api/intentos`
 
 La creación se realiza sin cuerpo de solicitud: el Service fija `fechaInicio` al instante actual y calcula `numero` como el correlativo siguiente del par estudiante-actividad. El estado de realización se deduce de `fechaFin` (nula = en progreso, con valor = completado).
 
-Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para iniciar un intento el usuario debe tener rol `ESTUDIANTE` y curso asignado, la unidad de la actividad debe estar `AUTORIZADO` o `PUBLICADO`, y la actividad debe estar asignada al curso del estudiante (`asignacion_actividad`); en caso contrario se devuelve `400 Bad Request`. Si la actividad es `PRUEBA_FINAL`, se exige que la asignación tenga `maxIntentos` (si no, `400 Bad Request`) y que el estudiante no haya alcanzado el límite; superar el límite devuelve `409 Conflict`. Los filtros `estudianteId` y `actividadId` deben ser positivos.
+Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para iniciar un intento el usuario debe tener rol `ESTUDIANTE` y curso asignado, la unidad de la actividad debe estar `AUTORIZADO` o `PUBLICADO`, y la actividad debe estar asignada al curso del estudiante; en caso contrario devuelve `400 Bad Request`. Si la actividad es `PRUEBA_FINAL`, la asignación debe tener `pruebaFinalHabilitada` en `true` (si no, `400 Bad Request`) y, cuando `maxIntentos` no es nulo, el estudiante no debe haber alcanzado ese límite (superarlo devuelve `409 Conflict`). Los filtros `estudianteId` y `actividadId` deben ser positivos.
 
-`PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente produce `404 Not Found`; completar un intento ya completado devuelve `409 Conflict`.
+`PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente devuelve `404 Not Found`; completar un intento ya completado devuelve `409 Conflict`.
 
 ## Respuestas de estudiantes
 
@@ -310,7 +310,7 @@ Ruta base: `/api/intentos/{intentoId}/respuestas`
 | GET | `/api/intentos/{intentoId}/respuestas` | Lista las respuestas registradas en el intento, ordenadas por ID. | `200 OK`, lista de `RespuestaEstudianteResponse` |
 | POST | `/api/intentos/{intentoId}/respuestas` | Registra la respuesta del estudiante a una pregunta del intento. | `201 Created`, `RespuestaEstudianteResponse` y encabezado `Location` |
 
-El cuerpo de la creación incluye `preguntaId` y `alternativaId`, ambos obligatorios; `intentoId` proviene de la ruta. El Service **deriva `esCorrecta`** desde la alternativa seleccionada (foto congelada del resultado, según el modelo) y no lo recibe del cliente.
+El cuerpo de la creación incluye `preguntaId` y `alternativaId`, ambos obligatorios; `intentoId` proviene de la ruta. El Service deriva `esCorrecta` desde la alternativa seleccionada (foto congelada del resultado, según el modelo).
 
 Un `intentoId`, `preguntaId` o `alternativaId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si la alternativa no pertenece a la pregunta indicada o si la pregunta no pertenece a la actividad del intento (regla 9 del modelo). Registrar una respuesta en un intento ya completado o sobre una pregunta ya respondida devuelve `409 Conflict` (unicidad `intento_id, pregunta_id`). El `intentoId` de la ruta debe ser positivo.
 
@@ -330,7 +330,7 @@ El cuerpo de la generación incluye `estudianteId`, `unidadId` y `docenteId`, to
 
 Un `estudianteId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si el estudiante no tiene rol `ESTUDIANTE` (regla 1), si el docente no tiene rol `DOCENTE` (regla 2) o si no hay respuestas de intentos completados para consolidar (regla 4). Generar un segundo informe del mismo estudiante y unidad devuelve `409 Conflict` (unicidad `estudiante_id, unidad_id`).
 
-`PATCH /api/informes-pedagogicos/{id}/validacion` no recibe cuerpo: fija `estado = VALIDADO` y `fechaValidacion` al instante actual. Un informe inexistente produce `404 Not Found`; validar un informe ya validado devuelve `409 Conflict`. Los filtros `estudianteId` y `unidadId` deben ser positivos.
+`PATCH /api/informes-pedagogicos/{id}/validacion` no recibe cuerpo: fija `estado = VALIDADO` y `fechaValidacion` al instante actual. Un informe inexistente devuelve `404 Not Found`; validar un informe ya validado devuelve `409 Conflict`. Los filtros `estudianteId` y `unidadId` deben ser positivos.
 
 ## Asignaciones
 
@@ -357,9 +357,9 @@ Solicitud de creación:
 }
 ```
 
-`cursoId`, `unidadId`, `docenteId` y `fecha` son obligatorios. `maxIntentos` y `pruebaFinalHabilitada` son opcionales: si se omite `maxIntentos` el Service aplica `1`, y si se omite `pruebaFinalHabilitada` queda `false`. La disponibilidad de la prueba final depende **solo** de `pruebaFinalHabilitada`; `maxIntentos` es únicamente el límite de intentos de la `PRUEBA_FINAL` (nulo = sin límite). Esto desacopla la decisión 3 del modelo original, que usaba la ausencia de `maxIntentos` como "prueba final no habilitada".
+`cursoId`, `unidadId`, `docenteId` y `fecha` son obligatorios. `maxIntentos` y `pruebaFinalHabilitada` son opcionales: si se omite `maxIntentos` el Service aplica `1`, y si se omite `pruebaFinalHabilitada` queda `false`. La disponibilidad de la prueba final depende de `pruebaFinalHabilitada`, y `maxIntentos` es el límite de intentos de la `PRUEBA_FINAL` (nulo = sin límite).
 
-Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si el docente no tiene rol `DOCENTE` se devuelve `400 Bad Request` (regla 2). Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente produce `404 Not Found`. No se puede eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso (`409 Conflict`). Los filtros `cursoId`, `unidadId` y `docenteId` deben ser positivos.
+Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si el docente no tiene rol `DOCENTE` se devuelve `400 Bad Request` (regla 2). Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente devuelve `404 Not Found`. Eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso devuelve `409 Conflict`. Los filtros `cursoId`, `unidadId` y `docenteId` deben ser positivos.
 
 ## Usuarios
 
@@ -369,7 +369,7 @@ Ruta base: `/api/usuarios`
 |---|---|---|---|
 | GET | `/api/usuarios` | Lista usuarios ordenados por ID. | `200 OK`, lista de `UsuarioResponse` |
 | GET | `/api/usuarios/{id}` | Obtiene un usuario por ID. | `200 OK`, `UsuarioResponse` |
-| GET | `/api/usuarios/{id}/cursos` | Lista los cursos distintos que maneja un docente (derivados de sus `asignacion`). | `200 OK`, lista de `CursoResponse` |
+| GET | `/api/usuarios/{id}/cursos` | Lista los cursos distintos que maneja un docente. | `200 OK`, lista de `CursoResponse` |
 | POST | `/api/usuarios` | Crea un usuario (UTP, DOCENTE o ESTUDIANTE). | `201 Created`, `UsuarioResponse` y encabezado `Location` |
 | PUT | `/api/usuarios/{id}` | Actualiza `nombre`, `username`, `password`, `rol`, `cursoId` o una combinación no vacía. | `200 OK`, `UsuarioResponse` |
 | DELETE | `/api/usuarios/{id}` | Elimina un usuario sin intentos, informes, unidades autorizadas ni asignaciones. | `204 No Content` |
@@ -386,11 +386,11 @@ Solicitud de creación:
 }
 ```
 
-`nombre`, `username`, `password` y `rol` son obligatorios; `cursoId` es opcional. La contraseña viaja en texto plano por HTTPS y el Service la guarda **siempre** como hash BCrypt en `password_hash` (nunca en claro); `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
+`nombre`, `username`, `password` y `rol` son obligatorios; `cursoId` es opcional. La contraseña viaja en texto plano por HTTPS y el Service la guarda como hash BCrypt en `password_hash`; `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
 
 - Crear rechaza un `username` ya registrado (`409 Conflict`) y un `cursoId` inexistente (`404 Not Found`).
 - `cursoId` se asigna solo a estudiantes: usarlo en un usuario `UTP` o `DOCENTE` devuelve `400 Bad Request`.
-- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, y un usuario inexistente produce `404 Not Found`.
+- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, y un usuario inexistente devuelve `404 Not Found`.
 - Eliminar un usuario referenciado por intentos, informes, unidades autorizadas o asignaciones devuelve `409 Conflict`.
 
-`GET /api/usuarios/{id}/cursos` devuelve los cursos distintos en los que el docente tiene alguna asignación, ordenados por ID. Un usuario inexistente produce `404 Not Found` y un rol distinto de `DOCENTE` produce `400 Bad Request`.
+`GET /api/usuarios/{id}/cursos` devuelve los cursos distintos en los que el docente tiene alguna asignación, ordenados por ID. Un usuario inexistente devuelve `404 Not Found` y un rol distinto de `DOCENTE` devuelve `400 Bad Request`.
