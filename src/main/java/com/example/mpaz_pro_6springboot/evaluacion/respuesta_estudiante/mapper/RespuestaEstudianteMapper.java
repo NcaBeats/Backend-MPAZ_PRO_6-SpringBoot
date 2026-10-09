@@ -23,6 +23,7 @@ public interface RespuestaEstudianteMapper {
     @Mapping(target = "intento", ignore = true)
     @Mapping(target = "pregunta", ignore = true)
     @Mapping(target = "alternativa", ignore = true)
+    @Mapping(target = "esCorrecta", ignore = true)
     RespuestaEstudiante toEntity(RespuestaEstudianteCreateRequest request);
 
     void updateEntity(RespuestaEstudianteUpdateRequest request, @MappingTarget RespuestaEstudiante entity);

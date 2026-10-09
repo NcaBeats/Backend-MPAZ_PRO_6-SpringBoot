@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
 
 ## Convenciones
 
@@ -301,12 +301,20 @@ Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para ini
 
 `PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente produce `404 Not Found`; completar un intento ya completado devuelve `409 Conflict`.
 
+## Respuestas de estudiantes
+
+Ruta base: `/api/intentos/{intentoId}/respuestas`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/intentos/{intentoId}/respuestas` | Lista las respuestas registradas en el intento, ordenadas por ID. | `200 OK`, lista de `RespuestaEstudianteResponse` |
+| POST | `/api/intentos/{intentoId}/respuestas` | Registra la respuesta del estudiante a una pregunta del intento. | `201 Created`, `RespuestaEstudianteResponse` y encabezado `Location` |
+
+El cuerpo de la creación incluye `preguntaId` y `alternativaId`, ambos obligatorios; `intentoId` proviene de la ruta. El Service **deriva `esCorrecta`** desde la alternativa seleccionada (foto congelada del resultado, según el modelo) y no lo recibe del cliente.
+
+Un `intentoId`, `preguntaId` o `alternativaId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si la alternativa no pertenece a la pregunta indicada o si la pregunta no pertenece a la actividad del intento (regla 9 del modelo). Registrar una respuesta en un intento ya completado o sobre una pregunta ya respondida devuelve `409 Conflict` (unicidad `intento_id, pregunta_id`). El `intentoId` de la ruta debe ser positivo.
+
 ## Endpoints pendientes
-
-### Respuestas de estudiantes
-
-- `GET /api/intentos/{intentoId}/respuestas`
-- `POST /api/intentos/{intentoId}/respuestas`
 
 ### Informes pedagógicos
 
