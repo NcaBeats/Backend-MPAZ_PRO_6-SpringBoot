@@ -97,7 +97,7 @@ public class InformePedagogicoService {
 
         for (Actividad actividad : actividadRepository.findByUnidadId(unidadId)) {
             Optional<Intento> ultimo = intentoRepository
-                    .findUltimoCompletadoByEstudianteAndActividad(estudianteId, actividad.getId());
+                    .findFirstByEstudianteIdAndActividadIdAndFechaFinIsNotNullOrderByNumeroDesc(estudianteId, actividad.getId());
             if (ultimo.isEmpty()) {
                 continue;
             }

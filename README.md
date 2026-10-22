@@ -82,13 +82,16 @@ Este modelo responde a lo planteado en el caso de estudio. No se considera defin
 - Separación por capa (model/repository/dto/mapper)
 - Relaciones resueltas en Servicio vía getReferenceById
 - DTOs record con validación; entidades no expuestas
-- Flyway como fuente de verdad; ddl-auto: validate
+- Flyway como fuente de verdad; ddl-auto: none (SQLite no valida tipos de forma fiable)
+- Datos de demo en Java (`DataInitializer`), no en una migración SQL
 
 ### 5.2. Estructura de paquetes
 
 ```
 src/main/java/com/example/mpaz_pro_6springboot/
 ├── common/enums/
+├── common/config/        (SqliteDirectoryInitializer)
+├── common/seed/          (DataInitializer: datos de demo)
 ├── identidad/
 ├── curriculo/
 ├── docencia/
@@ -119,19 +122,19 @@ src/main/java/com/example/mpaz_pro_6springboot/
 | Java | 25 | Lenguaje |
 | Spring Boot | 4.1.1 | Framework |
 | Spring Data JPA/WebMVC/Validation | incluido | Persistencia/API/Validación |
-| PostgreSQL | 17 | BD |
+| SQLite | 3 (sqlite-jdbc) | BD embebida en un archivo local |
 | Flyway | gestionado por SB | Migraciones |
 | MapStruct | 1.6.3 | Mapping |
 | Lombok | gestionado por SB | Boilerplate |
 | springdoc-openapi | 3.1.0 | Swagger UI |
 | Maven Wrapper | incluido | Build |
-| Docker Compose | v2 | PostgreSQL local |
 
 ## 8. Requisitos previos
 
 - JDK 25
-- Docker Desktop (WSL2) o PostgreSQL 17
 - Git
+
+No se necesita Docker ni un servidor de base de datos: SQLite vive en `data/mpaz.db`.
 
 ## 9. Instalación y configuración
 
@@ -154,18 +157,13 @@ Solo contiene lo que varia por entorno (sin duplicados ni valores fijos):
 
 | Variable | Default | Descripcion |
 |---|---|---|
-| `POSTGRES_DB` | `mpaz` | Nombre de la BD |
-| `POSTGRES_USER` | `mpaz` | Usuario de la BD |
-| `POSTGRES_PASSWORD` | `secret` | Contrasena (cambiar en entornos reales) |
-| `POSTGRES_PORT` | `5432` | Opcional, solo si el 5432 esta ocupado |
-| `DB_HOST` | `localhost` | Opcional, solo si la BD no esta en local |
+| `SQLITE_PATH` | `./data/mpaz.db` | Ruta del archivo SQLite (relativa al directorio de ejecucion o absoluta). El directorio se crea solo |
 | `SERVER_PORT` | `8080` | Opcional, puerto de la app (ver `server.port` en `application.yaml`) |
 
 No se versiona: `.env` esta en `.gitignore`. Solo `.env.example` se commitea.
 
-### 9.3. Como lee cada parte el mismo `.env` (el "hueco")
+### 9.3. Como lee Spring el `.env`
 
-- **Docker Compose** (`compose.yaml`) lee el `.env` automaticamente si esta junto al archivo. Sintaxis `${VAR:-default}`.
 - **Spring Boot** (`application.yaml`) lee variables de entorno del proceso con sintaxis `${VAR:default}`, NO carga el `.env` solo.
 
 Por eso `application.yaml` incluye:
@@ -176,18 +174,20 @@ spring:
     import: optional:file:.env[.properties]
 ```
 
-Sin esa linea, al correr con `./mvnw spring-boot:run` la app ignoraria tu `.env` y usaria los defaults, aunque `docker compose up` si los haya usado. Con esa linea, ambos leen el mismo archivo.
+Sin esa linea, al correr con `.\mvnw.cmd spring-boot:run` la app ignoraria tu `.env` y usaria los defaults. Con esa linea, la app lee el mismo archivo.
 
 Si aun asi la app no toma un cambio del `.env`: reinicia el proceso (las variables se leen al arrancar, no en caliente) o exportalas a mano en tu IDE.
 
-### 9.4. Levantar BD con Docker
-```bash
-docker compose up -d
-docker compose ps
-```
+### 9.4. Base de datos SQLite
+
+No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con las 17 tablas y `DataInitializer` carga los datos de demo.
+
+- Reiniciar los datos: detener la app, borrar `data/mpaz.db` (y sus `-journal`/`-wal`/`-shm`) y arrancar de nuevo.
+- Desactivar el seed: `mpaz.seed.enabled: false` en `application.yaml` (arranca con la base vacia).
+- El directorio `data/` esta en `.gitignore`: no se versiona.
 
 ### 9.5. application.yaml
-`datasource` usa `${POSTGRES_DB/USER/PASSWORD/PORT:default}` con los mismos nombres del `.env`. `ddl-auto: validate` y Flyway habilitado se mantienen fijos (no van al `.env`).
+`datasource` usa `jdbc:sqlite:${SQLITE_PATH:./data/mpaz.db}` con `foreign_keys=on` (SQLite ignora las FK por conexion si no se activan) y `busy_timeout=5000`. `ddl-auto: none` y Flyway habilitado se mantienen fijos (no van al `.env`). El pool de Hikari se limita a 1 conexion porque SQLite admite un solo escritor.
 
 ## 10. Ejecución
 
@@ -195,7 +195,12 @@ docker compose ps
 .\mvnw.cmd clean spring-boot:run
 ```
 
-Swagger: http://localhost:8080/swagger-ui.html
+En el primer arranque se crea `data/mpaz.db` (Flyway aplica `V1__esquema.sql`) y `DataInitializer` carga los datos de demo. No hay pasos manuales ni contenedores.
+
+- Swagger: http://localhost:8080/swagger-ui.html
+- Un segundo arranque no duplica datos: el inicializador detecta que ya hay usuarios y no hace nada.
+- Para volver al estado inicial: detener la app, borrar `data/mpaz.db` y arrancar de nuevo.
+- Datos listos para consultar: 4 unidades, 12 actividades (3 por unidad), 4 intentos y 1 informe pedagogico de Camila (OA 1: 2/3, OA 2: 1/3).
 
 ## 11. Estructura del proyecto
 
@@ -203,10 +208,12 @@ Ver estructura feature-based arriba. DTOs en dto/request y dto/response. Mappers
 
 ## 12. Migraciones Flyway
 
-- V1__esquema.sql: tablas, CHECKs, 7 FK compuestas, índice parcial, índices
-- V2__seed.sql: datos ficticios coherentes con spec
+- `V1__esquema.sql`: 17 tablas, CHECKs, 7 FK compuestas (inline: SQLite no permite `ALTER TABLE ... ADD CONSTRAINT`), índice parcial e índices, todo en dialecto SQLite.
+- No hay migración de seed: los datos de demo los carga `common/seed/DataInitializer.java` al arrancar.
 
-Política: no editar migraciones aplicadas; crear V3__ si corresponde. ddl-auto=validate.
+Política: no editar migraciones aplicadas; crear `V2__...` si corresponde. `ddl-auto: none`.
+
+Nota SQLite: los `id` son `INTEGER PRIMARY KEY` (autogenerados 1..N), `boolean` se guarda como 0/1 y `timestamp` como epoch en milisegundos (comportamiento por defecto de sqlite-jdbc). Ver el anexo "Motor SQLite" de la especificación.
 
 ## 13. Convenciones de desarrollo
 
@@ -227,9 +234,19 @@ Política: no editar migraciones aplicadas; crear V3__ si corresponde. ddl-auto=
 | Javiera Muñoz | ESTUDIANTE | javiera | alu12345 |
 | Benjamín Ortiz | ESTUDIANTE | benjamin | alu12345 |
 
+Las contrasenas se guardan con BCrypt real generado en el arranque (no hay hashes fijos en el repositorio). El seed es idempotente: si ya existen usuarios, no se ejecuta.
+
+Contenido cargado: 1 curso (6A, 2026), 6 usuarios, 4 asignaturas, 4 unidades, 8 OA, 8 contenidos, 8 recursos, 12 actividades, 6 preguntas, 19 alternativas, 4 asignaciones (con prueba final habilitada), 8 `asignacion_oa`, 12 `asignacion_actividad`, 4 intentos (Camila con 2, el segundo completado; Mateo 1; Javiera en progreso; Benjamín sin intentos), 12 respuestas y 1 informe de Camila con 2 detalles (OA 1: 2/3, OA 2: 1/3).
+
+El snapshot del informe coincide con el recalculo del ultimo intento completado, y `es_correcta` coincide con la alternativa elegida.
+
 ## 15. Pruebas
 
-Compila y arranca con validate+Flyway. Se recomienda tests para reglas sección 8, informe vs snapshot, integridad.
+`.\mvnw.cmd test` (10 tests) usa SQLite en memoria: no requiere servicios externos.
+
+- `contextLoads`: el contexto arranca con Flyway + JPA.
+- `DataInitializerTest`: conteos del seed, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial de la prueba final, FK compuestas y coherencia del snapshot del informe con el recálculo.
+- `SqliteDirectoryInitializerTest`: creación del directorio del archivo SQLite y omisión para bases en memoria.
 
 ## 16. Flujo de trabajo con Git
 
@@ -239,17 +256,20 @@ Commits atómicos, mensajes claros. No editar migraciones ya aplicadas.
 
 | Problema | Solución |
 |---|---|
-| Puerto 5432 ocupado | Cambiar mapeo en compose.yaml |
-| Flyway/validate difiere | Revisar entidades vs V1; dropear BD o crear V3 |
+| Puerto 8080 ocupado | Buscar el PID con `netstat -ano` (linea `:8080`) y cerrarlo con `taskkill /PID <pid> /F` |
+| Quiero reiniciar los datos | Detener la app y borrar `data/mpaz.db` (y `-journal`/`-wal`/`-shm`) |
+| `database is locked` | Dejar el pool en 1 conexion y no abrir el archivo con otro programa mientras corre la app |
+| Las FK no se validan | Verificar `foreign_keys=on` en la URL JDBC (es por conexion) |
+| Flyway falla al migrar | Revisar `V1__esquema.sql`; si el archivo quedo a medias, borrar `data/mpaz.db` |
 | MapStruct no genera | Verificar annotation processors; mvn compile |
-| FK compuesta falla | Asegurar unidad_id presente al persistir |
+| FK compuesta falla | Asegurar unidad_id presente al persistir y que coincida con la de la entidad referenciada |
 
 ## 18. Referencias
 
-- especificaciones/mpaz_pro_modelo_definitivo.md (autoritativo)
+- especificaciones/mpaz_pro_modelo_definitivo.md (autoritativo, incluye anexo "Motor SQLite")
 - especificaciones/mpaz_pro_v4_lean.md (intermedio)
 - especificaciones/1-modelado.md (inicial)
-- Spring Boot, Spring Data JPA, Flyway, MapStruct, PostgreSQL, springdoc-openapi
+- Spring Boot, Spring Data JPA, Flyway, MapStruct, SQLite (sqlite-jdbc), springdoc-openapi
 
 ## 19. Créditos y contribución
 

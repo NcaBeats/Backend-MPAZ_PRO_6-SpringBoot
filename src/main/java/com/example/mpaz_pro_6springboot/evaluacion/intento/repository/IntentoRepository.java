@@ -31,8 +31,11 @@ public interface IntentoRepository extends JpaRepository<Intento, Long> {
     @Query("SELECT COALESCE(MAX(i.numero), 0) FROM Intento i WHERE i.estudiante.id = :estudianteId AND i.actividad.id = :actividadId")
     Integer findMaxNumero(@Param("estudianteId") Long estudianteId, @Param("actividadId") Long actividadId);
 
-    @Query("SELECT i FROM Intento i WHERE i.estudiante.id = :estudianteId AND i.actividad.id = :actividadId AND i.fechaFin IS NOT NULL ORDER BY i.numero DESC")
-    Optional<Intento> findUltimoCompletadoByEstudianteAndActividad(@Param("estudianteId") Long estudianteId, @Param("actividadId") Long actividadId);
+    // El ultimo intento completado: la consulta derivada aplica LIMIT 1. Con
+    // @Query y Optional, varios intentos completados provocaban
+    // NonUniqueResultException.
+    Optional<Intento> findFirstByEstudianteIdAndActividadIdAndFechaFinIsNotNullOrderByNumeroDesc(
+            Long estudianteId, Long actividadId);
 
     long countByEstudianteIdAndActividadId(Long estudianteId, Long actividadId);
 
