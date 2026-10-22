@@ -41,6 +41,9 @@ public class UsuarioService {
 
     @Transactional
     public Usuario create(Usuario usuario, Long cursoId, String password) {
+        if (usuario.getRol() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rol es obligatorio");
+        }
         if (usuarioRepository.existsByUsername(usuario.getUsername())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -53,7 +56,14 @@ public class UsuarioService {
                     "Solo los estudiantes pueden tener un curso asignado"
             );
         }
-        if (usuario.getRol() == Rol.ESTUDIANTE && cursoId != null) {
+        // El CHECK ck_usuario_curso_solo_estudiante exige curso para todo ESTUDIANTE.
+        if (usuario.getRol() == Rol.ESTUDIANTE) {
+            if (cursoId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Los estudiantes deben tener un curso asignado"
+                );
+            }
             usuario.setCurso(getCurso(cursoId));
         }
         usuario.setPasswordHash(passwordEncoder.encode(password));
@@ -89,15 +99,23 @@ public class UsuarioService {
                     "Solo los estudiantes pueden tener un curso asignado"
             );
         }
+        // El CHECK ck_usuario_curso_solo_estudiante exige curso para todo ESTUDIANTE.
+        if (rolEfectivo == Rol.ESTUDIANTE && cursoId == null && usuario.getCurso() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Los estudiantes deben tener un curso asignado"
+            );
+        }
 
-        if (cursoId != null) {
-            usuario.setCurso(getCurso(cursoId));
+        if (rolEfectivo == Rol.ESTUDIANTE) {
+            if (cursoId != null) {
+                usuario.setCurso(getCurso(cursoId));
+            }
+        } else {
+            usuario.setCurso(null);
         }
         if (cambios.getRol() != null) {
             usuario.setRol(cambios.getRol());
-            if (rolEfectivo != Rol.ESTUDIANTE) {
-                usuario.setCurso(null);
-            }
         }
         if (cambios.getNombre() != null) {
             usuario.setNombre(cambios.getNombre());

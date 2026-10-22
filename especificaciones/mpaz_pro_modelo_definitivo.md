@@ -395,7 +395,7 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 - Los Services o Controllers existentes que todavía no respeten esta división deben alinearse con ella al modificarse.
 - `asignacion_oa` y `asignacion_actividad` tienen clave compuesta: `@EmbeddedId` (clase `@Embeddable` que implementa `Serializable` con `equals` y `hashCode`).
 - Las FK compuestas y los `CHECK` viven en la migración SQL. Las entidades deben llenar siempre `unidad_id` en `pregunta`, `asignacion_oa` y `asignacion_actividad`, o la base rechaza el guardado.
-- Autenticación propia con Spring Security: BCrypt para `password_hash` y JWT con el rol. Autorizar **por rol y por dueño** (un estudiante solo ve sus datos).
+- Autenticación propia con Spring Security: BCrypt para `password_hash` y HTTP Basic con el rol. El registro de usuarios lo realiza la UTP (administrador del sistema). Autorizar **por rol y por dueño** (un estudiante solo ve sus datos).
 
 ---
 

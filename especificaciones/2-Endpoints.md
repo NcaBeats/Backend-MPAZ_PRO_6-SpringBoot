@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones, las alternativas y la autenticación (login, sesión y JWT).
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones, las alternativas y la autenticación (registro y login con HTTP Basic).
 
 ## Convenciones
 
@@ -23,49 +23,58 @@ Esta separación es la convención arquitectónica del backend. Los endpoints do
 
 Ruta base: `/api/auth`
 
-El backend admite tres formas de autenticación, combinables:
-
-- **Sesión HTTP:** `POST /api/auth/login` crea una sesión y devuelve la cookie `JSESSIONID`; las solicitudes siguientes se autentican con esa cookie.
-- **JWT:** el login también devuelve un token Bearer que se envía en `Authorization: Bearer {token}`.
-- **HTTP Basic:** se mantiene habilitado para cualquier ruta (`Authorization: Basic {credenciales}`).
+La autenticación usa **HTTP Basic** (`Authorization: Basic ...`) y no guarda estado en el servidor. No hay JWT ni sesiones HTTP.
 
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
-| POST | `/api/auth/login` | Valida usuario y contraseña, crea la sesión y emite un JWT. | `200 OK`, `LoginResponse` y cookie de sesión |
+| POST | `/api/auth/login` | Valida usuario y contraseña recibidos por Basic y devuelve el usuario autenticado. | `200 OK`, `UsuarioResponse` |
 | GET | `/api/auth/me` | Devuelve el usuario autenticado en la solicitud actual. | `200 OK`, `UsuarioResponse` |
-| POST | `/api/auth/logout` | Cierra la sesión HTTP actual. | `204 No Content` |
+| POST | `/api/auth/register` | Registra un usuario. Solo puede invocarlo un usuario con rol `UTP`. | `201 Created`, `UsuarioResponse` y `Location` |
 
-Solicitud de login:
+### Login
+
+`POST /api/auth/login` no recibe cuerpo: las credenciales viajan en el header `Authorization: Basic {base64(username:password)}`. Sin credenciales o con credenciales inválidas devuelve `401 Unauthorized`.
+
+```bash
+curl -i -u camila:alu12345 -X POST http://localhost:8080/api/auth/login
+```
 
 ```json
 {
+  "id": 3,
+  "nombre": "Camila Rivas",
   "username": "camila",
-  "password": "alu12345"
+  "rol": "ESTUDIANTE",
+  "cursoId": 1
 }
 ```
 
-`username` y `password` son obligatorios (`username` admite hasta 100 caracteres y `password` hasta 255). Las credenciales se contrastan contra el hash BCrypt almacenado en `password_hash`; un usuario inexistente o una contraseña incorrecta devuelven `401 Unauthorized`.
+`GET /api/auth/me` devuelve el mismo `UsuarioResponse` y requiere autenticación. No existe endpoint de logout: el cliente deja de enviar las credenciales.
 
-Respuesta de login:
+### Registro
+
+`POST /api/auth/register` requiere `Authorization: Basic` de un usuario `UTP`. El cuerpo es el mismo de `POST /api/usuarios`:
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "tokenType": "Bearer",
-  "expiresIn": 3600,
-  "usuario": {
-    "id": 3,
-    "nombre": "Camila Rivas",
-    "username": "camila",
-    "rol": "ESTUDIANTE",
-    "cursoId": 1
-  }
+  "nombre": "Nuevo Alumno",
+  "username": "nuevo.alumno",
+  "password": "secreto123",
+  "rol": "ESTUDIANTE",
+  "cursoId": 1
 }
 ```
 
-El token es un JWT HS256 firmado con `mpaz.auth.jwt.secret`; su vigencia se controla con `mpaz.auth.jwt.expiration-seconds` (por defecto `3600`). `POST /api/auth/login` y `GET /api/auth/me` aceptan la cookie de sesión, `Authorization: Bearer {token}` o `Authorization: Basic {credenciales}`; `me` devuelve `401 Unauthorized` si la solicitud no está autenticada.
+`nombre`, `username`, `password` y `rol` son obligatorios. `password` se guarda como hash BCrypt y nunca se expone. `cursoId` es obligatorio para `ESTUDIANTE` y debe omitirse para `UTP` y `DOCENTE`.
 
-`POST /api/auth/logout` no recibe cuerpo ni requiere autenticación: limpia el contexto de seguridad e invalida la sesión HTTP si existe. Como el JWT es autocontenido, el logout no lo revoca; el token sigue siendo válido hasta su `exp`.
+Respuestas: `201 Created` con `UsuarioResponse` y `Location: /api/usuarios/{id}`; `400 Bad Request` por validación o estudiante sin curso; `401 Unauthorized` sin credenciales; `403 Forbidden` si el autenticado no es UTP; `404 Not Found` si el curso no existe; `409 Conflict` si el `username` ya está registrado.
+
+### Rutas protegidas
+
+- `POST /api/auth/login`: público; el filtro Basic valida las credenciales.
+- `GET /api/auth/me`: autenticado.
+- `POST /api/auth/register` y `/api/usuarios/**`: solo `ROLE_UTP`.
+- Las demás rutas siguen públicas mientras se migran las reglas por rol y por dueño.
 
 ## Asignaturas
 
@@ -413,6 +422,8 @@ Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si 
 
 Ruta base: `/api/usuarios`
 
+Todas las rutas requieren `ROLE_UTP`.
+
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
 | GET | `/api/usuarios` | Lista usuarios ordenados por ID. | `200 OK`, lista de `UsuarioResponse` |
@@ -434,11 +445,12 @@ Solicitud de creación:
 }
 ```
 
-`nombre`, `username`, `password` y `rol` son obligatorios; `cursoId` es opcional. La contraseña viaja en texto plano por HTTPS y el Service la guarda como hash BCrypt en `password_hash`; `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
+`nombre`, `username`, `password` y `rol` son obligatorios. La contraseña viaja en texto plano por HTTPS y el Service la guarda como hash BCrypt en `password_hash`; `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
 
+- `cursoId` es obligatorio para `ESTUDIANTE` (el esquema exige `curso_id` en ese rol) y debe omitirse para `UTP` y `DOCENTE`; en caso contrario se devuelve `400 Bad Request`.
 - Crear rechaza un `username` ya registrado (`409 Conflict`) y un `cursoId` inexistente (`404 Not Found`).
-- `cursoId` se asigna solo a estudiantes: usarlo en un usuario `UTP` o `DOCENTE` devuelve `400 Bad Request`.
-- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, y un usuario inexistente devuelve `404 Not Found`.
+- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, cambiar a `ESTUDIANTE` exige conservar o enviar un curso, y un usuario inexistente devuelve `404 Not Found`.
 - Eliminar un usuario referenciado por intentos, informes, unidades autorizadas o asignaciones devuelve `409 Conflict`.
+- `POST /api/auth/register` es la variante de registro administrativo y aplica las mismas reglas.
 
 `GET /api/usuarios/{id}/cursos` devuelve los cursos distintos en los que el docente tiene alguna asignación, ordenados por ID. Un usuario inexistente devuelve `404 Not Found` y un rol distinto de `DOCENTE` devuelve `400 Bad Request`.

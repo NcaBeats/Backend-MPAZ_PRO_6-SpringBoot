@@ -43,7 +43,7 @@ El sistema permite gestionar usuarios (UTP, Docente, Estudiante), asignaturas, u
 
 ## 3. Alcance
 
-- Rol UTP: autoriza/revisa unidades según estado.
+- Rol UTP: autoriza/revisa unidades según estado y administra el registro de usuarios.
 - Rol Docente: gestiona asignaciones, valida informe pedagógico.
 - Rol Estudiante: resuelve actividades asignadas, visualiza contenido autorizado, accede solo a sus propios datos.
 - Informe consolidado por estudiante y unidad. Se toma el último intento completado por actividad.
@@ -124,7 +124,7 @@ src/main/java/com/example/mpaz_pro_6springboot/
 |---|---|---|
 | Java | 25 | Lenguaje |
 | Spring Boot | 4.1.1 | Framework |
-| Spring Security | gestionado por SB | Autenticación, autorización, Basic Auth y sesiones |
+| Spring Security | gestionado por SB | Autenticación y autorización con HTTP Basic (stateless) |
 | Spring Data JPA/WebMVC/Validation | incluido | Persistencia/API/Validación |
 | SQLite | 3 (sqlite-jdbc) | BD embebida en un archivo local |
 | Flyway | gestionado por SB | Migraciones |
@@ -203,7 +203,7 @@ No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con l
 En el primer arranque se crea `data/mpaz.db` (Flyway aplica `V1__esquema.sql`) y `DataInitializer` carga los datos de demo. No hay pasos manuales ni contenedores.
 
 - Swagger: http://localhost:8080/swagger-ui.html
-- Autenticación: Basic Auth con los usuarios del seed (ver sección 14). Todas las rutas están públicas por ahora, pero la configuración ya sigue lógica de roles.
+- Autenticación: HTTP Basic con los usuarios del seed (ver sección 14). `POST /api/auth/login` valida las credenciales y devuelve el usuario; `GET /api/auth/me` requiere autenticación. El registro (`POST /api/auth/register`) está reservado a la UTP.
 - Un segundo arranque no duplica datos: el inicializador detecta que ya hay usuarios y no hace nada.
 - Para volver al estado inicial: detener la app, borrar `data/mpaz.db` y arrancar de nuevo.
 - Datos listos para consultar: 4 unidades, 12 actividades (3 por unidad), 4 intentos y 1 informe pedagogico de Camila (OA 1: 2/3, OA 2: 1/3).
@@ -242,15 +242,18 @@ Nota SQLite: los `id` son `INTEGER PRIMARY KEY` (autogenerados 1..N), `boolean` 
 
 Las contrasenas se guardan con BCrypt real generado en el arranque (no hay hashes fijos en el repositorio). El seed es idempotente: si ya existen usuarios, no se ejecuta.
 
+El usuario `utp` es el administrador inicial de la demo; el rol UTP es el unico que puede registrar usuarios. En produccion hay que cambiar su contrasena, desactivar el seed (`mpaz.seed.enabled: false`) y provisionar el primer UTP por un mecanismo controlado, porque el registro no es publico.
+
 Contenido cargado: 1 curso (6A, 2026), 6 usuarios, 4 asignaturas, 4 unidades, 8 OA, 8 contenidos, 8 recursos, 12 actividades, 6 preguntas, 19 alternativas, 4 asignaciones (con prueba final habilitada), 8 `asignacion_oa`, 12 `asignacion_actividad`, 4 intentos (Camila con 2, el segundo completado; Mateo 1; Javiera en progreso; Benjamín sin intentos), 12 respuestas y 1 informe de Camila con 2 detalles (OA 1: 2/3, OA 2: 1/3).
 
 El snapshot del informe coincide con el recalculo del ultimo intento completado, y `es_correcta` coincide con la alternativa elegida.
 
 ## 15. Pruebas
 
-`.\mvnw.cmd test` (10 tests) usa SQLite en memoria: no requiere servicios externos.
+`.\mvnw.cmd test` (22 tests) usa SQLite en memoria: no requiere servicios externos.
 
 - `contextLoads`: el contexto arranca con Flyway + JPA.
+- `AuthControllerTest`: login y `/me` con Basic, registro solo para UTP, validación de estudiante con curso, duplicados y rutas protegidas (401/403).
 - `DataInitializerTest`: conteos del seed, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial de la prueba final, FK compuestas y coherencia del snapshot del informe con el recálculo.
 - `SqliteDirectoryInitializerTest`: creación del directorio del archivo SQLite y omisión para bases en memoria.
 
@@ -287,59 +290,94 @@ Uso académico.
 
 ## 21. Autenticación y Seguridad
 
-La aplicación incorpora Spring Security con **HTTP Basic Auth** y **gestión de sesiones**.
+La aplicación usa **HTTP Basic Auth stateless** con **BCrypt** para las contraseñas. No hay JWT ni sesiones HTTP: el cliente envía `Authorization: Basic ...` en cada solicitud.
 
 ### 21.1. Configuración
-- **Dependencia**: `spring-boot-starter-security` añadido al `pom.xml`.
+- **Dependencia**: `spring-boot-starter-security` en `pom.xml`.
 - **PasswordEncoder**: `BCryptPasswordEncoder` (configurado en `common/config/PasswordEncoderConfig`).
-- **UserDetailsService**: `common/security/CustomUserDetailsService` que carga usuarios desde `UsuarioRepository` por `username`.
-- **Autenticación**: `DaoAuthenticationProvider` vinculado con `CustomUserDetailsService` y `PasswordEncoder`.
-- **Sesiones**: `SessionCreationPolicy.IF_REQUIRED` (las sesiones HTTP se crean cuando es necesario).
-- **CSRF**: deshabilitado para facilitar pruebas con Basic Auth.
-- **Autorización por métodos**: `@EnableMethodSecurity` habilitado para futuras restricciones con `@PreAuthorize`.
-- **Todas las rutas públicas por ahora**: `anyRequest().permitAll()`, con la estructura lista para aplicar reglas por roles.
+- **UserDetailsService**: `common/security/CustomUserDetailsService` carga usuarios desde `UsuarioRepository` por `username`.
+- **Autenticación**: Spring Security configura el `DaoAuthenticationProvider` global a partir de `CustomUserDetailsService` y `PasswordEncoder`.
+- **Sesiones**: `SessionCreationPolicy.STATELESS`; no se crea `JSESSIONID`.
+- **CSRF**: deshabilitado porque la API no usa cookies de sesión.
+- **Autorización por métodos**: `@EnableMethodSecurity` habilitado para futuras reglas con `@PreAuthorize`.
+- **Rutas**: ver sección 22.
 
 ### 21.2. Roles y autoridades
 Los roles se mapean directamente desde el enum `Rol`:
 
 | Rol | Autoridad asignada | Uso previsto |
 |---|---|---|
-| `UTP` | `ROLE_UTP` | Gestión y autorización de unidades, supervisión general. |
+| `UTP` | `ROLE_UTP` | Administración del sistema: registro de usuarios, gestión y autorización de unidades, supervisión general. |
 | `DOCENTE` | `ROLE_DOCENTE` | Gestión de asignaciones, validación de informes pedagógicos. |
 | `ESTUDIANTE` | `ROLE_ESTUDIANTE` | Acceso a contenido/asignaciones propias, resolución de actividades. |
 
 La conversión se realiza en `CustomUserDetails` con `new SimpleGrantedAuthority("ROLE_" + rol.name())`, lo que permite usar `hasRole("UTP")`, `hasAnyRole(...)`, etc.
 
-### 21.3. Probar autenticación
+### 21.3. Login, registro y usuario actual
+
+`POST /api/auth/login` no recibe body: las credenciales viajan en el header Basic. Devuelve `200 OK` con el usuario autenticado; sin credenciales o con credenciales inválidas devuelve `401 Unauthorized`.
+
+```bash
+curl -i -u camila:alu12345 -X POST http://localhost:8080/api/auth/login
+```
+
+`GET /api/auth/me` devuelve el usuario autenticado en la solicitud actual (también con Basic).
+
+```bash
+curl -i -u camila:alu12345 http://localhost:8080/api/auth/me
+```
+
+El registro es administrativo: solo un usuario con `ROLE_UTP` puede llamar a `POST /api/auth/register`. El cuerpo usa el mismo contrato que `POST /api/usuarios`: `nombre`, `username`, `password`, `rol` y `cursoId`. `cursoId` es obligatorio cuando `rol` es `ESTUDIANTE` y debe omitirse para `UTP`/`DOCENTE`.
+
+```bash
+curl -i -u utp:utp12345 -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Nuevo Alumno","username":"nuevo.alumno","password":"secreto123","rol":"ESTUDIANTE","cursoId":1}' \
+  http://localhost:8080/api/auth/register
+```
+
+Respuesta `201 Created` con `UsuarioResponse` y `Location: /api/usuarios/{id}`. Errores: `400` por validación o estudiante sin curso, `401` sin credenciales, `403` si el usuario autenticado no es UTP, `404` si el curso no existe y `409` si el `username` ya está registrado.
+
+No hay endpoint de logout: con Basic el cliente simplemente deja de enviar las credenciales. Las credenciales deben viajar siempre por HTTPS en un entorno real.
+
+### 21.4. Probar rutas protegidas
 Con la app corriendo (`.\mvnw.cmd spring-boot:run`):
 
 ```bash
-curl -u utp:utp12345 http://localhost:8080/actuator/health
-curl -u docente:doc12345 http://localhost:8080/actuator/health
-curl -u camila:alu12345 http://localhost:8080/actuator/health
+# Sin credenciales -> 401
+curl -i http://localhost:8080/api/usuarios
+
+# Estudiante -> 403; UTP -> 200
+curl -i -u camila:alu12345 http://localhost:8080/api/usuarios
+curl -i -u utp:utp12345 http://localhost:8080/api/usuarios
 ```
 
-Las credenciales válidas son las del **DataInitializer** (ver sección 14). Tras la primera autenticación con Basic Auth, la sesión HTTP puede mantenerse para peticiones posteriores.
+Las credenciales válidas son las del **DataInitializer** (ver sección 14).
 
 ## 22. Rutas expuestas
 
-### 22.1. Rutas públicas (actualmente permitidas)
-| Ruta | Motivo |
-|---|---|
-| `/actuator/health`, `/actuator/info` | Health/info de la aplicación |
-| `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Documentación OpenAPI/Swagger |
-| **Todas las demás rutas** (`/**`) | **Públicas por ahora** (se irán restringiendo por rol siguiendo la lógica definida) |
+### 22.1. Seguridad por ruta
+| Ruta | Acceso | Motivo |
+|---|---|---|
+| `/actuator/health`, `/actuator/info` | Público | Health/info de la aplicación |
+| `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Público | Documentación OpenAPI/Swagger |
+| `POST /api/auth/login` | Público (requiere Basic para autenticar) | Valida credenciales y devuelve el usuario |
+| `GET /api/auth/me` | Autenticado | Usuario autenticado en la solicitud |
+| `POST /api/auth/register` | `ROLE_UTP` | Registro administrativo de usuarios |
+| `/api/usuarios/**` | `ROLE_UTP` | Gestión de usuarios |
+| **Todas las demás rutas** (`/**`) | **Público por ahora** | Pendiente de aplicar reglas por rol y por dueño |
 
-### 22.2. Estructura prevista para restricción por roles
-La configuración está preparada para aplicar reglas como las siguientes en `SecurityConfig`:
-
+### 22.2. Configuración actual
 ```java
 .authorizeHttpRequests(auth -> auth
-    .requestMatchers("/api/admin/**").hasRole("UTP")
-    .requestMatchers("/api/docente/**").hasAnyRole("UTP", "DOCENTE")
-    .requestMatchers("/api/alumno/**").hasRole("ESTUDIANTE")
-    .anyRequest().permitAll() // mantener mientras se migra
+    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+    .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+    .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("UTP")
+    .requestMatchers("/api/auth/me").authenticated()
+    .requestMatchers("/api/usuarios/**").hasRole("UTP")
+    .anyRequest().permitAll()
 )
-``` 
+```
 
-A medida que se añadan controladores con prefijos por rol, se actualizarán estas reglas sin cambiar la lógica de autenticación.
+A medida que se añadan controladores con prefijos por rol, se actualizarán estas reglas. Las rutas de datos siguen públicas para no romper la demo; aplicar autorización por rol y por dueño es el siguiente paso de seguridad (sección 8 de la especificación).

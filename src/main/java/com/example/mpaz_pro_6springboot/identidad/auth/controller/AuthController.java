@@ -1,11 +1,8 @@
 package com.example.mpaz_pro_6springboot.identidad.auth.controller;
 
-import com.example.mpaz_pro_6springboot.identidad.auth.dto.request.LoginRequest;
-import com.example.mpaz_pro_6springboot.identidad.auth.dto.response.LoginResponse;
 import com.example.mpaz_pro_6springboot.identidad.auth.service.AuthService;
+import com.example.mpaz_pro_6springboot.identidad.usuario.dto.request.UsuarioCreateRequest;
 import com.example.mpaz_pro_6springboot.identidad.usuario.dto.response.UsuarioResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +13,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,13 +25,13 @@ public class AuthController {
 
     private final AuthService authService;
 
+    /**
+     * Login con HTTP Basic: las credenciales viajan en Authorization y el
+     * filtro de Spring Security las valida antes de llegar al Controller.
+     */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
-            @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse
-    ) {
-        return ResponseEntity.ok(authService.login(request, httpRequest, httpResponse));
+    public ResponseEntity<UsuarioResponse> login(Authentication authentication) {
+        return ResponseEntity.ok(authService.login(authentication));
     }
 
     @GetMapping("/me")
@@ -39,9 +39,13 @@ public class AuthController {
         return ResponseEntity.ok(authService.me(authentication));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
-        authService.logout(request, response);
-        return ResponseEntity.noContent().build();
+    @PostMapping("/register")
+    public ResponseEntity<UsuarioResponse> register(@Valid @RequestBody UsuarioCreateRequest request) {
+        UsuarioResponse created = authService.register(request);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/usuarios/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).body(created);
     }
 }

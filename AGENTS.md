@@ -9,7 +9,7 @@
 - No `&&`, `tail`, `head`, `grep` — use `;` and `Select-String` / `Select-Object`.
 - App: `.\mvnw.cmd spring-boot:run`. On first start Flyway creates `data/mpaz.db` and `DataInitializer` loads the demo data. No DB server, no Docker.
 - Reset the data: stop the app, delete `data/mpaz.db`, start again.
-- Compile: `.\mvnw.cmd -q clean compile -DskipTests`. Tests: `.\mvnw.cmd test` (10 tests, SQLite in memory, no external services).
+- Compile: `.\mvnw.cmd -q clean compile -DskipTests`. Tests: `.\mvnw.cmd test` (22 tests, SQLite in memory, no external services).
 - Port 8080 busy → stale `java.exe` from a previous run: find with `netstat -ano | Select-String ':8080'`, kill with `taskkill /PID <pid> /F`.
 - Devtools restart triggers only on `target/classes` rebuild, not on src edits. A killed run surfaces as Maven `BUILD FAILURE / exit code 1` — check the boot log tail before assuming a real error.
 - `data/`, `*.db`, `*.db-journal`, `*.db-wal`, `*.db-shm` are gitignored.

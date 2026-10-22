@@ -2,6 +2,7 @@ package com.example.mpaz_pro_6springboot.identidad.usuario.repository;
 
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     List<Usuario> findAllByOrderByIdAsc();
 
+    @EntityGraph(attributePaths = "curso")
     Optional<Usuario> findByUsername(String username);
 
     List<Usuario> findByRol(Rol rol);
