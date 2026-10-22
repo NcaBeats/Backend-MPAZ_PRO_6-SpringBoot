@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones, las alternativas y la autenticación (login, sesión y JWT).
 
 ## Convenciones
 
@@ -18,6 +18,54 @@ Este documento resume las API REST implementadas hasta el momento para Asignatur
 - **Repository:** realiza la persistencia y consultas, sin asumir la lógica del caso de uso.
 
 Esta separación es la convención arquitectónica del backend. Los endpoints documentados a continuación siguen este patrón: sus Controllers convierten los DTOs con el Mapper y sus Services reciben/devuelven entidades, aplican reglas y coordinan los Repositories.
+
+## Autenticación
+
+Ruta base: `/api/auth`
+
+El backend admite tres formas de autenticación, combinables:
+
+- **Sesión HTTP:** `POST /api/auth/login` crea una sesión y devuelve la cookie `JSESSIONID`; las solicitudes siguientes se autentican con esa cookie.
+- **JWT:** el login también devuelve un token Bearer que se envía en `Authorization: Bearer {token}`.
+- **HTTP Basic:** se mantiene habilitado para cualquier ruta (`Authorization: Basic {credenciales}`).
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| POST | `/api/auth/login` | Valida usuario y contraseña, crea la sesión y emite un JWT. | `200 OK`, `LoginResponse` y cookie de sesión |
+| GET | `/api/auth/me` | Devuelve el usuario autenticado en la solicitud actual. | `200 OK`, `UsuarioResponse` |
+| POST | `/api/auth/logout` | Cierra la sesión HTTP actual. | `204 No Content` |
+
+Solicitud de login:
+
+```json
+{
+  "username": "camila",
+  "password": "alu12345"
+}
+```
+
+`username` y `password` son obligatorios (`username` admite hasta 100 caracteres y `password` hasta 255). Las credenciales se contrastan contra el hash BCrypt almacenado en `password_hash`; un usuario inexistente o una contraseña incorrecta devuelven `401 Unauthorized`.
+
+Respuesta de login:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "usuario": {
+    "id": 3,
+    "nombre": "Camila Rivas",
+    "username": "camila",
+    "rol": "ESTUDIANTE",
+    "cursoId": 1
+  }
+}
+```
+
+El token es un JWT HS256 firmado con `mpaz.auth.jwt.secret`; su vigencia se controla con `mpaz.auth.jwt.expiration-seconds` (por defecto `3600`). `POST /api/auth/login` y `GET /api/auth/me` aceptan la cookie de sesión, `Authorization: Bearer {token}` o `Authorization: Basic {credenciales}`; `me` devuelve `401 Unauthorized` si la solicitud no está autenticada.
+
+`POST /api/auth/logout` no recibe cuerpo ni requiere autenticación: limpia el contexto de seguridad e invalida la sesión HTTP si existe. Como el JWT es autocontenido, el logout no lo revoca; el token sigue siendo válido hasta su `exp`.
 
 ## Asignaturas
 

@@ -18,3 +18,7 @@ spring:
 mpaz:
   seed:
     enabled: true
+  auth:
+    jwt:
+      secret: "test-jwt-secret-change-me-0123456789abcdef"
+      expiration-seconds: 3600
