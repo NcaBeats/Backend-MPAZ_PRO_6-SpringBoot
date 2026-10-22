@@ -22,6 +22,8 @@
 - [18. Referencias](#18-referencias)
 - [19. Créditos y contribución](#19-créditos-y-contribución)
 - [20. Licencia](#20-licencia)
+- [21. Autenticación y Seguridad](#21-autenticación-y-seguridad)
+- [22. Rutas expuestas](#22-rutas-expuestas)
 
 ## 1. Descripción del proyecto
 
@@ -90,7 +92,8 @@ Este modelo responde a lo planteado en el caso de estudio. No se considera defin
 ```
 src/main/java/com/example/mpaz_pro_6springboot/
 ├── common/enums/
-├── common/config/        (SqliteDirectoryInitializer)
+├── common/config/        (SqliteDirectoryInitializer, PasswordEncoderConfig)
+├── common/security/      (CustomUserDetails, CustomUserDetailsService, SecurityConfig)
 ├── common/seed/          (DataInitializer: datos de demo)
 ├── identidad/
 ├── curriculo/
@@ -121,6 +124,7 @@ src/main/java/com/example/mpaz_pro_6springboot/
 |---|---|---|
 | Java | 25 | Lenguaje |
 | Spring Boot | 4.1.1 | Framework |
+| Spring Security | gestionado por SB | Autenticación, autorización, Basic Auth y sesiones |
 | Spring Data JPA/WebMVC/Validation | incluido | Persistencia/API/Validación |
 | SQLite | 3 (sqlite-jdbc) | BD embebida en un archivo local |
 | Flyway | gestionado por SB | Migraciones |
@@ -187,6 +191,7 @@ No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con l
 - El directorio `data/` esta en `.gitignore`: no se versiona.
 
 ### 9.5. application.yaml
+
 `datasource` usa `jdbc:sqlite:${SQLITE_PATH:./data/mpaz.db}` con `foreign_keys=on` (SQLite ignora las FK por conexion si no se activan) y `busy_timeout=5000`. `ddl-auto: none` y Flyway habilitado se mantienen fijos (no van al `.env`). El pool de Hikari se limita a 1 conexion porque SQLite admite un solo escritor.
 
 ## 10. Ejecución
@@ -198,6 +203,7 @@ No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con l
 En el primer arranque se crea `data/mpaz.db` (Flyway aplica `V1__esquema.sql`) y `DataInitializer` carga los datos de demo. No hay pasos manuales ni contenedores.
 
 - Swagger: http://localhost:8080/swagger-ui.html
+- Autenticación: Basic Auth con los usuarios del seed (ver sección 14). Todas las rutas están públicas por ahora, pero la configuración ya sigue lógica de roles.
 - Un segundo arranque no duplica datos: el inicializador detecta que ya hay usuarios y no hace nada.
 - Para volver al estado inicial: detener la app, borrar `data/mpaz.db` y arrancar de nuevo.
 - Datos listos para consultar: 4 unidades, 12 actividades (3 por unidad), 4 intentos y 1 informe pedagogico de Camila (OA 1: 2/3, OA 2: 1/3).
@@ -278,3 +284,62 @@ Fines académicos. Legibilidad, trazabilidad y coherencia entre modelo/código/m
 ## 20. Licencia
 
 Uso académico.
+
+## 21. Autenticación y Seguridad
+
+La aplicación incorpora Spring Security con **HTTP Basic Auth** y **gestión de sesiones**.
+
+### 21.1. Configuración
+- **Dependencia**: `spring-boot-starter-security` añadido al `pom.xml`.
+- **PasswordEncoder**: `BCryptPasswordEncoder` (configurado en `common/config/PasswordEncoderConfig`).
+- **UserDetailsService**: `common/security/CustomUserDetailsService` que carga usuarios desde `UsuarioRepository` por `username`.
+- **Autenticación**: `DaoAuthenticationProvider` vinculado con `CustomUserDetailsService` y `PasswordEncoder`.
+- **Sesiones**: `SessionCreationPolicy.IF_REQUIRED` (las sesiones HTTP se crean cuando es necesario).
+- **CSRF**: deshabilitado para facilitar pruebas con Basic Auth.
+- **Autorización por métodos**: `@EnableMethodSecurity` habilitado para futuras restricciones con `@PreAuthorize`.
+- **Todas las rutas públicas por ahora**: `anyRequest().permitAll()`, con la estructura lista para aplicar reglas por roles.
+
+### 21.2. Roles y autoridades
+Los roles se mapean directamente desde el enum `Rol`:
+
+| Rol | Autoridad asignada | Uso previsto |
+|---|---|---|
+| `UTP` | `ROLE_UTP` | Gestión y autorización de unidades, supervisión general. |
+| `DOCENTE` | `ROLE_DOCENTE` | Gestión de asignaciones, validación de informes pedagógicos. |
+| `ESTUDIANTE` | `ROLE_ESTUDIANTE` | Acceso a contenido/asignaciones propias, resolución de actividades. |
+
+La conversión se realiza en `CustomUserDetails` con `new SimpleGrantedAuthority("ROLE_" + rol.name())`, lo que permite usar `hasRole("UTP")`, `hasAnyRole(...)`, etc.
+
+### 21.3. Probar autenticación
+Con la app corriendo (`.\mvnw.cmd spring-boot:run`):
+
+```bash
+curl -u utp:utp12345 http://localhost:8080/actuator/health
+curl -u docente:doc12345 http://localhost:8080/actuator/health
+curl -u camila:alu12345 http://localhost:8080/actuator/health
+```
+
+Las credenciales válidas son las del **DataInitializer** (ver sección 14). Tras la primera autenticación con Basic Auth, la sesión HTTP puede mantenerse para peticiones posteriores.
+
+## 22. Rutas expuestas
+
+### 22.1. Rutas públicas (actualmente permitidas)
+| Ruta | Motivo |
+|---|---|
+| `/actuator/health`, `/actuator/info` | Health/info de la aplicación |
+| `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Documentación OpenAPI/Swagger |
+| **Todas las demás rutas** (`/**`) | **Públicas por ahora** (se irán restringiendo por rol siguiendo la lógica definida) |
+
+### 22.2. Estructura prevista para restricción por roles
+La configuración está preparada para aplicar reglas como las siguientes en `SecurityConfig`:
+
+```java
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/admin/**").hasRole("UTP")
+    .requestMatchers("/api/docente/**").hasAnyRole("UTP", "DOCENTE")
+    .requestMatchers("/api/alumno/**").hasRole("ESTUDIANTE")
+    .anyRequest().permitAll() // mantener mientras se migra
+)
+``` 
+
+A medida que se añadan controladores con prefijos por rol, se actualizarán estas reglas sin cambiar la lógica de autenticación.
