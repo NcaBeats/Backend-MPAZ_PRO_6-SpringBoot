@@ -2,6 +2,7 @@ package com.example.mpaz_pro_6springboot.curriculo.unidad.repository;
 
 import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +13,10 @@ import java.util.Optional;
 
 @Repository
 public interface UnidadRepository extends JpaRepository<Unidad, Long> {
+
+    @Override
+    @EntityGraph(attributePaths = {"asignatura"})
+    Optional<Unidad> findById(Long id);
 
     List<Unidad> findAllByOrderByAsignaturaIdAscOrdenAsc();
 

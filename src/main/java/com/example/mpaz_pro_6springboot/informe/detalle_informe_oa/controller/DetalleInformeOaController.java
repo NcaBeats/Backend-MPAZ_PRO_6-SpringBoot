@@ -1,11 +1,13 @@
 package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.dto.response.DetalleInformeOaResponse;
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.mapper.DetalleInformeOaMapper;
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.service.DetalleInformeOaService;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,9 +27,10 @@ public class DetalleInformeOaController {
 
     @GetMapping
     public ResponseEntity<List<DetalleInformeOaResponse>> findByInformeId(
-            @PathVariable @Positive Long informeId
+            @PathVariable @Positive Long informeId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(detalleInformeOaService.findByInformeId(informeId).stream()
+        return ResponseEntity.ok(detalleInformeOaService.findByInformeId(informeId, principal.getUsuario()).stream()
                 .map(detalleInformeOaMapper::toResponse)
                 .toList());
     }

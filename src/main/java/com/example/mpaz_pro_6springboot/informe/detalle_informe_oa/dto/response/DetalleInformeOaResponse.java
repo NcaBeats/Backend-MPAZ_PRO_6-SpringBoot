@@ -6,6 +6,9 @@ public record DetalleInformeOaResponse(
         Long id,
         Long informeId,
         Long oaId,
+        String oaCodigo,
+        String oaDescripcion,
+        String oaEje,
         Integer totalPreguntas,
         Integer correctas,
         NivelOa nivel

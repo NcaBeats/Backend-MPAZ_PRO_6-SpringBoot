@@ -5,26 +5,23 @@ spring:
     import: optional:file:.env[.properties]
 
   datasource:
-    # SQLite: base de datos embebida en un archivo local. No requiere servidor.
-    # foreign_keys=on activa las FK (incluidas las compuestas de la seccion 4 de la
-    # especificacion); SQLite las ignora por defecto en cada conexion.
-    # busy_timeout evita SQLITE_BUSY si coinciden dos escrituras.
-    url: jdbc:sqlite:${SQLITE_PATH:./data/mpaz.db}?foreign_keys=on&busy_timeout=5000
-    driver-class-name: org.sqlite.JDBC
-    hikari:
-      # SQLite admite un solo escritor; serializar el acceso simplifica la demo.
-      maximum-pool-size: 1
+    # PostgreSQL es la fuente de verdad. Para desarrollo local, levantar el
+    # servicio con `docker compose up -d` (ver compose.yaml).
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mpaz}
+    username: ${POSTGRES_USER:mpaz}
+    password: ${POSTGRES_PASSWORD:mpaz}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      # El esquema lo gobierna Flyway (V1__esquema.sql). SQLite usa tipado
-      # dinamico, por lo que "validate" produce falsos negativos.
-      ddl-auto: none
+      # El esquema lo gobierna Flyway (V1__esquema.sql).
+      ddl-auto: validate
     open-in-view: false
-    database-platform: org.hibernate.community.dialect.SQLiteDialect
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
 
   flyway:
     enabled: true
@@ -39,6 +36,10 @@ mpaz:
 
 server:
   port: ${SERVER_PORT:8080}
+  error:
+    # La app Android usa el mensaje; nunca exponer stack traces al cliente.
+    include-message: always
+    include-stacktrace: never
 
 logging:
   level:

@@ -34,6 +34,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/me").authenticated()
                         // Gestion de usuarios reservada a UTP.
                         .requestMatchers("/api/usuarios/**").hasRole("UTP")
+                        // Informes: requieren autenticacion. El Service aplica
+                        // la regla por dueno (un estudiante solo ve los suyos).
+                        .requestMatchers("/api/informes-pedagogicos/**").authenticated()
                         // El resto de rutas sigue publico mientras se migran las reglas por rol.
                         .anyRequest().permitAll()
                 )

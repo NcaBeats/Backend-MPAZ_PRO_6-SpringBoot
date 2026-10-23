@@ -3,6 +3,7 @@ package com.example.mpaz_pro_6springboot.informe.informe_pedagogico.service;
 import com.example.mpaz_pro_6springboot.common.enums.EstadoInforme;
 import com.example.mpaz_pro_6springboot.common.enums.NivelOa;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
+import com.example.mpaz_pro_6springboot.common.security.InformeAccessPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
@@ -42,20 +43,22 @@ public class InformePedagogicoService {
     private final ActividadRepository actividadRepository;
     private final IntentoRepository intentoRepository;
     private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+    private final InformeAccessPolicy informeAccessPolicy;
 
-    public List<InformePedagogico> findAll(Long estudianteId, Long unidadId) {
-        if (estudianteId != null) {
-            getUsuario(estudianteId);
+    public List<InformePedagogico> findAll(Long estudianteId, Long unidadId, Usuario currentUser) {
+        Long efectivoEstudianteId = informeAccessPolicy.scopeEstudianteId(estudianteId, currentUser);
+        if (efectivoEstudianteId != null) {
+            getUsuario(efectivoEstudianteId);
         }
         if (unidadId != null) {
             getUnidad(unidadId);
         }
 
-        if (estudianteId != null && unidadId != null) {
-            return informeRepository.findByEstudianteIdAndUnidadIdOrderByIdAsc(estudianteId, unidadId);
+        if (efectivoEstudianteId != null && unidadId != null) {
+            return informeRepository.findByEstudianteIdAndUnidadIdOrderByIdAsc(efectivoEstudianteId, unidadId);
         }
-        if (estudianteId != null) {
-            return informeRepository.findByEstudianteIdOrderByIdAsc(estudianteId);
+        if (efectivoEstudianteId != null) {
+            return informeRepository.findByEstudianteIdOrderByIdAsc(efectivoEstudianteId);
         }
         if (unidadId != null) {
             return informeRepository.findByUnidadIdOrderByIdAsc(unidadId);
@@ -63,12 +66,15 @@ public class InformePedagogicoService {
         return informeRepository.findAllByOrderByIdAsc();
     }
 
-    public InformePedagogico findById(Long id) {
-        return getInforme(id);
+    public InformePedagogico findById(Long id, Usuario currentUser) {
+        InformePedagogico informe = getInforme(id);
+        informeAccessPolicy.assertCanRead(informe, currentUser);
+        return informe;
     }
 
     @Transactional
-    public InformePedagogico generar(Long estudianteId, Long unidadId, Long docenteId) {
+    public InformePedagogico generar(Long estudianteId, Long unidadId, Long docenteId, Usuario currentUser) {
+        informeAccessPolicy.assertCanGenerate(docenteId, currentUser);
         Usuario estudiante = getUsuario(estudianteId);
         if (estudiante.getRol() != Rol.ESTUDIANTE) {
             throw new ResponseStatusException(
@@ -140,12 +146,16 @@ public class InformePedagogicoService {
                     .build());
         });
 
-        return informeRepository.save(informe);
+        InformePedagogico guardado = informeRepository.save(informe);
+        // Se relee con EntityGraph para que el mapper (fuera de la transaccion)
+        // pueda acceder a unidad.asignatura y a los nombres sin LazyInitializationException.
+        return getInforme(guardado.getId());
     }
 
     @Transactional
-    public InformePedagogico validar(Long id) {
+    public InformePedagogico validar(Long id, Usuario currentUser) {
         InformePedagogico informe = getInforme(id);
+        informeAccessPolicy.assertCanValidate(informe, currentUser);
         if (informe.getEstado() == EstadoInforme.VALIDADO) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,

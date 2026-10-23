@@ -27,5 +27,8 @@ public interface DetalleInformeOaMapper {
 
     @Mapping(target = "informeId", source = "informe.id")
     @Mapping(target = "oaId", source = "oa.id")
+    @Mapping(target = "oaCodigo", source = "oa.codigo")
+    @Mapping(target = "oaDescripcion", source = "oa.descripcion")
+    @Mapping(target = "oaEje", source = "oa.eje")
     DetalleInformeOaResponse toResponse(DetalleInformeOa entity);
 }

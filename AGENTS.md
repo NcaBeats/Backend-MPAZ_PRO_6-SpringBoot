@@ -1,21 +1,21 @@
 # AGENTS.md — MPAZ PRO 6° (Spring Boot)
 
 ## Source of truth
-- Authoritative model: `especificaciones/mpaz_pro_modelo_definitivo.md` (12 decisions, composite FKs, CHECKs, partial index, seed, section-8 rules, SQLite annex). `1-modelado.md` (first draft) and `mpaz_pro_v4_lean.md` (intermediate) are NOT adopted.
-- DB schema is owned by Flyway: `src/main/resources/db/migration/V1__esquema.sql` (SQLite). `spring.jpa.hibernate.ddl-auto=none` — never `update`, and `validate` is unreliable with SQLite dynamic typing.
+- Authoritative model: `especificaciones/mpaz_pro_modelo_definitivo.md` (12 decisions, composite FKs, CHECKs, partial index, seed, section-8 rules, PostgreSQL annex). `1-modelado.md` (first draft) and `mpaz_pro_v4_lean.md` (intermediate) are NOT adopted.
+- DB schema is owned by Flyway: `src/main/resources/db/migration/V1__esquema.sql` (PostgreSQL). `spring.jpa.hibernate.ddl-auto=validate` — never `update`.
 - Demo data lives in Java: `common/seed/DataInitializer.java` (runs once on startup, idempotent). There is no seed migration. Never edit an applied migration; add `V2__...`.
 
-## Run / verify (Windows, PowerShell 5.1)
-- No `&&`, `tail`, `head`, `grep` — use `;` and `Select-String` / `Select-Object`.
-- App: `.\mvnw.cmd spring-boot:run`. On first start Flyway creates `data/mpaz.db` and `DataInitializer` loads the demo data. No DB server, no Docker.
-- Reset the data: stop the app, delete `data/mpaz.db`, start again.
-- Compile: `.\mvnw.cmd -q clean compile -DskipTests`. Tests: `.\mvnw.cmd test` (22 tests, SQLite in memory, no external services).
-- Port 8080 busy → stale `java.exe` from a previous run: find with `netstat -ano | Select-String ':8080'`, kill with `taskkill /PID <pid> /F`.
-- Devtools restart triggers only on `target/classes` rebuild, not on src edits. A killed run surfaces as Maven `BUILD FAILURE / exit code 1` — check the boot log tail before assuming a real error.
-- `data/`, `*.db`, `*.db-journal`, `*.db-wal`, `*.db-shm` are gitignored.
+## Run / verify
+- PostgreSQL local: `docker compose up -d` (image `postgres:17-alpine`, volume `mpaz-postgres-data`). Stop with `docker compose stop`; reset with `docker compose down -v`.
+- App: `./mvnw spring-boot:run` (Linux/macOS) or `.\mvnw.cmd spring-boot:run` (Windows PowerShell). On first start Flyway applies `V1__esquema.sql` and `DataInitializer` loads the demo data. There is no SQLite file.
+- Reset the data: stop the app, run `docker compose down -v`, run `docker compose up -d`, start the app again.
+- Compile: `./mvnw -q clean compile -DskipTests`. Tests: `./mvnw test` (25 tests, Testcontainers PostgreSQL 17, Docker must be running).
+- Port 8080 busy: Linux `ss -ltnp | grep :8080` + `kill <pid>`; Windows `netstat -ano | Select-String ':8080'` + `taskkill /PID <pid> /F`.
+- Devtools restarts on `target/classes` changes, not on `src` edits. A killed run surfaces as Maven `BUILD FAILURE / exit code 1` — check the boot log tail before assuming a real error.
+- If Docker is unavailable, the committed Testcontainers suite cannot run. Do not replace it with H2; a local PostgreSQL can be used only for temporary verification. Docker is required for the real test run.
 
 ## Env (single `.env`, see `.env.example`)
-- Only 2 vars: `SQLITE_PATH` (default `./data/mpaz.db`) and `SERVER_PORT` (default `8080`). No `SPRING_*` duplicates, no fixed behavior in `.env`.
+- Vars: `POSTGRES_DB` (default `mpaz`), `POSTGRES_USER` (`mpaz`), `POSTGRES_PASSWORD` (`mpaz`), `POSTGRES_HOST` (`localhost`), `POSTGRES_PORT` (`5432`), `SERVER_PORT` (`8080`). No SQLite vars.
 - `application.yaml` uses `${VAR:default}`. Spring does NOT load `.env` by itself — `spring.config.import: optional:file:.env[.properties]` bridges it. Vars apply at startup only; restart to pick up changes. `.env` is gitignored.
 - `mpaz.seed.enabled` (default `true`) is a fixed behavior flag in `application.yaml`, not an env var: set it to `false` to start with an empty database.
 
@@ -23,25 +23,23 @@
 - Files MUST be UTF-8 **without BOM**. `javac` fails on BOM (`illegal character: '\ufeff'` — seen in `DetalleInformeOa.java`), and a BOM in `.env` breaks the first key. When writing files, always use UTF-8 no-BOM; avoid accented chars in `.env*`/scripts.
 - PowerShell 5.1 `Set-Content -Encoding utf8` and `Get-Content`/`Set-Content` round-trips write BOM and can mangle UTF-8: use `[System.IO.File]::WriteAllText(path, text, New-Object System.Text.UTF8Encoding($false))`.
 
-## SQLite specifics (verified in tree)
-- JDBC URL: `jdbc:sqlite:${SQLITE_PATH:./data/mpaz.db}?foreign_keys=on&busy_timeout=5000`. `PRAGMA foreign_keys` is per connection and OFF by default, so without the URL flag neither the simple nor the composite FKs are enforced.
-- sqlite-jdbc does NOT create directories: `common/config/SqliteDirectoryInitializer` (registered in `META-INF/spring.factories`) creates the parent folder of the DB file before Flyway connects. Without it, startup fails with `SQLITE_CANTOPEN`.
-- Hikari `maximum-pool-size: 1`: SQLite has a single writer; tests also need it so Flyway and Hibernate share the same in-memory database.
-- Dialect: `org.hibernate.community.dialect.SQLiteDialect` (artifact `hibernate-community-dialects`, version `${hibernate.version}`; it is NOT managed by the Boot BOM).
-- IDs: `INTEGER PRIMARY KEY` (autoincrement rowid). The seed does not set ids; they come out as 1..N.
-- SQLite rejects `ALTER TABLE ... ADD CONSTRAINT`, so the 7 composite FKs are declared inline inside `CREATE TABLE`. A new migration that needs one must rebuild the table (create new, copy, drop, rename).
-- Composite FKs require `UNIQUE (id, unidad_id)` on `objetivo_aprendizaje` and `actividad`, plus `UNIQUE (pregunta_id, id)` on `alternativa`; they are declared in `V1__esquema.sql`.
-- Partial index `ux_actividad_prueba_final_por_unidad ... WHERE tipo = 'PRUEBA_FINAL'` is supported (same guarantee as PostgreSQL).
-- Dates: `timestamp` columns store epoch milliseconds (sqlite-jdbc default `date_class=INTEGER`). Round-trip of `Instant` is covered by `DataInitializerTest`. CHECKs compare numbers, so they still work.
-- Type affinity means a `varchar` accepts any value: Bean Validation + CHECKs remain the real guard.
+## PostgreSQL specifics (verified in tree)
+- JDBC URL: `jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mpaz}`. PostgreSQL enforces FKs always; there is no per-connection `PRAGMA foreign_keys`.
+- IDs: `bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY` (the seed does not set ids; they come out as 1..N). Booleans are real `boolean`; instants are `timestamptz` (Hibernate maps `Instant` to `TIMESTAMP_UTC`); `varchar(n)` is enforced.
+- The 7 composite FKs are declared inline inside `CREATE TABLE`; PostgreSQL also supports `ALTER TABLE ... ADD CONSTRAINT` for future migrations. They require `UNIQUE (id, unidad_id)` on `objetivo_aprendizaje` and `actividad`, plus `UNIQUE (pregunta_id, id)` on `alternativa`; all are declared in `V1__esquema.sql`.
+- Partial index `ux_actividad_prueba_final_por_unidad ... WHERE tipo = 'PRUEBA_FINAL'` is supported.
+- `ddl-auto: validate` works with the explicit PostgreSQL types. Flyway also uses `baseline-on-migrate: true`.
+- Hikari uses its default pool; do not set `maximum-pool-size: 1` (that was SQLite-specific).
+- Tests: `PostgresIntegrationTest` starts one static `postgres:17-alpine` Testcontainer via `@ServiceConnection`; Spring contexts share it. A Docker daemon is required.
 
 ## Code conventions (verified in tree)
 - Feature packages: `common | identidad | curriculo | docencia | evaluacion | informe`, each with `model / repository / dto/{request,response} / mapper` (+ `service` where implemented). Rules for the next phase are in spec section 8.
 - Entities: no `@Data`; Lombok `@Getter @Setter @Builder @AllArgsConstructor @NoArgsConstructor(PROTECTED)`, `@EqualsAndHashCode(onlyExplicitlyIncluded=true)`, `@ToString(exclude={...})` on lazy relations. Enums always `@Enumerated(STRING)`. Composite PKs via `@EmbeddedId` + `@Embeddable` (`AsignacionOaId`, `AsignacionActividadId`).
 - DTOs are `record`s with Bean Validation; Update DTOs all-optional + `nullValuePropertyMappingStrategy = IGNORE`.
-- Mappers: MapStruct `componentModel="spring"`, `unmappedTargetPolicy=IGNORE`; never resolve relations in mappers — Service uses `getReferenceById`. Annotation processor order in `pom.xml` (Lombok → mapstruct-processor → lombok-mapstruct-binding) matters; if impls are missing, run `mvn compile`.
-- Repositories (17, all audited): single-result queries return `Optional`, collections return `List` (never `Optional<List>`), existence `boolean`, counts `long`. `findById` already returns `Optional`. Use derived queries for "first/last" (`findFirst...OrderBy...Desc`) — an `@Query` + `Optional` without `LIMIT` throws `NonUniqueResultException` when there are several matches.
+- Mappers: MapStruct `componentModel="spring"`, `unmappedTargetPolicy=IGNORE`; never resolve relations in mappers — Service uses `getReferenceById`. Annotation processor order in `pom.xml` (Lombok → mapstruct-processor → lombok-mapstruct-binding) matters; if impls are missing, run `./mvnw compile`.
+- Repositories (17, all audited): single-result queries return `Optional`, collections return `List` (never `Optional<List>`), existence `boolean`, counts `long`. `findById` already returns `Optional`. Use derived queries for "first/last" (`findFirst...OrderBy...Desc`).
 - Seed (`DataInitializer`): fake data only, BCrypt hashes generated at startup, idempotent (`usuarioRepository.count() > 0` skips it). It inserts through repositories because it represents an already-consistent state (completed attempts + frozen report snapshot). `detalle_informe_oa` snapshot must match the "last completed attempt per activity" recalculation, and `es_correcta` must match the chosen alternative.
+- Reports security: `common/security/InformeAccessPolicy` scopes students to their own reports; report writes require `DOCENTE`/`UTP`; `/api/informes-pedagogicos/**` is authenticated. `InformePedagogicoResponse` includes student/unit/subject/teacher names; `DetalleInformeOaResponse` includes OA code/description/eje. `InformePedagogicoService.generar` re-fetches the saved report with the repository `@EntityGraph`; `UnidadRepository.findById` fetches `asignatura` to avoid lazy-loading in the mapper.
 
 ## Stack
-Java 25 · Spring Boot 4.1.1 · SQLite 3 (sqlite-jdbc) · Flyway · MapStruct 1.6.3 · Lombok · springdoc-openapi 3.1.0 (`/swagger-ui.html`) · Maven Wrapper.
+Java 25 · Spring Boot 4.1.1 · PostgreSQL 17 (Docker Compose) · Testcontainers 2.0.5 · Flyway · MapStruct 1.6.3 · Lombok · springdoc-openapi 3.1.0 (`/swagger-ui.html`) · Maven Wrapper.

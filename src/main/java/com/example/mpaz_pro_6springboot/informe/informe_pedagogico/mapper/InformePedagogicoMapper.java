@@ -30,7 +30,11 @@ public interface InformePedagogicoMapper {
     void updateEntity(InformePedagogicoUpdateRequest request, @MappingTarget InformePedagogico entity);
 
     @Mapping(target = "estudianteId", source = "estudiante.id")
+    @Mapping(target = "estudianteNombre", source = "estudiante.nombre")
     @Mapping(target = "unidadId", source = "unidad.id")
+    @Mapping(target = "unidadTitulo", source = "unidad.titulo")
+    @Mapping(target = "asignaturaNombre", source = "unidad.asignatura.nombre")
     @Mapping(target = "docenteId", source = "docente.id")
+    @Mapping(target = "docenteNombre", source = "docente.nombre")
     InformePedagogicoResponse toResponse(InformePedagogico entity);
 }
