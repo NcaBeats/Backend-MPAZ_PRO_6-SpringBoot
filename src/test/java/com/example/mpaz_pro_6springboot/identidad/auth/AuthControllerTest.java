@@ -164,8 +164,12 @@ class AuthControllerTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void lasRutasPublicasSiguenSinAutenticacion() throws Exception {
+    void lasRutasDeCatalogoYaNoSonPublicas() throws Exception {
         mockMvc.perform(get("/api/asignaturas"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/asignaturas")
+                        .with(httpBasic("camila", "alu12345")))
                 .andExpect(status().isOk());
     }
 }

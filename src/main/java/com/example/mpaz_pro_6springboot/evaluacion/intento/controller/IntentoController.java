@@ -1,11 +1,13 @@
 package com.example.mpaz_pro_6springboot.evaluacion.intento.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.dto.response.IntentoResponse;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.mapper.IntentoMapper;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.service.IntentoService;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,24 +33,31 @@ public class IntentoController {
     @GetMapping("/intentos")
     public ResponseEntity<List<IntentoResponse>> findAll(
             @RequestParam(required = false) @Positive Long estudianteId,
-            @RequestParam(required = false) @Positive Long actividadId
+            @RequestParam(required = false) @Positive Long actividadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(intentoService.findAll(estudianteId, actividadId).stream()
+        return ResponseEntity.ok(intentoService.findAll(estudianteId, actividadId, principal.getUsuario()).stream()
                 .map(intentoMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/intentos/{id}")
-    public ResponseEntity<IntentoResponse> findById(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(intentoMapper.toResponse(intentoService.findById(id)));
+    public ResponseEntity<IntentoResponse> findById(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(intentoMapper.toResponse(
+                intentoService.findById(id, principal.getUsuario())));
     }
 
     @PostMapping("/estudiantes/{estudianteId}/actividades/{actividadId}/intentos")
     public ResponseEntity<IntentoResponse> create(
             @PathVariable @Positive Long estudianteId,
-            @PathVariable @Positive Long actividadId
+            @PathVariable @Positive Long actividadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        IntentoResponse created = intentoMapper.toResponse(intentoService.create(estudianteId, actividadId));
+        IntentoResponse created = intentoMapper.toResponse(
+                intentoService.create(estudianteId, actividadId, principal.getUsuario()));
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/intentos/{id}")
                 .buildAndExpand(created.id())
@@ -57,7 +66,11 @@ public class IntentoController {
     }
 
     @PatchMapping("/intentos/{id}/completar")
-    public ResponseEntity<IntentoResponse> completar(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(intentoMapper.toResponse(intentoService.completar(id)));
+    public ResponseEntity<IntentoResponse> completar(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(intentoMapper.toResponse(
+                intentoService.completar(id, principal.getUsuario())));
     }
 }

@@ -1,7 +1,7 @@
 # AGENTS.md — MPAZ PRO 6° (Spring Boot)
 
 ## Source of truth
-- Authoritative model: `especificaciones/mpaz_pro_modelo_definitivo.md` (12 decisions, composite FKs, CHECKs, partial index, seed, section-8 rules, PostgreSQL annex). `1-modelado.md` (first draft) and `mpaz_pro_v4_lean.md` (intermediate) are NOT adopted.
+- Authoritative model: `especificaciones/mpaz_pro_modelo_definitivo.md` (12 decisions, composite FKs, CHECKs, partial index, seed, section-8 rules, PostgreSQL annex). The older `1-modelado.md` and `mpaz_pro_v4_lean.md` drafts were removed; they remain only in git history. HTTP contract: `especificaciones/2-Endpoints.md`.
 - DB schema is owned by Flyway: `src/main/resources/db/migration/V1__esquema.sql` (PostgreSQL). `spring.jpa.hibernate.ddl-auto=validate` — never `update`.
 - Demo data lives in Java: `common/seed/DataInitializer.java` (runs once on startup, idempotent). There is no seed migration. Never edit an applied migration; add `V2__...`.
 
@@ -9,7 +9,7 @@
 - PostgreSQL local: `docker compose up -d` (image `postgres:17-alpine`, volume `mpaz-postgres-data`). Stop with `docker compose stop`; reset with `docker compose down -v`.
 - App: `./mvnw spring-boot:run` (Linux/macOS) or `.\mvnw.cmd spring-boot:run` (Windows PowerShell). On first start Flyway applies `V1__esquema.sql` and `DataInitializer` loads the demo data. There is no SQLite file.
 - Reset the data: stop the app, run `docker compose down -v`, run `docker compose up -d`, start the app again.
-- Compile: `./mvnw -q clean compile -DskipTests`. Tests: `./mvnw test` (25 tests, Testcontainers PostgreSQL 17, Docker must be running).
+- Compile: `./mvnw -q clean compile -DskipTests`. Tests: `./mvnw test` (42 tests, Testcontainers PostgreSQL 17, Docker must be running).
 - Port 8080 busy: Linux `ss -ltnp | grep :8080` + `kill <pid>`; Windows `netstat -ano | Select-String ':8080'` + `taskkill /PID <pid> /F`.
 - Devtools restarts on `target/classes` changes, not on `src` edits. A killed run surfaces as Maven `BUILD FAILURE / exit code 1` — check the boot log tail before assuming a real error.
 - If Docker is unavailable, the committed Testcontainers suite cannot run. Do not replace it with H2; a local PostgreSQL can be used only for temporary verification. Docker is required for the real test run.
@@ -40,6 +40,8 @@
 - Repositories (17, all audited): single-result queries return `Optional`, collections return `List` (never `Optional<List>`), existence `boolean`, counts `long`. `findById` already returns `Optional`. Use derived queries for "first/last" (`findFirst...OrderBy...Desc`).
 - Seed (`DataInitializer`): fake data only, BCrypt hashes generated at startup, idempotent (`usuarioRepository.count() > 0` skips it). It inserts through repositories because it represents an already-consistent state (completed attempts + frozen report snapshot). `detalle_informe_oa` snapshot must match the "last completed attempt per activity" recalculation, and `es_correcta` must match the chosen alternative.
 - Reports security: `common/security/InformeAccessPolicy` scopes students to their own reports; report writes require `DOCENTE`/`UTP`; `/api/informes-pedagogicos/**` is authenticated. `InformePedagogicoResponse` includes student/unit/subject/teacher names; `DetalleInformeOaResponse` includes OA code/description/eje. `InformePedagogicoService.generar` re-fetches the saved report with the repository `@EntityGraph`; `UnidadRepository.findById` fetches `asignatura` to avoid lazy-loading in the mapper.
+- Access control: auth is HTTP Basic stateless (no JWT). `common/security/SecurityConfig` holds the route matrix: public = login/health/Swagger; catalog writes = `UTP`; `/api/asignaciones/**` writes = `DOCENTE`/`UTP`; intento/response writes = `ESTUDIANTE`; report writes = `DOCENTE`/`UTP`; `anyRequest().authenticated()`. Ownership is enforced in Services via `InformeAccessPolicy` and `EvaluacionAccessPolicy` (a student only sees their own reports, attempts and answers). When adding a controller, it is authenticated by default; declare any broader rule explicitly.
+- Pending spec rule 5: student-facing catalog reads are not yet filtered by course/state, and `AlternativaResponse.esCorrecta` / `PreguntaResponse.criterioRespuesta` are still exposed to students.
 
 ## Stack
 Java 25 · Spring Boot 4.1.1 · PostgreSQL 17 (Docker Compose) · Testcontainers 2.0.5 · Flyway · MapStruct 1.6.3 · Lombok · springdoc-openapi 3.1.0 (`/swagger-ui.html`) · Maven Wrapper.

@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.dto.request.RespuestaEstudianteCreateRequest;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.dto.response.RespuestaEstudianteResponse;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.mapper.RespuestaEstudianteMapper;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,9 +34,10 @@ public class RespuestaEstudianteController {
 
     @GetMapping
     public ResponseEntity<List<RespuestaEstudianteResponse>> findByIntentoId(
-            @PathVariable @Positive Long intentoId
+            @PathVariable @Positive Long intentoId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(respuestaEstudianteService.findByIntentoId(intentoId).stream()
+        return ResponseEntity.ok(respuestaEstudianteService.findByIntentoId(intentoId, principal.getUsuario()).stream()
                 .map(respuestaEstudianteMapper::toResponse)
                 .toList());
     }
@@ -42,11 +45,13 @@ public class RespuestaEstudianteController {
     @PostMapping
     public ResponseEntity<RespuestaEstudianteResponse> create(
             @PathVariable @Positive Long intentoId,
-            @Valid @RequestBody RespuestaEstudianteCreateRequest request
+            @Valid @RequestBody RespuestaEstudianteCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
         RespuestaEstudiante entity = respuestaEstudianteMapper.toEntity(request);
         RespuestaEstudianteResponse created = respuestaEstudianteMapper.toResponse(
-                respuestaEstudianteService.create(entity, intentoId, request.preguntaId())
+                respuestaEstudianteService.create(
+                        entity, intentoId, request.preguntaId(), principal.getUsuario())
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().build().toUri();
         return ResponseEntity.created(location).body(created);

@@ -57,9 +57,7 @@ La especificación adoptada como fuente autoritativa es `especificaciones/mpaz_p
 
 ### 4.1. Evolución del modelado
 
-- **1-modelado.md**: Primera aproximación. Presentaba ambigüedad sobre el informe y la trazabilidad entre unidades.
-- **mpaz_pro_v4_lean.md**: Versión intermedia con intención de simplificar. Útil, pero incompleto para garantizar integridad.
-- **mpaz_pro_modelo_definitivo.md**: Versión definitiva. Consolida las 12 decisiones tomadas (con resolución y cómo revertir cada una), define qué queda en BD vs código, y alinea modelo con DTOs/mappers/entidades/migraciones.
+El modelo pasó por dos aproximaciones previas: una primera versión y una versión intermedia "lean". Ambas quedaron descartadas por ambigüedad en el informe y por no garantizar la integridad entre unidades; se conservan únicamente en el historial de git. La versión adoptada es `especificaciones/mpaz_pro_modelo_definitivo.md`: consolida las 12 decisiones tomadas (con resolución y cómo revertir cada una), define qué queda en BD vs código, y alinea modelo con DTOs/mappers/entidades/migraciones.
 
 ### 4.2. Razones para adoptar el modelo definitivo
 
@@ -93,7 +91,8 @@ Este modelo responde a lo planteado en el caso de estudio. No se considera defin
 src/main/java/com/example/mpaz_pro_6springboot/
 ├── common/enums/
 ├── common/config/        (PasswordEncoderConfig)
-├── common/security/      (CustomUserDetails, CustomUserDetailsService, SecurityConfig)
+├── common/security/      (CustomUserDetails, CustomUserDetailsService, SecurityConfig,
+│                          InformeAccessPolicy, EvaluacionAccessPolicy)
 ├── common/seed/          (DataInitializer: datos de demo)
 ├── identidad/
 ├── curriculo/
@@ -261,11 +260,14 @@ El snapshot del informe coincide con el recalculo del ultimo intento completado,
 
 ## 15. Pruebas
 
-`./mvnw test` (25 tests) usa Testcontainers con PostgreSQL 17: requiere Docker en ejecución.
+`./mvnw test` (42 tests) usa Testcontainers con PostgreSQL 17: requiere Docker en ejecución.
 
 - `PostgresIntegrationTest`: contenedor PostgreSQL 17 compartido por los contextos de Spring.
 - `contextLoads`: el contexto arranca con Flyway + JPA y `ddl-auto: validate`.
 - `AuthControllerTest`: login y `/me` con Basic, registro solo para UTP, validación de estudiante con curso, duplicados y rutas protegidas (401/403).
+- `SeguridadRutasTest`: matriz de acceso por rol (catálogo, unidades, asignaciones, evaluación y rutas públicas).
+- `EvaluacionSecurityTest`: un estudiante solo ve y modifica sus intentos y respuestas; docente/UTP solo leen.
+- `EvaluacionAccessPolicyTest`: reglas de dueño en aislamiento, sin Spring ni base de datos.
 - `DataInitializerTest`: conteos del seed, contraseñas verificables, FK simples/compuestas, índice parcial de la prueba final, round-trip de `Instant` y coherencia del snapshot del informe con el recálculo.
 - `InformePedagogicoSecurityTest`: un estudiante ve solo sus informes (propio 200, ajeno 403), sin credenciales 401, escritura de estudiante 403, UTP 200 y detalle por OA con nombres/códigos.
 
@@ -288,8 +290,7 @@ Commits atómicos, mensajes claros. No editar migraciones ya aplicadas.
 ## 18. Referencias
 
 - especificaciones/mpaz_pro_modelo_definitivo.md (autoritativo, incluye anexo "Motor PostgreSQL")
-- especificaciones/mpaz_pro_v4_lean.md (intermedio)
-- especificaciones/1-modelado.md (inicial)
+- especificaciones/2-Endpoints.md (contrato HTTP y matriz de acceso)
 - Spring Boot, Spring Data JPA, Flyway, MapStruct, PostgreSQL 17, Testcontainers, springdoc-openapi
 
 ## 19. Créditos y contribución
@@ -311,7 +312,8 @@ La aplicación usa **HTTP Basic Auth stateless** con **BCrypt** para las contras
 - **Autenticación**: Spring Security configura el `DaoAuthenticationProvider` global a partir de `CustomUserDetailsService` y `PasswordEncoder`.
 - **Sesiones**: `SessionCreationPolicy.STATELESS`; no se crea `JSESSIONID`.
 - **CSRF**: deshabilitado porque la API no usa cookies de sesión.
-- **Autorización por métodos**: `@EnableMethodSecurity` habilitado para futuras reglas con `@PreAuthorize`.
+- **Autorización por rol**: matriz centralizada en `common/security/SecurityConfig` (ver sección 22).
+- **Autorización por dueño**: `InformeAccessPolicy` (informes) y `EvaluacionAccessPolicy` (intentos y respuestas) limitan al estudiante a sus propios datos.
 - **Rutas**: ver sección 22.
 
 ### 21.2. Roles y autoridades
@@ -356,42 +358,79 @@ No hay endpoint de logout: con Basic el cliente simplemente deja de enviar las c
 Con la app corriendo (`.\mvnw.cmd spring-boot:run`):
 
 ```bash
-# Sin credenciales -> 401
+# Sin credenciales -> 401 (health y Swagger son las unicas rutas publicas)
+curl -i http://localhost:8080/api/asignaturas
 curl -i http://localhost:8080/api/usuarios
 
 # Estudiante -> 403; UTP -> 200
 curl -i -u camila:alu12345 http://localhost:8080/api/usuarios
 curl -i -u utp:utp12345 http://localhost:8080/api/usuarios
+
+# Catálogo: lectura para cualquier autenticado, escritura solo UTP
+curl -i -u camila:alu12345 http://localhost:8080/api/asignaturas        # 200
+curl -i -u docente:doc12345 -X POST -H "Content-Type: application/json" \
+  -d '{"nombre":"Arte"}' http://localhost:8080/api/asignaturas           # 403
+curl -i -u utp:utp12345 -X POST -H "Content-Type: application/json" \
+  -d '{"nombre":"Arte"}' http://localhost:8080/api/asignaturas           # 201
+
+# Intentos: solo el estudiante dueño inicia, completa o responde
+curl -i -u docente:doc12345 -X POST \
+  http://localhost:8080/api/estudiantes/3/actividades/1/intentos         # 403
 ```
 
-Las credenciales válidas son las del **DataInitializer** (ver sección 14).
+La regla por dueño no se ve en la URL: un estudiante que fuerza el id de otro recibe `403` desde el Service (`InformeAccessPolicy` / `EvaluacionAccessPolicy`). Las credenciales válidas son las del **DataInitializer** (ver sección 14).
 
 ## 22. Rutas expuestas
 
-### 22.1. Seguridad por ruta
-| Ruta | Acceso | Motivo |
-|---|---|---|
-| `/actuator/health`, `/actuator/info` | Público | Health/info de la aplicación |
-| `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Público | Documentación OpenAPI/Swagger |
-| `POST /api/auth/login` | Público (requiere Basic para autenticar) | Valida credenciales y devuelve el usuario |
-| `GET /api/auth/me` | Autenticado | Usuario autenticado en la solicitud |
-| `POST /api/auth/register` | `ROLE_UTP` | Registro administrativo de usuarios |
-| `/api/usuarios/**` | `ROLE_UTP` | Gestión de usuarios |
-| `/api/informes-pedagogicos/**` | Autenticado | Lectura: estudiante solo los suyos; UTP/DOCENTE todos. Escritura (`POST`/`PATCH`): DOCENTE/UTP. |
-| **Todas las demás rutas** (`/**`) | **Público por ahora** | Pendiente de aplicar reglas por rol y por dueño |
+### 22.1. Matriz de acceso por rol
 
-### 22.2. Configuración actual
+| Ruta | Lectura (GET) | Escritura (POST/PUT/PATCH/DELETE) |
+|---|---|---|
+| `/actuator/health`, `/actuator/info` | Público | — |
+| `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Público | — |
+| `POST /api/auth/login` | Público (Basic) | — |
+| `GET /api/auth/me` | Autenticado | — |
+| `POST /api/auth/register` | — | `ROLE_UTP` |
+| `/api/usuarios/**` | `ROLE_UTP` | `ROLE_UTP` |
+| Catálogo curricular* | Autenticado | `ROLE_UTP` |
+| `/api/asignaciones/**`** | Autenticado | `ROLE_DOCENTE` / `ROLE_UTP` |
+| `/api/intentos/**` | Autenticado; estudiante solo los suyos | `ROLE_ESTUDIANTE` dueño |
+| `/api/intentos/{id}/respuestas` | Autenticado; estudiante solo las suyas | `ROLE_ESTUDIANTE` dueño |
+| `/api/informes-pedagogicos/**` | Autenticado; estudiante solo los suyos | `ROLE_DOCENTE` / `ROLE_UTP` |
+| Cualquier otra ruta | Autenticado | Autenticado |
+
+\* Asignaturas, cursos, unidades, objetivos de aprendizaje, contenidos, recursos de contenido, actividades, preguntas y alternativas. La escritura incluye la autorización de unidades (`autorizadaPorId`), por eso es UTP-only.
+
+\** Incluye las rutas anidadas de OA y actividades de una asignación.
+
+Sin credenciales la respuesta es `401 Unauthorized`; con credenciales de un rol no autorizado, `403 Forbidden`. La regla por dueño (un estudiante solo ve sus informes, intentos y respuestas) se aplica en el Service con `InformeAccessPolicy` y `EvaluacionAccessPolicy`.
+
+Pendiente (regla 5 de la especificación): filtrar el catálogo que ve un estudiante por curso y por estado `AUTORIZADO`/`PUBLICADO`, y ocultar `esCorrecta`/`criterioRespuesta` en los DTOs.
+
+### 22.2. Configuración (`common/security/SecurityConfig.java`)
 ```java
 .authorizeHttpRequests(auth -> auth
     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
     .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+    .requestMatchers("/error").permitAll()
     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
     .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("UTP")
     .requestMatchers("/api/auth/me").authenticated()
-    .requestMatchers("/api/usuarios/**").hasRole("UTP")
-    .requestMatchers("/api/informes-pedagogicos/**").authenticated()
-    .anyRequest().permitAll()
+    .requestMatchers("/api/usuarios", "/api/usuarios/**").hasRole("UTP")
+    .requestMatchers(HttpMethod.POST, CATALOGO).hasRole("UTP")
+    .requestMatchers(HttpMethod.PUT, CATALOGO).hasRole("UTP")
+    .requestMatchers(HttpMethod.DELETE, CATALOGO).hasRole("UTP")
+    .requestMatchers(HttpMethod.POST, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
+    .requestMatchers(HttpMethod.PUT, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
+    .requestMatchers(HttpMethod.DELETE, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
+    .requestMatchers(HttpMethod.POST, "/api/estudiantes/*/actividades/*/intentos").hasRole("ESTUDIANTE")
+    .requestMatchers(HttpMethod.PATCH, "/api/intentos/*/completar").hasRole("ESTUDIANTE")
+    .requestMatchers(HttpMethod.POST, "/api/intentos/*/respuestas").hasRole("ESTUDIANTE")
+    .requestMatchers(HttpMethod.POST, "/api/informes-pedagogicos").hasAnyRole("DOCENTE", "UTP")
+    .requestMatchers(HttpMethod.PATCH, "/api/informes-pedagogicos/*/validacion").hasAnyRole("DOCENTE", "UTP")
+    .requestMatchers("/api/informes-pedagogicos", "/api/informes-pedagogicos/**").authenticated()
+    .anyRequest().authenticated()
 )
 ```
 
-A medida que se añadan controladores con prefijos por rol, se actualizarán estas reglas. Las rutas de datos siguen públicas para no romper la demo; aplicar autorización por rol y por dueño es el siguiente paso de seguridad (sección 8 de la especificación).
+`CATALOGO` agrupa las rutas del catálogo curricular. Al añadir un controlador nuevo, la regla por defecto es `authenticated()`; cualquier permiso más amplio debe declararse explícitamente.

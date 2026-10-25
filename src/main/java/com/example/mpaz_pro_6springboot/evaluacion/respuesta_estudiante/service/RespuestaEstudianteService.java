@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.service;
 
+import com.example.mpaz_pro_6springboot.common.security.EvaluacionAccessPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.model.Alternativa;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.repository.AlternativaRepository;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
@@ -8,6 +9,7 @@ import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.repository.RespuestaEstudianteRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,15 +27,19 @@ public class RespuestaEstudianteService {
     private final IntentoRepository intentoRepository;
     private final PreguntaRepository preguntaRepository;
     private final AlternativaRepository alternativaRepository;
+    private final EvaluacionAccessPolicy evaluacionAccessPolicy;
 
-    public List<RespuestaEstudiante> findByIntentoId(Long intentoId) {
-        getIntento(intentoId);
+    public List<RespuestaEstudiante> findByIntentoId(Long intentoId, Usuario currentUser) {
+        Intento intento = getIntento(intentoId);
+        evaluacionAccessPolicy.assertPuedeLeer(intento, currentUser);
         return respuestaEstudianteRepository.findByIntentoIdOrderByIdAsc(intentoId);
     }
 
     @Transactional
-    public RespuestaEstudiante create(RespuestaEstudiante respuesta, Long intentoId, Long preguntaId) {
+    public RespuestaEstudiante create(RespuestaEstudiante respuesta, Long intentoId, Long preguntaId,
+                                      Usuario currentUser) {
         Intento intento = getIntento(intentoId);
+        evaluacionAccessPolicy.assertPuedeOperar(intento, currentUser);
         Pregunta pregunta = getPregunta(preguntaId);
 
         if (intento.getFechaFin() != null) {
