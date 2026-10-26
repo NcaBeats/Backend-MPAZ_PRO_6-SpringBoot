@@ -5,7 +5,15 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/**
+ * Todos los campos son opcionales. Como null significa "no cambiar", para
+ * quitar el contenido se usa desasociarContenido=true (con contenidoId null).
+ */
 public record ActividadUpdateRequest(
+
+        Long contenidoId,
+
+        Boolean desasociarContenido,
 
         @Pattern(regexp = "(?s).*\\S.*")
         @Size(max = 200)

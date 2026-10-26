@@ -8,6 +8,7 @@ Este documento resume las API REST implementadas hasta el momento para Asignatur
 - Los cuerpos de solicitud y respuesta usan JSON.
 - Los errores de recurso inexistente se responden con `404 Not Found`.
 - Los errores de conflicto por duplicidad o por relaciones existentes se responden con `409 Conflict`.
+- Las reglas de negocio inválidas (asociaciones entre unidades distintas, peticiones vacías o con parámetros contradictorios) se responden con `400 Bad Request`.
 - Los DTOs validan los datos de entrada; las respuestas no exponen entidades JPA directamente.
 
 ## Responsabilidades por capa
@@ -205,7 +206,7 @@ Ruta base: `/api/contenidos`
 | GET | `/api/contenidos/{id}` | Obtiene un contenido por ID. | `200 OK`, `ContenidoResponse` |
 | POST | `/api/contenidos` | Crea un contenido asociado a un objetivo de aprendizaje existente. | `201 Created`, `ContenidoResponse` y encabezado `Location` |
 | PUT | `/api/contenidos/{id}` | Actualiza título, explicación, ejemplos, instrucciones, orden u origen. El objetivo asociado se mantiene. | `200 OK`, `ContenidoResponse` |
-| DELETE | `/api/contenidos/{id}` | Elimina un contenido y sus recursos de contenido asociados. | `204 No Content` |
+| DELETE | `/api/contenidos/{id}` | Elimina un contenido sin actividades asociadas (sus recursos de contenido se eliminan en cascada). | `204 No Content` |
 
 Solicitud de creación:
 
@@ -224,6 +225,10 @@ Solicitud de creación:
 `oaId`, `titulo`, `explicacion` y `origen` son obligatorios; `ejemplos`, `instrucciones` y `orden` son opcionales. El título admite hasta 200 caracteres; título y explicación deben contener texto. El orden debe ser mayor que cero y, si se omite, toma el valor `1`. `origen` admite `PROPIO`, `PUBLICO` o `AUTORIZADO`. La creación devuelve `404 Not Found` si el objetivo indicado no existe. El filtro `oaId` debe ser positivo y devuelve `404 Not Found` si el objetivo no existe.
 
 La actualización requiere al menos un campo no nulo y aplica solo los valores enviados; título y explicación deben contener texto, el orden debe ser mayor que cero y el origen debe ser uno de los valores permitidos. Un contenido inexistente devuelve `404 Not Found`. Al eliminar un contenido, sus recursos asociados se eliminan en cascada.
+
+La respuesta incluye `unidadId`: es la unidad del objetivo de aprendizaje, copiada en `contenido.unidad_id` para sostener la FK compuesta con `actividad`, y la base impide que se desincronice de su OA.
+
+Eliminar un contenido con actividades asociadas devuelve `409 Conflict`: la actividad apunta a un contenido de su misma unidad y la FK compuesta es `NO ACTION`, así que no se desvincula automáticamente. Para liberar el contenido hay que dejar esas actividades como transversales (`PUT /api/actividades/{id}` con `desasociarContenido: true`).
 
 ## Objetivos de aprendizaje de una asignación
 
@@ -281,10 +286,10 @@ Ruta base: `/api/actividades`
 
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
-| GET | `/api/actividades` | Lista actividades ordenadas por unidad y orden; acepta el filtro opcional `?unidadId={id}`. | `200 OK`, lista de `ActividadResponse` |
+| GET | `/api/actividades` | Lista actividades ordenadas por unidad y orden; acepta `?unidadId={id}` y, junto con él, `?contenidoId={id}` o `?soloTransversales=true`. | `200 OK`, lista de `ActividadResponse` |
 | GET | `/api/actividades/{id}` | Obtiene una actividad por ID. | `200 OK`, `ActividadResponse` |
-| POST | `/api/actividades` | Crea una actividad asociada a una unidad existente. | `201 Created`, `ActividadResponse` y encabezado `Location` |
-| PUT | `/api/actividades/{id}` | Actualiza título, tipo u orden; requiere al menos un campo. La unidad asociada se mantiene. | `200 OK`, `ActividadResponse` |
+| POST | `/api/actividades` | Crea una actividad asociada a una unidad existente y, opcionalmente, a un contenido de esa unidad. | `201 Created`, `ActividadResponse` y encabezado `Location` |
+| PUT | `/api/actividades/{id}` | Actualiza título, tipo, orden o contenido; requiere al menos un campo. La unidad asociada se mantiene. | `200 OK`, `ActividadResponse` |
 | DELETE | `/api/actividades/{id}` | Elimina una actividad sin preguntas, asignaciones ni intentos asociados. | `204 No Content` |
 
 Solicitud de creación:
@@ -292,15 +297,20 @@ Solicitud de creación:
 ```json
 {
   "unidadId": 1,
+  "contenidoId": 1,
   "titulo": "Explorar un texto informativo",
   "tipo": "ACTIVIDAD",
   "orden": 1
 }
 ```
 
-`unidadId`, `titulo` y `tipo` son obligatorios; `orden` es opcional y por defecto toma `1`. El título debe contener texto y admite hasta 200 caracteres; el orden debe ser mayor que cero. `tipo` admite `ACTIVIDAD`, `DESAFIO` o `PRUEBA_FINAL`. La creación devuelve `404 Not Found` si la unidad indicada no existe. El filtro `unidadId` debe ser positivo y devuelve `404 Not Found` si la unidad no existe.
+`unidadId`, `titulo` y `tipo` son obligatorios; `contenidoId` y `orden` son opcionales (`orden` por defecto toma `1`). El título debe contener texto y admite hasta 200 caracteres; el orden debe ser mayor que cero. `tipo` admite `ACTIVIDAD`, `DESAFIO` o `PRUEBA_FINAL`. La creación devuelve `404 Not Found` si la unidad o el contenido indicados no existen, y `409 Conflict` si el contenido pertenece a otra unidad. El filtro `unidadId` debe ser positivo y devuelve `404 Not Found` si la unidad no existe.
 
-Un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad devuelven `409 Conflict`. La actualización acepta cualquier combinación no vacía de `titulo`, `tipo` y `orden`; el título, si se envía, debe contener texto y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Un identificador de actividad inexistente devuelve `404 Not Found`. Eliminar una actividad con preguntas, asignaciones o intentos asociados devuelve `409 Conflict`.
+La asociación con contenido es opcional. `contenidoId` nulo u omitido crea una **actividad transversal** de la unidad, como la `PRUEBA_FINAL`, que evalúa todos sus OA; con valor, agrupa la actividad bajo un contenido de la misma unidad. La respuesta incluye `contenidoId` (nulo = transversal) y la base refuerza la regla con la FK compuesta `(contenido_id, unidad_id) → contenido (id, unidad_id)`.
+
+`GET /api/actividades` acepta tres filtros: `unidadId` (todas las de la unidad), `contenidoId` (solo las ligadas a ese contenido, que debe ser de la unidad) y `soloTransversales=true` (solo las que no tienen contenido). `unidadId` es obligatorio para usar los otros dos, `contenidoId` con `soloTransversales=true` devuelve `400 Bad Request`, un `contenidoId` inexistente devuelve `404 Not Found` y uno de otra unidad devuelve `409 Conflict`.
+
+Un título ya usado dentro de la unidad y una segunda `PRUEBA_FINAL` en la misma unidad devuelven `409 Conflict`. La actualización acepta cualquier combinación no vacía de `titulo`, `tipo`, `orden`, `contenidoId` o `desasociarContenido`; el título, si se envía, debe contener texto y conserva la unicidad dentro de su unidad, y `tipo` conserva la regla de una única `PRUEBA_FINAL` por unidad. Como `null` en `contenidoId` significa "no cambiar", para volver la actividad transversal se envía `desasociarContenido: true`; enviar `contenidoId` y `desasociarContenido: true` juntos devuelve `400 Bad Request`, y un contenido de otra unidad devuelve `409 Conflict`. Un identificador de actividad inexistente devuelve `404 Not Found`. Eliminar una actividad con preguntas, asignaciones o intentos asociados devuelve `409 Conflict`.
 
 ## Preguntas
 

@@ -36,9 +36,11 @@ public class ActividadController {
 
     @GetMapping
     public ResponseEntity<List<ActividadResponse>> findAll(
-            @RequestParam(required = false) @Positive Long unidadId
+            @RequestParam(required = false) @Positive Long unidadId,
+            @RequestParam(required = false) @Positive Long contenidoId,
+            @RequestParam(defaultValue = "false") boolean soloTransversales
     ) {
-        return ResponseEntity.ok(actividadService.findAll(unidadId).stream()
+        return ResponseEntity.ok(actividadService.findAll(unidadId, contenidoId, soloTransversales).stream()
                 .map(actividadMapper::toResponse)
                 .toList());
     }
@@ -52,7 +54,7 @@ public class ActividadController {
     public ResponseEntity<ActividadResponse> create(@Valid @RequestBody ActividadCreateRequest request) {
         Actividad actividad = actividadMapper.toEntity(request);
         ActividadResponse created = actividadMapper.toResponse(
-                actividadService.create(actividad, request.unidadId())
+                actividadService.create(actividad, request.unidadId(), request.contenidoId())
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -67,7 +69,12 @@ public class ActividadController {
             @Valid @RequestBody ActividadUpdateRequest request
     ) {
         Actividad cambios = actividadMapper.toEntity(request);
-        return ResponseEntity.ok(actividadMapper.toResponse(actividadService.update(id, cambios)));
+        return ResponseEntity.ok(actividadMapper.toResponse(actividadService.update(
+                id,
+                cambios,
+                request.contenidoId(),
+                Boolean.TRUE.equals(request.desasociarContenido())
+        )));
     }
 
     @DeleteMapping("/{id}")

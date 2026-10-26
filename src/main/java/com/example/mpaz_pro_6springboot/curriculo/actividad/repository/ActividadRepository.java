@@ -19,6 +19,10 @@ public interface ActividadRepository extends JpaRepository<Actividad, Long> {
 
     List<Actividad> findByUnidadIdOrderByOrdenAsc(Long unidadId);
 
+    List<Actividad> findByUnidadIdAndContenidoIdOrderByOrdenAsc(Long unidadId, Long contenidoId);
+
+    List<Actividad> findByUnidadIdAndContenidoIsNullOrderByOrdenAsc(Long unidadId);
+
     List<Actividad> findByUnidadIdAndTipo(Long unidadId, TipoActividad tipo);
 
     Optional<Actividad> findByUnidadIdAndTipoAndTitulo(Long unidadId, TipoActividad tipo, String titulo);
@@ -35,4 +39,6 @@ public interface ActividadRepository extends JpaRepository<Actividad, Long> {
     boolean existsByUnidadIdAndTipoAndIdNot(Long unidadId, TipoActividad tipo, Long id);
 
     boolean existsByUnidadId(Long unidadId);
+
+    long countByContenidoId(Long contenidoId);
 }

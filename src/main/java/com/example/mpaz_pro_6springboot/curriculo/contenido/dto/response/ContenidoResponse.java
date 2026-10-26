@@ -5,6 +5,7 @@ import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 public record ContenidoResponse(
         Long id,
         Long oaId,
+        Long unidadId,
         String titulo,
         String explicacion,
         String ejemplos,

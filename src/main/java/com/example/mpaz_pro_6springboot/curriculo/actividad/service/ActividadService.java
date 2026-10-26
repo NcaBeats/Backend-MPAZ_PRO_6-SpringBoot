@@ -3,6 +3,8 @@ package com.example.mpaz_pro_6springboot.curriculo.actividad.service;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.repository.ContenidoRepository;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.repository.PreguntaRepository;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
@@ -25,16 +27,41 @@ public class ActividadService {
 
     private final ActividadRepository actividadRepository;
     private final UnidadRepository unidadRepository;
+    private final ContenidoRepository contenidoRepository;
     private final PreguntaRepository preguntaRepository;
     private final AsignacionActividadRepository asignacionActividadRepository;
     private final IntentoRepository intentoRepository;
 
-    public List<Actividad> findAll(Long unidadId) {
+    /**
+     * Lista actividades. Con unidadId se puede acotar a un contenido puntual
+     * (para el agrupamiento por contenido) o a las transversales (sin
+     * contenido, como la prueba final).
+     */
+    public List<Actividad> findAll(Long unidadId, Long contenidoId, boolean soloTransversales) {
+        if (contenidoId != null && soloTransversales) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "No se puede filtrar por contenido y por actividades transversales a la vez"
+            );
+        }
         if (unidadId == null) {
+            if (contenidoId != null || soloTransversales) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "unidadId es obligatorio para filtrar por contenido"
+                );
+            }
             return actividadRepository.findAllByOrderByUnidadIdAscOrdenAscIdAsc();
         }
 
         getUnidad(unidadId);
+        if (contenidoId != null) {
+            getContenidoDeUnidad(unidadId, contenidoId);
+            return actividadRepository.findByUnidadIdAndContenidoIdOrderByOrdenAsc(unidadId, contenidoId);
+        }
+        if (soloTransversales) {
+            return actividadRepository.findByUnidadIdAndContenidoIsNullOrderByOrdenAsc(unidadId);
+        }
         return actividadRepository.findByUnidadIdOrderByOrdenAsc(unidadId);
     }
 
@@ -43,7 +70,7 @@ public class ActividadService {
     }
 
     @Transactional
-    public Actividad create(Actividad actividad, Long unidadId) {
+    public Actividad create(Actividad actividad, Long unidadId, Long contenidoId) {
         Unidad unidad = getUnidad(unidadId);
         if (actividad.getOrden() == null) {
             actividad.setOrden(ORDEN_PREDETERMINADO);
@@ -51,12 +78,19 @@ public class ActividadService {
         validateTituloUnico(unidadId, actividad.getTitulo(), null);
         validatePruebaFinalUnica(unidadId, actividad.getTipo(), null);
         actividad.setUnidad(unidad);
+        actividad.setContenido(contenidoId == null ? null : getContenidoDeUnidad(unidadId, contenidoId));
         return actividadRepository.save(actividad);
     }
 
     @Transactional
-    public Actividad update(Long id, Actividad cambios) {
-        if (isEmptyUpdate(cambios)) {
+    public Actividad update(Long id, Actividad cambios, Long contenidoId, boolean desasociarContenido) {
+        if (contenidoId != null && desasociarContenido) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "No se puede asignar y desasociar un contenido en la misma peticion"
+            );
+        }
+        if (isEmptyUpdate(cambios, contenidoId, desasociarContenido)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Debe proporcionar al menos un campo para actualizar"
@@ -76,6 +110,11 @@ public class ActividadService {
         if (cambios.getOrden() != null) {
             actividad.setOrden(cambios.getOrden());
         }
+        if (contenidoId != null) {
+            actividad.setContenido(getContenidoDeUnidad(unidadId, contenidoId));
+        } else if (desasociarContenido) {
+            actividad.setContenido(null);
+        }
         return actividadRepository.save(actividad);
     }
 
@@ -93,10 +132,12 @@ public class ActividadService {
         actividadRepository.delete(actividad);
     }
 
-    private boolean isEmptyUpdate(Actividad cambios) {
+    private boolean isEmptyUpdate(Actividad cambios, Long contenidoId, boolean desasociarContenido) {
         return cambios.getTitulo() == null
                 && cambios.getTipo() == null
-                && cambios.getOrden() == null;
+                && cambios.getOrden() == null
+                && contenidoId == null
+                && !desasociarContenido;
     }
 
     private void validateTituloUnico(Long unidadId, String titulo, Long excludedId) {
@@ -124,6 +165,26 @@ public class ActividadService {
                     "La unidad ya tiene una prueba final"
             );
         }
+    }
+
+    /**
+     * La FK compuesta (contenido_id, unidad_id) ya lo impide en la base; esta
+     * validacion existe para devolver 409 con mensaje en vez de un 500 de
+     * integridad.
+     */
+    private Contenido getContenidoDeUnidad(Long unidadId, Long contenidoId) {
+        Contenido contenido = contenidoRepository.findById(contenidoId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Contenido no encontrado"
+                ));
+        if (!contenido.getUnidad().getId().equals(unidadId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "El contenido no pertenece a la unidad de la actividad"
+            );
+        }
+        return contenido;
     }
 
     private Actividad getActividad(Long id) {

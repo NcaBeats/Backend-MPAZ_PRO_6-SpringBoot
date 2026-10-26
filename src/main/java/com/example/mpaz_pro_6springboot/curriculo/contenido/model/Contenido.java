@@ -3,6 +3,7 @@ package com.example.mpaz_pro_6springboot.curriculo.contenido.model;
 import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
+import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,6 +17,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -28,14 +30,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "contenido")
+@Table(name = "contenido", uniqueConstraints = {
+    // Soporta la FK compuesta de la seccion 4:
+    // actividad (contenido_id, unidad_id) -> contenido (id, unidad_id)
+    @UniqueConstraint(name = "uk_contenido_id_unidad", columnNames = {"id", "unidad_id"})
+})
 @Getter
 @Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"oa", "recursos"})
+@ToString(exclude = {"oa", "unidad", "recursos"})
 public class Contenido {
 
     @Id
@@ -47,6 +53,15 @@ public class Contenido {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "oa_id", nullable = false)
     private ObjetivoAprendizaje oa;
+
+    /**
+     * Copia deliberada de la unidad del OA (igual que pregunta.unidad_id).
+     * Sostiene la FK compuesta actividad (contenido_id, unidad_id) y la
+     * propia FK (oa_id, unidad_id): la base impide que se desincronicen.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unidad_id", nullable = false)
+    private Unidad unidad;
 
     @Column(name = "titulo", nullable = false, length = 200)
     private String titulo;

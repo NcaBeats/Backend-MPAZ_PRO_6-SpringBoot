@@ -3,6 +3,7 @@ package com.example.mpaz_pro_6springboot.curriculo.actividad.model;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import jakarta.persistence.CascadeType;
@@ -41,7 +42,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"unidad", "preguntas", "asignacionesActividad", "intentos"})
+@ToString(exclude = {"unidad", "contenido", "preguntas", "asignacionesActividad", "intentos"})
 public class Actividad {
 
     @Id
@@ -53,6 +54,16 @@ public class Actividad {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unidad_id", nullable = false)
     private Unidad unidad;
+
+    /**
+     * Contenido al que se asocia la actividad para agruparla. Es opcional:
+     * NULL significa actividad transversal de la unidad (por ejemplo la
+     * prueba final, que evalua todos sus OA). Cuando tiene valor, la FK
+     * compuesta (contenido_id, unidad_id) exige que sea de la misma unidad.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contenido_id")
+    private Contenido contenido;
 
     @Column(name = "titulo", nullable = false, length = 200)
     private String titulo;

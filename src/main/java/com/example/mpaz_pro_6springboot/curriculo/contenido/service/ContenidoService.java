@@ -2,6 +2,7 @@ package com.example.mpaz_pro_6springboot.curriculo.contenido.service;
 
 import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.repository.ContenidoRepository;
+import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repository.ObjetivoAprendizajeRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class ContenidoService {
 
     private final ContenidoRepository contenidoRepository;
     private final ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
+    private final ActividadRepository actividadRepository;
 
     public List<Contenido> findAll(Long oaId) {
         if (oaId == null) {
@@ -37,7 +39,10 @@ public class ContenidoService {
 
     @Transactional
     public Contenido create(Contenido contenido, Long oaId) {
-        contenido.setOa(getObjetivoAprendizaje(oaId));
+        ObjetivoAprendizaje oa = getObjetivoAprendizaje(oaId);
+        contenido.setOa(oa);
+        // La FK (oa_id, unidad_id) exige que coincida con la unidad del OA.
+        contenido.setUnidad(oa.getUnidad());
         if (contenido.getOrden() == null) {
             contenido.setOrden(ORDEN_PREDETERMINADO);
         }
@@ -77,7 +82,17 @@ public class ContenidoService {
 
     @Transactional
     public void delete(Long id) {
-        contenidoRepository.delete(getContenido(id));
+        Contenido contenido = getContenido(id);
+        // La FK compuesta actividad (contenido_id, unidad_id) es NO ACTION: no
+        // hay SET NULL posible, asi que el contenido en uso no se borra.
+        long actividades = actividadRepository.countByContenidoId(id);
+        if (actividades > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "No se puede eliminar un contenido que tiene " + actividades + " actividad(es) asociada(s)"
+            );
+        }
+        contenidoRepository.delete(contenido);
     }
 
     private boolean isEmptyUpdate(Contenido cambios) {

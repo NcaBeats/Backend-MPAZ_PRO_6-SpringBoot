@@ -11,6 +11,10 @@ public record ActividadCreateRequest(
         @NotNull
         Long unidadId,
 
+        // Opcional: NULL crea una actividad transversal de la unidad. Si viene,
+        // el Service exige que el contenido pertenezca a la misma unidad.
+        Long contenidoId,
+
         @NotBlank
         @Size(max = 200)
         String titulo,

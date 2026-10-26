@@ -64,7 +64,7 @@ La especificación adoptada como fuente autoritativa es `especificaciones/mpaz_p
 ### 4.2. Razones para adoptar el modelo definitivo
 
 - Las decisiones tomadas están documentadas para facilitar su comprensión.
-- 7 FK compuestas para ayudar a mantener la coherencia entre unidades.
+- 9 FK compuestas para ayudar a mantener la coherencia entre unidades.
 - CHECKs para estados, fechas, rangos y coherencia VALIDADO↔fecha_validacion.
 - Índice parcial para garantizar una sola PRUEBA_FINAL por unidad.
 - Diferenciación entre derivado (calculado) y congelado (snapshot del informe).
@@ -85,7 +85,7 @@ Este modelo responde a lo planteado en el caso de estudio. No se considera defin
 - Relaciones resueltas en Servicio vía getReferenceById
 - DTOs record con validación; entidades no expuestas
 - Flyway como fuente de verdad; ddl-auto: none (SQLite no valida tipos de forma fiable)
-- Datos de demo en Java (`DataInitializer`), no en una migración SQL
+- Datos de demo en `V2__pobladoTablas.sql` (migración Flyway versionada)
 
 ### 5.2. Estructura de paquetes
 
@@ -94,7 +94,7 @@ src/main/java/com/example/mpaz_pro_6springboot/
 ├── common/enums/
 ├── common/config/        (SqliteDirectoryInitializer, PasswordEncoderConfig)
 ├── common/security/      (CustomUserDetails, CustomUserDetailsService, SecurityConfig)
-├── common/seed/          (DataInitializer: datos de demo)
+├── common/seed/          (DataInitializer legacy, desactivado)
 ├── identidad/
 ├── curriculo/
 ├── docencia/
@@ -113,8 +113,9 @@ src/main/java/com/example/mpaz_pro_6springboot/
 
 ## 6. Modelo de datos
 
-- 17 tablas, 8 enums, 7 FK compuestas
+- 17 tablas, 8 enums, 9 FK compuestas
 - CHECKs + índice parcial + índices sobre FK
+- Actividad ligada a la unidad y, opcionalmente, a un contenido de esa unidad (transversal si `contenido_id` es nulo)
 - Informe consolidado por estudiante+unidad; snapshot congelado en detalle_informe_oa
 - Datos derivados calculados; reglas críticas delegadas a capa Servicio
 
@@ -184,10 +185,10 @@ Si aun asi la app no toma un cambio del `.env`: reinicia el proceso (las variabl
 
 ### 9.4. Base de datos SQLite
 
-No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con las 17 tablas y `DataInitializer` carga los datos de demo.
+No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con las 17 tablas y `V2__pobladoTablas.sql` carga los datos de demo.
 
 - Reiniciar los datos: detener la app, borrar `data/mpaz.db` (y sus `-journal`/`-wal`/`-shm`) y arrancar de nuevo.
-- Desactivar el seed: `mpaz.seed.enabled: false` en `application.yaml` (arranca con la base vacia).
+- Los datos de demo ahora son la migración `V2__pobladoTablas.sql`; el seed Java queda desactivado con `mpaz.seed.enabled: false`.
 - El directorio `data/` esta en `.gitignore`: no se versiona.
 
 ### 9.5. application.yaml
@@ -200,7 +201,7 @@ No hay que levantar nada: en el primer arranque Flyway crea `data/mpaz.db` con l
 .\mvnw.cmd clean spring-boot:run
 ```
 
-En el primer arranque se crea `data/mpaz.db` (Flyway aplica `V1__esquema.sql`) y `DataInitializer` carga los datos de demo. No hay pasos manuales ni contenedores.
+En el primer arranque se crea `data/mpaz.db` (Flyway aplica `V1__esquema.sql` y `V2__pobladoTablas.sql`). No hay pasos manuales ni contenedores.
 
 - Swagger: http://localhost:8080/swagger-ui.html
 - Autenticación: Basic Auth con los usuarios del seed (ver sección 14). Todas las rutas están públicas por ahora, pero la configuración ya sigue lógica de roles.
@@ -214,12 +215,13 @@ Ver estructura feature-based arriba. DTOs en dto/request y dto/response. Mappers
 
 ## 12. Migraciones Flyway
 
-- `V1__esquema.sql`: 17 tablas, CHECKs, 7 FK compuestas (inline: SQLite no permite `ALTER TABLE ... ADD CONSTRAINT`), índice parcial e índices, todo en dialecto SQLite.
-- No hay migración de seed: los datos de demo los carga `common/seed/DataInitializer.java` al arrancar.
+- `V1__esquema.sql`: 17 tablas, CHECKs, FK compuestas (inline: SQLite no permite `ALTER TABLE ... ADD CONSTRAINT`), índice parcial e índices, todo en dialecto SQLite.
+- `V2__pobladoTablas.sql`: datos de demo con ids explícitos e inserts en orden de FK; el seed Java `DataInitializer` queda desactivado.
+- `V3__actividad_contenido.sql`: agrega `actividad.contenido_id` (opcional) y `contenido.unidad_id` con sus dos FK compuestas. Reconstruye `contenido` y `actividad` (SQLite no admite `ADD CONSTRAINT`), por eso usa `PRAGMA foreign_keys=OFF/ON` y su propio `V3__actividad_contenido.sql.conf` con `executeInTransaction=false` (solo esa migración; V1 y V2 conservan su transacción).
 
-Política: no editar migraciones aplicadas; crear `V2__...` si corresponde. `ddl-auto: none`.
+Política: no editar migraciones aplicadas; crear la siguiente `V4__...` si corresponde. `ddl-auto: none`.
 
-Nota SQLite: los `id` son `INTEGER PRIMARY KEY` (autogenerados 1..N), `boolean` se guarda como 0/1 y `timestamp` como epoch en milisegundos (comportamiento por defecto de sqlite-jdbc). Ver el anexo "Motor SQLite" de la especificación.
+Nota SQLite: los `id` son `INTEGER PRIMARY KEY` (V2 fija ids explícitos 1..N; las filas nuevas siguen desde max(id)+1), `boolean` se guarda como 0/1 y `timestamp` como epoch en milisegundos (comportamiento por defecto de sqlite-jdbc). Ver el anexo "Motor SQLite" de la especificación.
 
 ## 13. Convenciones de desarrollo
 
@@ -240,18 +242,21 @@ Nota SQLite: los `id` son `INTEGER PRIMARY KEY` (autogenerados 1..N), `boolean` 
 | Javiera Muñoz | ESTUDIANTE | javiera | alu12345 |
 | Benjamín Ortiz | ESTUDIANTE | benjamin | alu12345 |
 
-Las contrasenas se guardan con BCrypt real generado en el arranque (no hay hashes fijos en el repositorio). El seed es idempotente: si ya existen usuarios, no se ejecuta.
+Las contrasenas se guardan con hashes BCrypt fijos en `V2__pobladoTablas.sql` para estos datos ficticios de demo. El seed Java (`DataInitializer`) queda desactivado.
 
 Contenido cargado: 1 curso (6A, 2026), 6 usuarios, 4 asignaturas, 4 unidades, 8 OA, 8 contenidos, 8 recursos, 12 actividades, 6 preguntas, 19 alternativas, 4 asignaciones (con prueba final habilitada), 8 `asignacion_oa`, 12 `asignacion_actividad`, 4 intentos (Camila con 2, el segundo completado; Mateo 1; Javiera en progreso; Benjamín sin intentos), 12 respuestas y 1 informe de Camila con 2 detalles (OA 1: 2/3, OA 2: 1/3).
+
+De las 12 actividades, la `ACTIVIDAD` y el `DESAFIO` de cada unidad quedan ligados a un contenido de esa unidad y las 4 `PRUEBA_FINAL` quedan transversales (`contenido_id` nulo), para mostrar ambos casos.
 
 El snapshot del informe coincide con el recalculo del ultimo intento completado, y `es_correcta` coincide con la alternativa elegida.
 
 ## 15. Pruebas
 
-`.\mvnw.cmd test` (10 tests) usa SQLite en memoria: no requiere servicios externos.
+`.\mvnw.cmd test` (26 tests) usa SQLite en memoria: no requiere servicios externos.
 
 - `contextLoads`: el contexto arranca con Flyway + JPA.
-- `DataInitializerTest`: conteos del seed, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial de la prueba final, FK compuestas y coherencia del snapshot del informe con el recálculo.
+- `DataInitializerTest`: conteos del seed SQL, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial de la prueba final, FK compuestas y coherencia del snapshot del informe con el recálculo.
+- `ActividadContenidoTest`: actividad transversal, agrupación por contenido, rechazo de contenido de otra unidad (Service y FK compuesta) y borrado de contenido en uso.
 - `SqliteDirectoryInitializerTest`: creación del directorio del archivo SQLite y omisión para bases en memoria.
 
 ## 16. Flujo de trabajo con Git
@@ -266,7 +271,7 @@ Commits atómicos, mensajes claros. No editar migraciones ya aplicadas.
 | Quiero reiniciar los datos | Detener la app y borrar `data/mpaz.db` (y `-journal`/`-wal`/`-shm`) |
 | `database is locked` | Dejar el pool en 1 conexion y no abrir el archivo con otro programa mientras corre la app |
 | Las FK no se validan | Verificar `foreign_keys=on` en la URL JDBC (es por conexion) |
-| Flyway falla al migrar | Revisar `V1__esquema.sql`; si el archivo quedo a medias, borrar `data/mpaz.db` |
+| Flyway falla al migrar | Revisar `V1__esquema.sql` y `V2__pobladoTablas.sql`; si el archivo quedo a medias, borrar `data/mpaz.db` |
 | MapStruct no genera | Verificar annotation processors; mvn compile |
 | FK compuesta falla | Asegurar unidad_id presente al persistir y que coincida con la de la entidad referenciada |
 
@@ -319,7 +324,7 @@ curl -u docente:doc12345 http://localhost:8080/actuator/health
 curl -u camila:alu12345 http://localhost:8080/actuator/health
 ```
 
-Las credenciales válidas son las del **DataInitializer** (ver sección 14). Tras la primera autenticación con Basic Auth, la sesión HTTP puede mantenerse para peticiones posteriores.
+Las credenciales válidas son las de **V2__pobladoTablas.sql** (ver sección 14). Tras la primera autenticación con Basic Auth, la sesión HTTP puede mantenerse para peticiones posteriores.
 
 ## 22. Rutas expuestas
 
@@ -343,3 +348,15 @@ La configuración está preparada para aplicar reglas como las siguientes en `Se
 ``` 
 
 A medida que se añadan controladores con prefijos por rol, se actualizarán estas reglas sin cambiar la lógica de autenticación.
+
+### 22.3. Actividades por unidad y por contenido
+
+`GET /api/actividades` acepta tres filtros combinables:
+
+| Parámetro | Uso |
+|---|---|
+| `unidadId` | Todas las actividades de la unidad (obligatorio si se usan los otros dos) |
+| `contenidoId` | Solo las actividades ligadas a ese contenido (el contenido debe ser de la unidad: 409 si no) |
+| `soloTransversales=true` | Solo las actividades sin contenido, como la `PRUEBA_FINAL` |
+
+`contenidoId` y `soloTransversales` son excluyentes (400). La respuesta incluye `contenidoId` (nulo = transversal). Para asignar o quitar el contenido, `POST /api/actividades` acepta `contenidoId` y `PUT /api/actividades/{id}` acepta `contenidoId` o `desasociarContenido: true`, porque `null` significa "no cambiar".

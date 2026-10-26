@@ -20,16 +20,19 @@ public interface ContenidoMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "oa", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
     @Mapping(target = "recursos", ignore = true)
     Contenido toEntity(ContenidoCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "oa", ignore = true)
+    @Mapping(target = "unidad", ignore = true)
     @Mapping(target = "recursos", ignore = true)
     Contenido toEntity(ContenidoUpdateRequest request);
 
     void updateEntity(ContenidoUpdateRequest request, @MappingTarget Contenido entity);
 
     @Mapping(target = "oaId", source = "oa.id")
+    @Mapping(target = "unidadId", source = "unidad.id")
     ContenidoResponse toResponse(Contenido entity);
 }

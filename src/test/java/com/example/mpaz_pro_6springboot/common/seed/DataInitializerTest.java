@@ -43,8 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifica que el esquema SQLite + el DataInitializer dejen los datos de demo
- * consistentes, incluidas las garantias que aporta la base (FK simples y
+ * Verifica que el esquema SQLite + V2__pobladoTablas.sql dejen los datos de
+ * demo consistentes, incluidas las garantias que aporta la base (FK simples y
  * compuestas, CHECK e indice parcial) y el snapshot del informe.
  */
 @SpringBootTest

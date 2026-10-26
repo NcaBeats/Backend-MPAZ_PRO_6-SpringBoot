@@ -60,9 +60,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Carga los datos de demo (especificaciones/mpaz_pro_modelo_definitivo.md,
- * seccion 11) la primera vez que arranca la aplicacion, para que el proyecto
- * quede listo para consultar sin pasos manuales.
+ * LEGACY: los datos de demo ahora los carga Flyway en
+ * db/migration/V2__pobladoTablas.sql. Esta clase queda como referencia y
+ * esta desactivada con mpaz.seed.enabled=false.
  *
  * - Idempotente: si ya hay usuarios, no hace nada.
  * - Se puede desactivar con mpaz.seed.enabled=false.
@@ -339,6 +339,8 @@ public class DataInitializer implements ApplicationRunner {
                                 String ejemplos, String instrucciones) {
         return Contenido.builder()
                 .oa(oa)
+                // Copia de la unidad del OA: la FK (oa_id, unidad_id) la exige.
+                .unidad(oa.getUnidad())
                 .titulo(titulo)
                 .explicacion(explicacion)
                 .ejemplos(ejemplos)

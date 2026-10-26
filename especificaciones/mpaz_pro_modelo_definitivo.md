@@ -1,6 +1,6 @@
 # MPAZ PRO 6° · Modelo de datos definitivo
 
-**17 tablas · 8 enums · 7 FK compuestas.** Base: SQLite (archivo local; ver anexo "Motor SQLite"). Datos 100% ficticios. Sin email (el caso no lo pide y prohíbe correos reales).
+**17 tablas · 8 enums · 9 FK compuestas.** Base: SQLite (archivo local; ver anexo "Motor SQLite"). Datos 100% ficticios. Sin email (el caso no lo pide y prohíbe correos reales).
 
 **Leyenda:** `PK` clave primaria · `FK` clave foránea · `NN` no nulo · `U` único · `?` admite nulo.
 Todos los `id` son autogenerados. En SQLite se declaran `INTEGER PRIMARY KEY` (equivale al `bigint` identity del modelo); ver anexo.
@@ -25,6 +25,7 @@ Todos los `id` son autogenerados. En SQLite se declaran `INTEGER PRIMARY KEY` (e
 | 10 | `nivel_educativo` | Texto en `unidad`, por defecto "Sexto Basico" | |
 | 11 | Pruebas finales | **Una por unidad** (índice único parcial) | Quitar el índice si se necesitan varias |
 | 12 | Unidades | El límite de **una unidad por asignatura** es de alcance del MVP: se cumple con el seed, no con la estructura | Cargar más unidades sin cambiar nada |
+| 13 | Actividad y contenido | La actividad cuelga de la **unidad** y opcionalmente de un **contenido de esa unidad**: agrupa actividades por contenido y deja las transversales (`contenido_id` nulo, como la prueba final) | Quitar `actividad.contenido_id` y `contenido.unidad_id`; la actividad vuelve a depender solo de la unidad |
 
 ### Qué se recortó respecto a modelos anteriores
 
@@ -117,13 +118,16 @@ estado varchar NOT NULL DEFAULT 'BORRADOR'
 | Columna | Tipo | Restricciones |
 |---|---|---|
 | id | bigint | PK |
-| oa_id | bigint | NN, FK → objetivo_aprendizaje.id (la unidad se deduce por el OA) |
+| oa_id | bigint | NN, FK → objetivo_aprendizaje.id (la unidad del OA manda) |
+| unidad_id | bigint | NN, FK → unidad.id (**copia deliberada** de la unidad del OA, igual que `pregunta.unidad_id`) |
 | titulo | varchar | NN |
 | explicacion | text | NN |
 | ejemplos | text | ? |
 | instrucciones | text | ? |
 | orden | int | NN, default 1 |
 | origen | varchar | NN, enum `origen_material` |
+
+Únicos: `(id, unidad_id)` (sostiene la FK compuesta de `actividad`) y la FK `(oa_id, unidad_id)` → OA `(id, unidad_id)`, que impide que la unidad copiada contradiga a la del OA.
 
 **recurso_contenido**
 | Columna | Tipo | Restricciones |
@@ -140,11 +144,12 @@ estado varchar NOT NULL DEFAULT 'BORRADOR'
 |---|---|---|
 | id | bigint | PK |
 | unidad_id | bigint | NN, FK → unidad.id |
+| contenido_id | bigint | ? FK → contenido.id. **NULL = actividad transversal de la unidad** (por ejemplo la prueba final, que evalúa todos sus OA) |
 | titulo | varchar | NN |
 | tipo | varchar | NN, enum `tipo_actividad` |
 | orden | int | NN, default 1 |
 
-Único: `(id, unidad_id)`.
+Único: `(id, unidad_id)`. Si hay `contenido_id`, la FK compuesta `(contenido_id, unidad_id) → contenido (id, unidad_id)` exige que sea de la misma unidad; con `contenido_id` nulo la FK no se evalúa (MATCH SIMPLE) y la actividad queda transversal.
 
 **pregunta**
 | Columna | Tipo | Restricciones |
@@ -252,12 +257,14 @@ estado varchar NOT NULL DEFAULT 'BORRADOR'
 
 ---
 
-## 4. FK compuestas (7)
+## 4. FK compuestas (9)
 
 Cada una exige que la columna referenciada tenga el **único compuesto** indicado en su tabla.
 
 | Tabla y columnas | Referencia | Qué impide |
 |---|---|---|
+| contenido `(oa_id, unidad_id)` | objetivo_aprendizaje `(id, unidad_id)` | Contenido cuya unidad copiada no es la de su OA |
+| actividad `(contenido_id, unidad_id)` | contenido `(id, unidad_id)` | Actividad ligada a un contenido de otra unidad |
 | pregunta `(actividad_id, unidad_id)` | actividad `(id, unidad_id)` | Pregunta con unidad distinta a la de su actividad |
 | pregunta `(oa_id, unidad_id)` | objetivo_aprendizaje `(id, unidad_id)` | Pregunta con OA de otra unidad |
 | asignacion_oa `(asignacion_id, unidad_id)` | asignacion `(id, unidad_id)` | OA asignado en otra unidad |
@@ -306,7 +313,7 @@ CREATE UNIQUE INDEX ON actividad (unidad_id) WHERE tipo = 'PRUEBA_FINAL';
 
 PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 
-`actividad(unidad_id)` · `contenido(oa_id)` · `pregunta(actividad_id)` · `pregunta(oa_id)` · `respuesta_estudiante(pregunta_id)` · `informe_pedagogico(estudiante_id, unidad_id)`
+`actividad(unidad_id)` · `actividad(contenido_id)` · `contenido(oa_id)` · `pregunta(actividad_id)` · `pregunta(oa_id)` · `respuesta_estudiante(pregunta_id)` · `informe_pedagogico(estudiante_id, unidad_id)`
 
 ---
 
@@ -335,6 +342,7 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 | Explicaciones, ejemplos, instrucciones y origen | `contenido` |
 | Imágenes (varias), audio y su origen | `recurso_contenido` |
 | Actividades, desafíos y prueba final | `actividad.tipo` |
+| Agrupar actividades por contenido (o dejarlas transversales) | `actividad.contenido_id` |
 | Pregunta, alternativas, correcta o criterio, dificultad, OA | `pregunta`, `alternativa` |
 | Docente selecciona OA | `asignacion_oa` |
 | Docente asigna desafíos | `asignacion_actividad` |
@@ -354,11 +362,12 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 1. `curso`, `asignatura`
 2. `usuario`
 3. `unidad`
-4. `objetivo_aprendizaje`, `actividad`
-5. `contenido`, `recurso_contenido`, `pregunta`, `alternativa`
-6. `asignacion`, `asignacion_oa`, `asignacion_actividad`
-7. `intento`, `respuesta_estudiante`
-8. `informe_pedagogico`, `detalle_informe_oa`
+4. `objetivo_aprendizaje`
+5. `contenido`, `recurso_contenido`
+6. `actividad` (necesita la unidad y, si aplica, el contenido), `pregunta`, `alternativa`
+7. `asignacion`, `asignacion_oa`, `asignacion_actividad`
+8. `intento`, `respuesta_estudiante`
+9. `informe_pedagogico`, `detalle_informe_oa`
 
 ---
 
@@ -370,7 +379,7 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 | Unidades | 1 por asignatura, en estado `AUTORIZADO` o `PUBLICADO` con autor UTP y fecha |
 | OA por unidad | 2 a 3 (con código oficial cuando corresponda) |
 | Contenidos por OA | 1 a 2, con `origen` declarado |
-| Actividades por unidad | 1 actividad, 1 desafío y 1 prueba final |
+| Actividades por unidad | 1 actividad, 1 desafío y 1 prueba final; actividad y desafío ligados a un contenido de la unidad, prueba final transversal (`contenido_id` nulo) |
 | Preguntas | 4 a 6 en la prueba final, **varias por OA** para que el informe tenga sentido |
 | Usuarios | 1 UTP, 1 docente, 3 a 5 estudiantes (nombres y credenciales ficticios) |
 | Curso | 1 (ficticio) |
@@ -385,7 +394,7 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 ## 12. Notas si el proyecto usa backend Spring Boot + Java
 
 - Java 17 o superior (Spring Boot 3).
-- El esquema es la **fuente de verdad** (Flyway, `V1__esquema.sql`); `ddl-auto: none` con SQLite (validar tipos no es fiable), nunca `update`. Una migración ya ejecutada no se edita: se agrega una nueva. Los datos de demo los carga un inicializador Java (`common/seed/DataInitializer.java`), no una migración (ver anexo "Motor SQLite").
+- El esquema es la **fuente de verdad** (Flyway, `V1__esquema.sql`); `ddl-auto: none` con SQLite (validar tipos no es fiable), nunca `update`. Una migración ya ejecutada no se edita: se agrega una nueva. Los datos de demo los carga la migración `V2__pobladoTablas.sql`; el inicializador Java (`common/seed/DataInitializer.java`) queda desactivado (ver anexo "Motor SQLite").
 - Enums: `enum` de Java + `@Enumerated(EnumType.STRING)`, nunca `ORDINAL`.
 - Entidades: clases normales (no `record`) y sin `@Data` de Lombok. DTO: `record`.
 - **Controller:** capa de comunicación HTTP. Recibe y valida DTOs de solicitud, usa el Mapper para convertir entre DTOs y entidades, invoca el Service y transforma el resultado con el Mapper a DTOs de respuesta. No contiene reglas de negocio ni accede directamente al Repository.
@@ -394,7 +403,7 @@ PostgreSQL y SQLite **no** indexan automáticamente las claves foráneas:
 - **Repository:** capa de persistencia. Expone consultas y operaciones de almacenamiento; no implementa reglas propias de los casos de uso.
 - Los Services o Controllers existentes que todavía no respeten esta división deben alinearse con ella al modificarse.
 - `asignacion_oa` y `asignacion_actividad` tienen clave compuesta: `@EmbeddedId` (clase `@Embeddable` que implementa `Serializable` con `equals` y `hashCode`).
-- Las FK compuestas y los `CHECK` viven en la migración SQL. Las entidades deben llenar siempre `unidad_id` en `pregunta`, `asignacion_oa` y `asignacion_actividad`, o la base rechaza el guardado.
+- Las FK compuestas y los `CHECK` viven en la migración SQL. Las entidades deben llenar siempre `unidad_id` en `contenido`, `pregunta`, `asignacion_oa` y `asignacion_actividad`, o la base rechaza el guardado.
 - Autenticación propia con Spring Security: BCrypt para `password_hash` y JWT con el rol. Autorizar **por rol y por dueño** (un estudiante solo ve sus datos).
 
 ---
@@ -406,7 +415,7 @@ Construye **un flujo completo con una asignatura** antes de ampliar a las otras 
 | Fase | Entregable | Listo cuando |
 |---|---|---|
 | 1 | `V1__esquema.sql` | Se ejecuta en SQLite sin errores y rechaza datos inválidos |
-| 2 | `DataInitializer` con una unidad completa | Puedes consultar un informe con datos |
+| 2 | `V2__pobladoTablas.sql` con una unidad completa | Puedes consultar un informe con datos |
 | 3 | Lógica de negocio: las reglas de la sección 8 y la generación del informe | Cada regla tiene una implementación |
 | 4 | Pruebas de las reglas críticas | Hay tests para el límite de intentos, el acceso por rol y el cálculo del informe |
 | 5 | Un flujo completo de punta a punta: login → contenido → prueba → resultado → informe del docente | Funciona con una asignatura |
@@ -423,13 +432,13 @@ Construye **un flujo completo con una asignatura** antes de ampliar a las otras 
 
 ## Anexo. Motor SQLite
 
-La implementación usa **SQLite** como único motor: la base es el archivo `data/mpaz.db` y no requiere servidor ni contenedores. El modelo no cambia (17 tablas, 8 enums, 7 FK compuestas, CHECK e índice parcial); cambia la forma de expresarlo en SQL.
+La implementación usa **SQLite** como único motor: la base es el archivo `data/mpaz.db` y no requiere servidor ni contenedores. El modelo no cambia (17 tablas, 8 enums, 9 FK compuestas, CHECK e índice parcial); cambia la forma de expresarlo en SQL.
 
 ### A.1. Equivalencia de tipos
 
 | Concepto | PostgreSQL | SQLite | Observación |
 |---|---|---|---|
-| `id` | `bigint GENERATED BY DEFAULT AS IDENTITY` | `INTEGER PRIMARY KEY` | Rowid de 64 bits autogenerado (`1..N`). El inicializador no fija ids. |
+| `id` | `bigint GENERATED BY DEFAULT AS IDENTITY` | `INTEGER PRIMARY KEY` | Rowid de 64 bits autogenerado (`1..N`). `V2__pobladoTablas.sql` fija ids explícitos; las filas nuevas siguen desde `max(id)+1`. |
 | Texto con largo | `varchar(n)` | `varchar(n)` | SQLite aplica afinidad TEXT pero **no** el largo: el control real es Bean Validation + CHECK. |
 | Texto libre | `text` | `text` | Igual. |
 | Booleano | `boolean` | `boolean` | Se guarda como `0/1` (afinidad NUMERIC); Hibernate lo mapea igual. |
@@ -439,8 +448,8 @@ La implementación usa **SQLite** como único motor: la base es el archivo `data
 
 ### A.2. Claves y restricciones
 
-- **FK compuestas inline.** SQLite no soporta `ALTER TABLE ... ADD CONSTRAINT`, así que las 7 FK compuestas de la sección 4 se declaran dentro del `CREATE TABLE`, después de las FK simples. Si una migración futura necesita una FK compuesta nueva, hay que reconstruir la tabla (crear nueva, copiar, borrar, renombrar).
-- **UNIQUE que sostiene las FK compuestas.** El destino debe declarar `UNIQUE (id, unidad_id)` en `objetivo_aprendizaje` y `actividad`, y `UNIQUE (pregunta_id, id)` en `alternativa`. Sin esos índices, la FK compuesta no se puede declarar.
+- **FK compuestas inline.** SQLite no soporta `ALTER TABLE ... ADD CONSTRAINT`, así que las 9 FK compuestas de la sección 4 se declaran dentro del `CREATE TABLE`, después de las FK simples. Si una migración futura necesita una FK compuesta nueva, hay que reconstruir la tabla (crear nueva, copiar, borrar, renombrar) con `PRAGMA foreign_keys=OFF`; como ese pragma se ignora dentro de una transacción, esa migración se acompaña de un `.conf` con `executeInTransaction=false` y reactiva el pragma al final (ver `V3__actividad_contenido.sql` y `V3__actividad_contenido.sql.conf`).
+- **UNIQUE que sostiene las FK compuestas.** El destino debe declarar `UNIQUE (id, unidad_id)` en `objetivo_aprendizaje`, `contenido` y `actividad`, y `UNIQUE (pregunta_id, id)` en `alternativa`. Sin esos índices, la FK compuesta no se puede declarar.
 - **`PRAGMA foreign_keys=on` por conexión.** SQLite ignora las FK por defecto. La URL JDBC lo activa (`?foreign_keys=on`) y `DataInitializerTest` verifica el pragma. Sin ese flag no se validan ni las FK simples ni las compuestas.
 - **PK compuestas.** `PRIMARY KEY (asignacion_id, oa_id)` y `PRIMARY KEY (asignacion_id, actividad_id)`, equivalentes a `@EmbeddedId` (`AsignacionOaId`, `AsignacionActividadId`).
 - **CHECK e índice parcial.** Se mantienen tal cual. El índice único parcial `... WHERE tipo = 'PRUEBA_FINAL'` sigue garantizando una sola prueba final por unidad.
@@ -452,13 +461,13 @@ La implementación usa **SQLite** como único motor: la base es el archivo `data
 - Dialecto: `org.hibernate.community.dialect.SQLiteDialect` (artefacto `hibernate-community-dialects`, versión `${hibernate.version}`; no lo gestiona el BOM de Spring Boot).
 - Pool de Hikari en **1 conexión**: SQLite admite un solo escritor. Los tests lo necesitan además para que Flyway y Hibernate compartan la misma base en memoria.
 - `spring.jpa.hibernate.ddl-auto: none` (no `validate`): con tipado dinámico, `validate` produce falsos negativos.
-- Flyway mantiene una sola migración, `V1__esquema.sql`. No hay migración de seed.
+- Flyway mantiene tres migraciones: `V1__esquema.sql` (esquema), `V2__pobladoTablas.sql` (datos de demo) y `V3__actividad_contenido.sql` (actividad ↔ contenido opcional, con reconstrucción de `contenido` y `actividad`).
 
 ### A.4. Datos de demo
 
-- `common/seed/DataInitializer.java` implementa la sección 11 y es **idempotente**: si hay usuarios, no hace nada. Se desactiva con `mpaz.seed.enabled=false`.
-- Inserta con repositorios porque representa un estado ya consolidado: intentos completados y el snapshot del informe no deben recalcularse al arrancar.
-- Las contraseñas se hashean con BCrypt en cada arranque (no hay hashes fijos en el repositorio).
+- `V2__pobladoTablas.sql` implementa la sección 11 con ids explícitos e inserts en orden de FK.
+- Representa un estado ya consolidado: intentos completados y el snapshot del informe no deben recalcularse al arrancar.
+- Las contraseñas de demo usan hashes BCrypt fijos en la migración. `common/seed/DataInitializer.java` queda como referencia legacy y desactivado con `mpaz.seed.enabled=false`.
 - `es_correcta` se deriva de la alternativa elegida, y `detalle_informe_oa` coincide con el recálculo del último intento completado por actividad (verificado por test).
 
 ### A.5. Límites conocidos
@@ -471,4 +480,4 @@ La implementación usa **SQLite** como único motor: la base es el archivo `data
 
 ### A.6. Verificación
 
-`.\mvnw.cmd test` cubre el esquema y los datos sobre SQLite en memoria: conteos del seed, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial (segunda prueba final rechazada), FK compuesta (pregunta con unidad cruzada rechazada) y coherencia del snapshot del informe con el recálculo.
+`.\mvnw.cmd test` cubre el esquema y los datos sobre SQLite en memoria: conteos del seed, contraseñas verificables, `PRAGMA foreign_keys`, round-trip de `Instant`, índice parcial (segunda prueba final rechazada), FK compuesta (pregunta con unidad cruzada rechazada) y coherencia del snapshot del informe con el recálculo. `ActividadContenidoTest` agrega la asociación opcional actividad ↔ contenido: actividad transversal, agrupación por contenido, rechazo de un contenido de otra unidad (Service 409 y FK compuesta) y borrado de contenido en uso (409).
