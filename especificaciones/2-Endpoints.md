@@ -23,37 +23,48 @@ Esta separación es la convención arquitectónica del backend. Los endpoints do
 
 Ruta base: `/api/auth`
 
-La autenticación usa **HTTP Basic** (`Authorization: Basic ...`) y no guarda estado en el servidor. No hay JWT ni sesiones HTTP.
+La autenticación usa **JWT stateless** (`Authorization: Bearer <token>`). El login recibe las credenciales en JSON y devuelve un token HS256; el servidor no crea sesión HTTP.
 
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
-| POST | `/api/auth/login` | Valida usuario y contraseña recibidos por Basic y devuelve el usuario autenticado. | `200 OK`, `UsuarioResponse` |
+| POST | `/api/auth/login` | Valida usuario y contraseña y emite un JWT. | `200 OK`, `LoginResponse` |
 | GET | `/api/auth/me` | Devuelve el usuario autenticado en la solicitud actual. | `200 OK`, `UsuarioResponse` |
+| POST | `/api/auth/logout` | Cierra la sesión lógica del cliente. El token es stateless. | `204 No Content` |
 | POST | `/api/auth/register` | Registra un usuario. Solo puede invocarlo un usuario con rol `UTP`. | `201 Created`, `UsuarioResponse` y `Location` |
 
 ### Login
 
-`POST /api/auth/login` no recibe cuerpo: las credenciales viajan en el header `Authorization: Basic {base64(username:password)}`. Sin credenciales o con credenciales inválidas devuelve `401 Unauthorized`.
-
-```bash
-curl -i -u camila:alu12345 -X POST http://localhost:8080/api/auth/login
-```
+`POST /api/auth/login` recibe:
 
 ```json
 {
-  "id": 3,
-  "nombre": "Camila Rivas",
   "username": "camila",
-  "rol": "ESTUDIANTE",
-  "cursoId": 1
+  "password": "alu12345"
 }
 ```
 
-`GET /api/auth/me` devuelve el mismo `UsuarioResponse` y requiere autenticación. No existe endpoint de logout: el cliente deja de enviar las credenciales.
+y devuelve:
+
+```json
+{
+  "token": "eyJ...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "usuario": {
+    "id": 3,
+    "nombre": "Camila Rivas",
+    "username": "camila",
+    "rol": "ESTUDIANTE",
+    "cursoId": 1
+  }
+}
+```
+
+Las solicitudes autenticadas envían `Authorization: Bearer <token>`. `GET /api/auth/me` devuelve el `UsuarioResponse` del token. `POST /api/auth/logout` devuelve `204`; el cliente descarta el token.
 
 ### Registro
 
-`POST /api/auth/register` requiere `Authorization: Basic` de un usuario `UTP`. El cuerpo es el mismo de `POST /api/usuarios`:
+`POST /api/auth/register` requiere un token `Bearer` de un usuario `UTP`. El cuerpo es el mismo de `POST /api/usuarios`:
 
 ```json
 {
@@ -75,12 +86,14 @@ El catálogo curricular (asignaturas, cursos, unidades, objetivos de aprendizaje
 
 | Ruta | Lectura | Escritura |
 |---|---|---|
-| `POST /api/auth/login` | Público (Basic) | — |
+| `POST /api/auth/login` | Público (JSON) | — |
 | `GET /api/auth/me` | Autenticado | — |
+| `POST /api/auth/logout` | Autenticado | — |
 | `POST /api/auth/register` | — | `ROLE_UTP` |
-| `/api/usuarios/**` | `ROLE_UTP` | `ROLE_UTP` |
+| `/api/usuarios/**` | `ROLE_UTP`; `/api/usuarios/{id}/cursos` autenticado | `ROLE_UTP` |
 | Catálogo curricular | Autenticado | `ROLE_UTP` |
-| `/api/asignaciones/**` | Autenticado | `ROLE_DOCENTE` / `ROLE_UTP` |
+| `/api/docencias/**` | Autenticado; docente solo las suyas | `ROLE_UTP` |
+| `/api/asignaciones/**` | Autenticado | `ROLE_DOCENTE` |
 | `/api/intentos/**` | Autenticado; estudiante solo los suyos | `ROLE_ESTUDIANTE` dueño |
 | `/api/intentos/{id}/respuestas` | Autenticado; estudiante solo las suyas | `ROLE_ESTUDIANTE` dueño |
 | `/api/informes-pedagogicos/**` | Autenticado; estudiante solo los suyos | `ROLE_DOCENTE` / `ROLE_UTP` |
@@ -161,6 +174,22 @@ Solicitud de creación:
 ```
 
 El nombre es obligatorio y admite hasta 50 caracteres. El año es obligatorio y debe estar entre 2000 y 2100; el filtro `anio` usa el mismo rango. Los pares nombre-año duplicados devuelven `409 Conflict`. Eliminar un curso con estudiantes o asignaciones asociadas devuelve `409 Conflict`.
+
+## Docencias
+
+Ruta base: `/api/docencias`
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| GET | `/api/docencias` | Docente ve sus docencias; UTP ve todas. | `200 OK`, lista de `DocenciaResponse` |
+| GET | `/api/docencias/{id}` | Detalle de una docencia. | `200 OK`, `DocenciaResponse` |
+| POST | `/api/docencias` | Crea una docencia curso-asignatura. Solo UTP. | `201 Created`, `DocenciaResponse` y `Location` |
+| PUT | `/api/docencias/{id}` | Cambia el docente de una docencia existente. Solo UTP. | `200 OK`, `DocenciaResponse` |
+| DELETE | `/api/docencias/{id}` | Elimina una docencia sin asignaciones asociadas. Solo UTP. | `204 No Content` |
+
+Una docencia relaciona un docente con un curso y una asignatura. El par `(cursoId, asignaturaId)` es único: en un curso y asignatura solo puede haber un docente. Un docente puede tener varias docencias.
+
+Si la docencia tiene asignaciones asociadas, `DELETE` devuelve `409 Conflict`.
 
 ## Unidades
 
@@ -415,15 +444,15 @@ Un estudiante que consulta el informe de otro estudiante recibe `403 Forbidden`,
 
 ## Asignaciones
 
-Acceso: lectura autenticada; escritura solo `ROLE_DOCENTE` / `ROLE_UTP`. Las rutas anidadas de OA (`/api/asignaciones/{id}/objetivos-aprendizaje`) y actividades (`/api/asignaciones/{id}/actividades`) siguen la misma regla.
+Acceso: lectura autenticada; escritura solo `ROLE_DOCENTE`. Las rutas anidadas de OA (`/api/asignaciones/{id}/objetivos-aprendizaje`) y actividades (`/api/asignaciones/{id}/actividades`) siguen la misma regla.
 
 Ruta base: `/api/asignaciones`
 
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
-| GET | `/api/asignaciones` | Lista asignaciones ordenadas por ID; acepta los filtros opcionales combinables `?cursoId={id}`, `?unidadId={id}` y `?docenteId={id}`. | `200 OK`, lista de `AsignacionResponse` |
+| GET | `/api/asignaciones` | Lista asignaciones ordenadas por ID; acepta los filtros opcionales combinables `?cursoId={id}` y `?unidadId={id}`. | `200 OK`, lista de `AsignacionResponse` |
 | GET | `/api/asignaciones/{id}` | Obtiene una asignación por ID. | `200 OK`, `AsignacionResponse` |
-| POST | `/api/asignaciones` | Crea la asignación de una unidad a un curso, con su docente. | `201 Created`, `AsignacionResponse` y encabezado `Location` |
+| POST | `/api/asignaciones` | Crea la asignación de una unidad existente a un curso del docente autenticado. | `201 Created`, `AsignacionResponse` y encabezado `Location` |
 | PUT | `/api/asignaciones/{id}` | Actualiza `maxIntentos`, `pruebaFinalHabilitada`, `fecha` o una combinación no vacía de ellos. | `200 OK`, `AsignacionResponse` |
 | DELETE | `/api/asignaciones/{id}` | Elimina una asignación sin objetivos, actividades ni intentos asociados. | `204 No Content` |
 
@@ -433,22 +462,21 @@ Solicitud de creación:
 {
   "cursoId": 1,
   "unidadId": 1,
-  "docenteId": 2,
   "maxIntentos": 2,
   "pruebaFinalHabilitada": true,
   "fecha": "2026-04-06T08:00:00Z"
 }
 ```
 
-`cursoId`, `unidadId`, `docenteId` y `fecha` son obligatorios. `maxIntentos` y `pruebaFinalHabilitada` son opcionales: si se omite `maxIntentos` el Service aplica `1`, y si se omite `pruebaFinalHabilitada` queda `false`. La disponibilidad de la prueba final depende de `pruebaFinalHabilitada`, y `maxIntentos` es el límite de intentos de la `PRUEBA_FINAL` (nulo = sin límite).
+`cursoId`, `unidadId` y `fecha` son obligatorios. El docente se deriva de `docente_curso_asignatura` usando el curso y la asignatura de la unidad; no se envía `docenteId`. Si el docente autenticado no tiene docencia en ese curso/asignatura, devuelve `403 Forbidden`. `maxIntentos` y `pruebaFinalHabilitada` son opcionales: si se omite `maxIntentos` el Service aplica `1`, y si se omite `pruebaFinalHabilitada` queda `false`.
 
-Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si el docente no tiene rol `DOCENTE` se devuelve `400 Bad Request` (regla 2). Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente devuelve `404 Not Found`. Eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso devuelve `409 Conflict`. Los filtros `cursoId`, `unidadId` y `docenteId` deben ser positivos.
+Crear una segunda asignación para el mismo curso y unidad devuelve `409 Conflict` (único `curso_id, unidad_id`). La actualización acepta cualquier combinación no vacía de `maxIntentos`, `pruebaFinalHabilitada` y `fecha`, aplicando solo los valores enviados; una asignación inexistente devuelve `404 Not Found`. Eliminar una asignación con filas en `asignacion_oa`, `asignacion_actividad` o con intentos de actividades de su unidad y curso devuelve `409 Conflict`.
 
 ## Usuarios
 
 Ruta base: `/api/usuarios`
 
-Todas las rutas requieren `ROLE_UTP`.
+Todas las rutas requieren `ROLE_UTP`, salvo `GET /api/usuarios/{id}/cursos`, que requiere autenticación.
 
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|

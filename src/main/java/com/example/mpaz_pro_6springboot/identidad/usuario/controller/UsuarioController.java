@@ -1,6 +1,6 @@
 package com.example.mpaz_pro_6springboot.identidad.usuario.controller;
 
-import com.example.mpaz_pro_6springboot.docencia.asignacion.service.AsignacionService;
+import com.example.mpaz_pro_6springboot.docencia.docencia.service.DocenciaService;
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.response.CursoResponse;
 import com.example.mpaz_pro_6springboot.identidad.curso.mapper.CursoMapper;
 import com.example.mpaz_pro_6springboot.identidad.usuario.dto.request.UsuarioCreateRequest;
@@ -35,7 +35,7 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final UsuarioMapper usuarioMapper;
-    private final AsignacionService asignacionService;
+    private final DocenciaService docenciaService;
     private final CursoMapper cursoMapper;
 
     @GetMapping
@@ -52,7 +52,7 @@ public class UsuarioController {
 
     @GetMapping("/{id}/cursos")
     public ResponseEntity<List<CursoResponse>> findCursos(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(asignacionService.findCursosByDocente(id).stream()
+        return ResponseEntity.ok(docenciaService.findCursosByDocente(id).stream()
                 .map(cursoMapper::toResponse)
                 .toList());
     }

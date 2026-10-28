@@ -32,6 +32,8 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOa;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOaId;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.repository.AsignacionOaRepository;
+import com.example.mpaz_pro_6springboot.docencia.docencia.model.DocenteCursoAsignatura;
+import com.example.mpaz_pro_6springboot.docencia.docencia.repository.DocenteCursoAsignaturaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
@@ -95,6 +97,7 @@ public class DataInitializer implements ApplicationRunner {
     private final AsignacionRepository asignacionRepository;
     private final AsignacionOaRepository asignacionOaRepository;
     private final AsignacionActividadRepository asignacionActividadRepository;
+    private final DocenteCursoAsignaturaRepository docenciaRepository;
     private final IntentoRepository intentoRepository;
     private final RespuestaEstudianteRepository respuestaEstudianteRepository;
     private final InformePedagogicoRepository informePedagogicoRepository;
@@ -115,13 +118,18 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     private void seed() {
-        Curso curso = cursoRepository.save(Curso.builder()
+        Curso curso6A = cursoRepository.save(Curso.builder()
                 .nombre("6A")
                 .anio(2026)
                 .build());
+        Curso curso6B = cursoRepository.save(Curso.builder()
+                .nombre("6B")
+                .anio(2026)
+                .build());
 
-        Usuarios usuarios = crearUsuarios(curso);
+        Usuarios usuarios = crearUsuarios(curso6A, curso6B);
         List<Asignatura> asignaturas = crearAsignaturas();
+        crearDocencias(usuarios.docente(), List.of(curso6A, curso6B), asignaturas);
         List<Unidad> unidades = crearUnidades(asignaturas, usuarios.utp());
         List<ObjetivoAprendizaje> oas = crearObjetivos(unidades);
         List<Contenido> contenidos = crearContenidos(oas);
@@ -131,7 +139,10 @@ public class DataInitializer implements ApplicationRunner {
         Actividad pruebaFinalUnidad1 = actividades.get(2);
         BancoPreguntas banco = crearPreguntas(unidades.get(0), pruebaFinalUnidad1, oas.get(0), oas.get(1));
 
-        List<Asignacion> asignaciones = crearAsignaciones(curso, unidades, usuarios.docente());
+        List<Asignacion> asignaciones = crearAsignaciones(
+                List.of(curso6A, curso6B),
+                unidades
+        );
         crearAsignacionesOa(asignaciones, oas);
         crearAsignacionesActividad(asignaciones, actividades);
 
@@ -142,10 +153,10 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     // ------------------------------------------------------------------
-    // A) Curso y usuarios
+    // A) Cursos y usuarios
     // ------------------------------------------------------------------
 
-    private Usuarios crearUsuarios(Curso curso) {
+    private Usuarios crearUsuarios(Curso curso6A, Curso curso6B) {
         String hashUtp = passwordEncoder.encode(PASSWORD_UTP);
         String hashDocente = passwordEncoder.encode(PASSWORD_DOCENTE);
         String hashEstudiante = passwordEncoder.encode(PASSWORD_ESTUDIANTE);
@@ -164,10 +175,12 @@ public class DataInitializer implements ApplicationRunner {
                 .rol(Rol.DOCENTE)
                 .build());
 
-        Usuario camila = usuarioRepository.save(estudiante("Camila Rivas", "camila", hashEstudiante, curso));
-        Usuario mateo = usuarioRepository.save(estudiante("Mateo Cortes", "mateo", hashEstudiante, curso));
-        Usuario javiera = usuarioRepository.save(estudiante("Javiera Munoz", "javiera", hashEstudiante, curso));
-        Usuario benjamin = usuarioRepository.save(estudiante("Benjamin Ortiz", "benjamin", hashEstudiante, curso));
+        Usuario camila = usuarioRepository.save(estudiante("Camila Rivas", "camila", hashEstudiante, curso6A));
+        Usuario mateo = usuarioRepository.save(estudiante("Mateo Cortes", "mateo", hashEstudiante, curso6A));
+        Usuario javiera = usuarioRepository.save(estudiante("Javiera Munoz", "javiera", hashEstudiante, curso6A));
+        Usuario benjamin = usuarioRepository.save(estudiante("Benjamin Ortiz", "benjamin", hashEstudiante, curso6A));
+        usuarioRepository.save(estudiante("Sofia Herrera", "sofia", hashEstudiante, curso6B));
+        usuarioRepository.save(estudiante("Tomas Vega", "tomas", hashEstudiante, curso6B));
 
         return new Usuarios(utp, docente, camila, mateo, javiera, benjamin);
     }
@@ -538,39 +551,66 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     // ------------------------------------------------------------------
-    // G) Asignaciones del docente (1 por unidad, con prueba final habilitada)
+    // G) Docencias y asignaciones (cada unidad en 6A y 6B)
     // ------------------------------------------------------------------
 
-    private List<Asignacion> crearAsignaciones(Curso curso, List<Unidad> unidades, Usuario docente) {
-        return List.of(
-                asignacionRepository.save(asignacion(curso, unidades.get(0), docente, 2,
-                        "2026-04-06T08:00:00Z")),
-                asignacionRepository.save(asignacion(curso, unidades.get(1), docente, 2,
-                        "2026-04-06T08:05:00Z")),
-                asignacionRepository.save(asignacion(curso, unidades.get(2), docente, 1,
-                        "2026-04-06T08:10:00Z")),
-                asignacionRepository.save(asignacion(curso, unidades.get(3), docente, 1,
-                        "2026-04-06T08:15:00Z"))
-        );
+    private void crearDocencias(
+            Usuario docente,
+            List<Curso> cursos,
+            List<Asignatura> asignaturas
+    ) {
+        for (Curso curso : cursos) {
+            for (Asignatura asignatura : asignaturas) {
+                docenciaRepository.save(DocenteCursoAsignatura.builder()
+                        .docente(docente)
+                        .curso(curso)
+                        .asignatura(asignatura)
+                        .build());
+            }
+        }
     }
 
-    private Asignacion asignacion(Curso curso, Unidad unidad, Usuario docente,
-                                  int maxIntentos, String fecha) {
+    private List<Asignacion> crearAsignaciones(
+            List<Curso> cursos,
+            List<Unidad> unidades
+    ) {
+        List<Asignacion> asignaciones = new ArrayList<>();
+        for (Curso curso : cursos) {
+            for (int i = 0; i < unidades.size(); i++) {
+                int maxIntentos = i < 2 ? 2 : 1;
+                String fecha = "2026-04-06T08:0" + i + ":00Z";
+                asignaciones.add(asignacionRepository.save(
+                        asignacion(curso, unidades.get(i), maxIntentos, fecha)
+                ));
+            }
+        }
+        return asignaciones;
+    }
+
+    private Asignacion asignacion(
+            Curso curso,
+            Unidad unidad,
+            int maxIntentos,
+            String fecha
+    ) {
         return Asignacion.builder()
                 .curso(curso)
                 .unidad(unidad)
-                .docente(docente)
                 .maxIntentos(maxIntentos)
                 .pruebaFinalHabilitada(true)
                 .fecha(Instant.parse(fecha))
                 .build();
     }
 
-    private void crearAsignacionesOa(List<Asignacion> asignaciones, List<ObjetivoAprendizaje> oas) {
+    private void crearAsignacionesOa(
+            List<Asignacion> asignaciones,
+            List<ObjetivoAprendizaje> oas
+    ) {
         for (int i = 0; i < asignaciones.size(); i++) {
             Asignacion asignacion = asignaciones.get(i);
+            int unitIndex = i % 4;
             for (int j = 0; j < 2; j++) {
-                ObjetivoAprendizaje oa = oas.get(i * 2 + j);
+                ObjetivoAprendizaje oa = oas.get(unitIndex * 2 + j);
                 asignacionOaRepository.save(AsignacionOa.builder()
                         .id(AsignacionOaId.builder()
                                 .asignacionId(asignacion.getId())
@@ -584,11 +624,15 @@ public class DataInitializer implements ApplicationRunner {
         }
     }
 
-    private void crearAsignacionesActividad(List<Asignacion> asignaciones, List<Actividad> actividades) {
+    private void crearAsignacionesActividad(
+            List<Asignacion> asignaciones,
+            List<Actividad> actividades
+    ) {
         for (int i = 0; i < asignaciones.size(); i++) {
             Asignacion asignacion = asignaciones.get(i);
+            int unitIndex = i % 4;
             for (int j = 0; j < 3; j++) {
-                Actividad actividad = actividades.get(i * 3 + j);
+                Actividad actividad = actividades.get(unitIndex * 3 + j);
                 asignacionActividadRepository.save(AsignacionActividad.builder()
                         .id(AsignacionActividadId.builder()
                                 .asignacionId(asignacion.getId())

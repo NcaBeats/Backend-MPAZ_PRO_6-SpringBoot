@@ -1,5 +1,7 @@
 package com.example.mpaz_pro_6springboot.identidad.auth.controller;
 
+import com.example.mpaz_pro_6springboot.identidad.auth.dto.request.LoginRequest;
+import com.example.mpaz_pro_6springboot.identidad.auth.dto.response.LoginResponse;
 import com.example.mpaz_pro_6springboot.identidad.auth.service.AuthService;
 import com.example.mpaz_pro_6springboot.identidad.usuario.dto.request.UsuarioCreateRequest;
 import com.example.mpaz_pro_6springboot.identidad.usuario.dto.response.UsuarioResponse;
@@ -25,13 +27,11 @@ public class AuthController {
 
     private final AuthService authService;
 
-    /**
-     * Login con HTTP Basic: las credenciales viajan en Authorization y el
-     * filtro de Spring Security las valida antes de llegar al Controller.
-     */
     @PostMapping("/login")
-    public ResponseEntity<UsuarioResponse> login(Authentication authentication) {
-        return ResponseEntity.ok(authService.login(authentication));
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return ResponseEntity.ok(authService.login(request));
     }
 
     @GetMapping("/me")
@@ -39,8 +39,19 @@ public class AuthController {
         return ResponseEntity.ok(authService.me(authentication));
     }
 
+    /**
+     * El token es stateless: el cliente lo descarta. Se expone para que la app
+     * pueda cerrar sesion de forma uniforme.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/register")
-    public ResponseEntity<UsuarioResponse> register(@Valid @RequestBody UsuarioCreateRequest request) {
+    public ResponseEntity<UsuarioResponse> register(
+            @Valid @RequestBody UsuarioCreateRequest request
+    ) {
         UsuarioResponse created = authService.register(request);
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/usuarios/{id}")

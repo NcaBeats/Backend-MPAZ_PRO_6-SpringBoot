@@ -6,7 +6,6 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion.dto.response.Asignac
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.identidad.curso.mapper.CursoMapper;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.mapper.UnidadMapper;
-import com.example.mpaz_pro_6springboot.identidad.usuario.mapper.UsuarioMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -16,13 +15,12 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(componentModel = "spring",
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
-        uses = {CursoMapper.class, UnidadMapper.class, UsuarioMapper.class})
+        uses = {CursoMapper.class, UnidadMapper.class})
 public interface AsignacionMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "curso", ignore = true)
     @Mapping(target = "unidad", ignore = true)
-    @Mapping(target = "docente", ignore = true)
     @Mapping(target = "asignacionesOa", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
     Asignacion toEntity(AsignacionCreateRequest request);
@@ -30,7 +28,6 @@ public interface AsignacionMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "curso", ignore = true)
     @Mapping(target = "unidad", ignore = true)
-    @Mapping(target = "docente", ignore = true)
     @Mapping(target = "asignacionesOa", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
     Asignacion toEntity(AsignacionUpdateRequest request);
@@ -39,6 +36,5 @@ public interface AsignacionMapper {
 
     @Mapping(target = "cursoId", source = "curso.id")
     @Mapping(target = "unidadId", source = "unidad.id")
-    @Mapping(target = "docenteId", source = "docente.id")
     AsignacionResponse toResponse(Asignacion entity);
 }

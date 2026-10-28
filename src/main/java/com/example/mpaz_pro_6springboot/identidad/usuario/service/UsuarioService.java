@@ -2,7 +2,7 @@ package com.example.mpaz_pro_6springboot.identidad.usuario.service;
 
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
-import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
+import com.example.mpaz_pro_6springboot.docencia.docencia.repository.DocenteCursoAsignaturaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.identidad.curso.repository.CursoRepository;
@@ -27,7 +27,7 @@ public class UsuarioService {
     private final CursoRepository cursoRepository;
     private final IntentoRepository intentoRepository;
     private final InformePedagogicoRepository informePedagogicoRepository;
-    private final AsignacionRepository asignacionRepository;
+    private final DocenteCursoAsignaturaRepository docenciaRepository;
     private final UnidadRepository unidadRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -136,10 +136,10 @@ public class UsuarioService {
                 || informePedagogicoRepository.existsByEstudianteId(id)
                 || informePedagogicoRepository.existsByDocenteId(id)
                 || unidadRepository.existsByAutorizadaPorId(id)
-                || asignacionRepository.existsByDocenteId(id)) {
+                || docenciaRepository.existsByDocenteId(id)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "No se puede eliminar un usuario con intentos, informes, unidades autorizadas o asignaciones asociadas"
+                    "No se puede eliminar un usuario con intentos, informes, unidades autorizadas o docencias asociadas"
             );
         }
         usuarioRepository.delete(usuario);

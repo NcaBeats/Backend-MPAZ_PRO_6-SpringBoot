@@ -33,6 +33,11 @@ spring:
 mpaz:
   seed:
     enabled: true
+  auth:
+    jwt:
+      # Secreto HS256 para desarrollo. Cambiar en un entorno real.
+      secret: "${MPAZ_JWT_SECRET:mpaz-pro-6-demo-jwt-secret-change-me-0123456789abcdef}"
+      expiration-seconds: 3600
 
 server:
   port: ${SERVER_PORT:8080}

@@ -2,18 +2,19 @@ package com.example.mpaz_pro_6springboot.identidad.auth;
 
 import com.example.mpaz_pro_6springboot.common.PostgresIntegrationTest;
 import com.example.mpaz_pro_6springboot.identidad.curso.repository.CursoRepository;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -31,39 +32,45 @@ class AuthControllerTest extends PostgresIntegrationTest {
     private CursoRepository cursoRepository;
 
     @Test
-    void elLoginConBasicDevuelveElUsuarioSinSesionNiToken() throws Exception {
+    void elLoginDevuelveUnTokenYMeReconoceElToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
-                        .with(httpBasic("camila", "alu12345")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"camila","password":"alu12345"}
+                                """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("camila"))
-                .andExpect(jsonPath("$.rol").value("ESTUDIANTE"))
-                .andExpect(jsonPath("$.cursoId").isNumber())
-                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(3600))
+                .andExpect(jsonPath("$.usuario.username").value("camila"))
+                .andExpect(jsonPath("$.usuario.rol").value("ESTUDIANTE"))
+                .andExpect(jsonPath("$.usuario.cursoId").isNumber())
                 .andReturn();
 
-        assertNull(result.getRequest().getSession(false), "Basic stateless no debe crear sesion");
-    }
+        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.token");
+        assertFalse(token.isBlank());
 
-    @Test
-    void elLoginSinCredencialesDevuelve401() throws Exception {
-        mockMvc.perform(post("/api/auth/login"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("camila"));
     }
 
     @Test
     void elLoginConCredencialesInvalidasDevuelve401() throws Exception {
         mockMvc.perform(post("/api/auth/login")
-                        .with(httpBasic("camila", "incorrecta")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"camila","password":"incorrecta"}
+                                """))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void meConBasicDevuelveElUsuario() throws Exception {
-        mockMvc.perform(get("/api/auth/me")
-                        .with(httpBasic("camila", "alu12345")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("camila"))
-                .andExpect(jsonPath("$.rol").value("ESTUDIANTE"));
+    void elLoginSinCuerpoDevuelve400() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -73,12 +80,25 @@ class AuthControllerTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void logoutSinAutenticacionDevuelve401() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutConTokenDevuelve204() throws Exception {
+        mockMvc.perform(post("/api/auth/logout")
+                        .with(bearer("camila")))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     @Transactional
     void elRegistroConUtpCreaUnEstudianteYPermiteLogin() throws Exception {
         Long cursoId = cursoRepository.findAll().getFirst().getId();
 
         mockMvc.perform(post("/api/auth/register")
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nombre":"Nuevo Alumno","username":"nuevo.alumno",
@@ -91,9 +111,13 @@ class AuthControllerTest extends PostgresIntegrationTest {
                 .andExpect(jsonPath("$.cursoId").value(cursoId));
 
         mockMvc.perform(post("/api/auth/login")
-                        .with(httpBasic("nuevo.alumno", "secreto123")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"nuevo.alumno","password":"secreto123"}
+                                """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("nuevo.alumno"));
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.usuario.username").value("nuevo.alumno"));
     }
 
     @Test
@@ -112,7 +136,7 @@ class AuthControllerTest extends PostgresIntegrationTest {
     @Transactional
     void elRegistroConDocenteDevuelve403() throws Exception {
         mockMvc.perform(post("/api/auth/register")
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nombre":"Sin Permiso","username":"sin.permiso",
@@ -125,7 +149,7 @@ class AuthControllerTest extends PostgresIntegrationTest {
     @Transactional
     void elRegistroDeEstudianteSinCursoDevuelve400() throws Exception {
         mockMvc.perform(post("/api/auth/register")
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nombre":"Sin Curso","username":"sin.curso",
@@ -140,7 +164,7 @@ class AuthControllerTest extends PostgresIntegrationTest {
         Long cursoId = cursoRepository.findAll().getFirst().getId();
 
         mockMvc.perform(post("/api/auth/register")
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nombre":"Camila Otra","username":"camila",
@@ -155,11 +179,11 @@ class AuthControllerTest extends PostgresIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/api/usuarios")
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/usuarios")
-                        .with(httpBasic("utp", "utp12345")))
+                        .with(bearer("utp")))
                 .andExpect(status().isOk());
     }
 
@@ -169,7 +193,7 @@ class AuthControllerTest extends PostgresIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/api/asignaturas")
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk());
     }
 }

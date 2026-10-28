@@ -123,7 +123,7 @@ src/main/java/com/example/mpaz_pro_6springboot/
 |---|---|---|
 | Java | 25 | Lenguaje |
 | Spring Boot | 4.1.1 | Framework |
-| Spring Security | gestionado por SB | Autenticación y autorización con HTTP Basic (stateless) |
+| Spring Security | gestionado por SB | Autenticación y autorización con JWT stateless |
 | Spring Data JPA/WebMVC/Validation | incluido | Persistencia/API/Validación |
 | PostgreSQL | 17 (Docker Compose) | BD relacional local |
 | Testcontainers | 2.0.5 | PostgreSQL real en los tests |
@@ -213,7 +213,7 @@ docker compose up -d
 En el primer arranque Flyway aplica `V1__esquema.sql` sobre PostgreSQL y `DataInitializer` carga los datos de demo. El `.env` es opcional: si no existe, se usan los defaults de `application.yaml`.
 
 - Swagger: http://localhost:8080/swagger-ui.html
-- Autenticación: HTTP Basic con los usuarios del seed (ver sección 14). `POST /api/auth/login` valida las credenciales y devuelve el usuario; `GET /api/auth/me` requiere autenticación. El registro (`POST /api/auth/register`) está reservado a la UTP.
+- Autenticación: JWT con los usuarios del seed (ver sección 14). `POST /api/auth/login` valida las credenciales y devuelve un token; `GET /api/auth/me` requiere autenticación. El registro (`POST /api/auth/register`) está reservado a la UTP.
 - Un segundo arranque no duplica datos: el inicializador detecta que ya hay usuarios y no hace nada.
 - Para volver al estado inicial: detener la app, ejecutar `docker compose down -v`, `docker compose up -d` y arrancar de nuevo.
 - Datos listos para consultar: 4 unidades, 12 actividades (3 por unidad), 4 intentos y 1 informe pedagogico de Camila (OA 1: 2/3, OA 2: 1/3).
@@ -264,7 +264,7 @@ El snapshot del informe coincide con el recalculo del ultimo intento completado,
 
 - `PostgresIntegrationTest`: contenedor PostgreSQL 17 compartido por los contextos de Spring.
 - `contextLoads`: el contexto arranca con Flyway + JPA y `ddl-auto: validate`.
-- `AuthControllerTest`: login y `/me` con Basic, registro solo para UTP, validación de estudiante con curso, duplicados y rutas protegidas (401/403).
+- `AuthControllerTest`: login, `/me` y logout con JWT, registro solo para UTP, validación de estudiante con curso, duplicados y rutas protegidas (401/403).
 - `SeguridadRutasTest`: matriz de acceso por rol (catálogo, unidades, asignaciones, evaluación y rutas públicas).
 - `EvaluacionSecurityTest`: un estudiante solo ve y modifica sus intentos y respuestas; docente/UTP solo leen.
 - `EvaluacionAccessPolicyTest`: reglas de dueño en aislamiento, sin Spring ni base de datos.
@@ -303,82 +303,71 @@ Uso académico.
 
 ## 21. Autenticación y Seguridad
 
-La aplicación usa **HTTP Basic Auth stateless** con **BCrypt** para las contraseñas. No hay JWT ni sesiones HTTP: el cliente envía `Authorization: Basic ...` en cada solicitud.
+La aplicación usa **JWT stateless (HS256)** y **BCrypt** para las contraseñas. El cliente envía `Authorization: Bearer <token>` en cada solicitud. No se crean sesiones HTTP.
 
 ### 21.1. Configuración
 - **Dependencia**: `spring-boot-starter-security` en `pom.xml`.
-- **PasswordEncoder**: `BCryptPasswordEncoder` (configurado en `common/config/PasswordEncoderConfig`).
-- **UserDetailsService**: `common/security/CustomUserDetailsService` carga usuarios desde `UsuarioRepository` por `username`.
-- **Autenticación**: Spring Security configura el `DaoAuthenticationProvider` global a partir de `CustomUserDetailsService` y `PasswordEncoder`.
+- **PasswordEncoder**: `BCryptPasswordEncoder` (`common/config/PasswordEncoderConfig`).
+- **UserDetailsService**: `common/security/CustomUserDetailsService`.
+- **JWT**: `common/security/JwtService`, `JwtAuthenticationFilter` y `JwtClaims`.
+- **Secreto**: `mpaz.auth.jwt.secret` (variable `MPAZ_JWT_SECRET`).
 - **Sesiones**: `SessionCreationPolicy.STATELESS`; no se crea `JSESSIONID`.
 - **CSRF**: deshabilitado porque la API no usa cookies de sesión.
-- **Autorización por rol**: matriz centralizada en `common/security/SecurityConfig` (ver sección 22).
-- **Autorización por dueño**: `InformeAccessPolicy` (informes) y `EvaluacionAccessPolicy` (intentos y respuestas) limitan al estudiante a sus propios datos.
-- **Rutas**: ver sección 22.
+- **Autorización por rol**: matriz centralizada en `common/security/SecurityConfig`.
+- **Autorización por dueño**: `InformeAccessPolicy` y `EvaluacionAccessPolicy`.
 
 ### 21.2. Roles y autoridades
-Los roles se mapean directamente desde el enum `Rol`:
 
-| Rol | Autoridad asignada | Uso previsto |
+| Rol | Autoridad | Uso previsto |
 |---|---|---|
-| `UTP` | `ROLE_UTP` | Administración del sistema: registro de usuarios, gestión y autorización de unidades, supervisión general. |
-| `DOCENTE` | `ROLE_DOCENTE` | Gestión de asignaciones, validación de informes pedagógicos. |
-| `ESTUDIANTE` | `ROLE_ESTUDIANTE` | Acceso a contenido/asignaciones propias, resolución de actividades. |
-
-La conversión se realiza en `CustomUserDetails` con `new SimpleGrantedAuthority("ROLE_" + rol.name())`, lo que permite usar `hasRole("UTP")`, `hasAnyRole(...)`, etc.
+| `UTP` | `ROLE_UTP` | Administración, catálogo, docencias y autorización de unidades. |
+| `DOCENTE` | `ROLE_DOCENTE` | Configuración de asignaciones y validación de informes. |
+| `ESTUDIANTE` | `ROLE_ESTUDIANTE` | Contenido/asignaciones propias y resolución de actividades. |
 
 ### 21.3. Login, registro y usuario actual
 
-`POST /api/auth/login` no recibe body: las credenciales viajan en el header Basic. Devuelve `200 OK` con el usuario autenticado; sin credenciales o con credenciales inválidas devuelve `401 Unauthorized`.
+`POST /api/auth/login` recibe JSON:
 
-```bash
-curl -i -u camila:alu12345 -X POST http://localhost:8080/api/auth/login
+```json
+{"username":"camila","password":"alu12345"}
 ```
 
-`GET /api/auth/me` devuelve el usuario autenticado en la solicitud actual (también con Basic).
+Devuelve `200 OK` con `token`, `tokenType`, `expiresIn` y `usuario`. Las solicitudes autenticadas usan `Authorization: Bearer <token>`. `GET /api/auth/me` devuelve el usuario actual. `POST /api/auth/logout` devuelve `204`; el token es stateless y el cliente lo descarta.
+
+El registro es administrativo: solo `ROLE_UTP` puede llamar a `POST /api/auth/register` con el mismo cuerpo de `POST /api/usuarios`: `nombre`, `username`, `password`, `rol` y `cursoId`. `cursoId` es obligatorio para `ESTUDIANTE` y debe omitirse para `UTP`/`DOCENTE`.
 
 ```bash
-curl -i -u camila:alu12345 http://localhost:8080/api/auth/me
+# Login
+curl -i -X POST -H "Content-Type: application/json" \
+  -d '{"username":"camila","password":"alu12345"}' \
+  http://localhost:8080/api/auth/login
+
+# Usar el token
+curl -i -H "Authorization: Bearer <token>" http://localhost:8080/api/auth/me
 ```
 
-El registro es administrativo: solo un usuario con `ROLE_UTP` puede llamar a `POST /api/auth/register`. El cuerpo usa el mismo contrato que `POST /api/usuarios`: `nombre`, `username`, `password`, `rol` y `cursoId`. `cursoId` es obligatorio cuando `rol` es `ESTUDIANTE` y debe omitirse para `UTP`/`DOCENTE`.
+Respuestas de registro: `201 Created` con `UsuarioResponse` y `Location: /api/usuarios/{id}`; `400` por validación o estudiante sin curso; `401` sin token; `403` si el autenticado no es UTP; `404` si el curso no existe; `409` si el `username` ya está registrado.
 
-```bash
-curl -i -u utp:utp12345 -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"nombre":"Nuevo Alumno","username":"nuevo.alumno","password":"secreto123","rol":"ESTUDIANTE","cursoId":1}' \
-  http://localhost:8080/api/auth/register
-```
-
-Respuesta `201 Created` con `UsuarioResponse` y `Location: /api/usuarios/{id}`. Errores: `400` por validación o estudiante sin curso, `401` sin credenciales, `403` si el usuario autenticado no es UTP, `404` si el curso no existe y `409` si el `username` ya está registrado.
-
-No hay endpoint de logout: con Basic el cliente simplemente deja de enviar las credenciales. Las credenciales deben viajar siempre por HTTPS en un entorno real.
+Los tokens deben viajar siempre por HTTPS en un entorno real.
 
 ### 21.4. Probar rutas protegidas
-Con la app corriendo (`.\mvnw.cmd spring-boot:run`):
 
 ```bash
-# Sin credenciales -> 401 (health y Swagger son las unicas rutas publicas)
+# Sin token -> 401
 curl -i http://localhost:8080/api/asignaturas
-curl -i http://localhost:8080/api/usuarios
 
-# Estudiante -> 403; UTP -> 200
-curl -i -u camila:alu12345 http://localhost:8080/api/usuarios
-curl -i -u utp:utp12345 http://localhost:8080/api/usuarios
+# Token de estudiante -> 403 en administración; token UTP -> 200
+curl -i -H "Authorization: Bearer <token-estudiante>" http://localhost:8080/api/usuarios
+curl -i -H "Authorization: Bearer <token-utp>" http://localhost:8080/api/usuarios
 
-# Catálogo: lectura para cualquier autenticado, escritura solo UTP
-curl -i -u camila:alu12345 http://localhost:8080/api/asignaturas        # 200
-curl -i -u docente:doc12345 -X POST -H "Content-Type: application/json" \
-  -d '{"nombre":"Arte"}' http://localhost:8080/api/asignaturas           # 403
-curl -i -u utp:utp12345 -X POST -H "Content-Type: application/json" \
-  -d '{"nombre":"Arte"}' http://localhost:8080/api/asignaturas           # 201
-
-# Intentos: solo el estudiante dueño inicia, completa o responde
-curl -i -u docente:doc12345 -X POST \
-  http://localhost:8080/api/estudiantes/3/actividades/1/intentos         # 403
+# Catálogo: lectura autenticada, escritura solo UTP
+curl -i -H "Authorization: Bearer <token-estudiante>" http://localhost:8080/api/asignaturas
+curl -i -H "Authorization: Bearer <token-utp>" -X POST \
+  -H "Content-Type: application/json" -d '{"nombre":"Arte"}' \
+  http://localhost:8080/api/asignaturas
 ```
 
-La regla por dueño no se ve en la URL: un estudiante que fuerza el id de otro recibe `403` desde el Service (`InformeAccessPolicy` / `EvaluacionAccessPolicy`). Las credenciales válidas son las del **DataInitializer** (ver sección 14).
+La regla por dueño se aplica en el Service, no solo en la ruta. Las credenciales del seed están en la sección 14.
 
 ## 22. Rutas expuestas
 
@@ -388,12 +377,14 @@ La regla por dueño no se ve en la URL: un estudiante que fuerza el id de otro r
 |---|---|---|
 | `/actuator/health`, `/actuator/info` | Público | — |
 | `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`, `/v3/api-docs.yaml` | Público | — |
-| `POST /api/auth/login` | Público (Basic) | — |
+| `POST /api/auth/login` | Público (JSON) | — |
 | `GET /api/auth/me` | Autenticado | — |
+| `POST /api/auth/logout` | Autenticado | — |
 | `POST /api/auth/register` | — | `ROLE_UTP` |
-| `/api/usuarios/**` | `ROLE_UTP` | `ROLE_UTP` |
+| `/api/usuarios/**` | `ROLE_UTP`; `/api/usuarios/{id}/cursos` autenticado | `ROLE_UTP` |
+| `/api/docencias/**` | Autenticado; docente solo las suyas | `ROLE_UTP` |
 | Catálogo curricular* | Autenticado | `ROLE_UTP` |
-| `/api/asignaciones/**`** | Autenticado | `ROLE_DOCENTE` / `ROLE_UTP` |
+| `/api/asignaciones/**`** | Autenticado | `ROLE_DOCENTE` |
 | `/api/intentos/**` | Autenticado; estudiante solo los suyos | `ROLE_ESTUDIANTE` dueño |
 | `/api/intentos/{id}/respuestas` | Autenticado; estudiante solo las suyas | `ROLE_ESTUDIANTE` dueño |
 | `/api/informes-pedagogicos/**` | Autenticado; estudiante solo los suyos | `ROLE_DOCENTE` / `ROLE_UTP` |

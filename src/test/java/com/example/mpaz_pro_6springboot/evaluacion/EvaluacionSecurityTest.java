@@ -22,7 +22,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -60,7 +59,7 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
         Long pruebaFinalId = pruebaFinalUnidadUno().getId();
 
         mockMvc.perform(get("/api/intentos")
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].estudianteId").value(camila.getId()))
@@ -68,7 +67,7 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
 
         mockMvc.perform(get("/api/intentos")
                         .param("actividadId", pruebaFinalId.toString())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].estudianteId").value(camila.getId()))
@@ -76,16 +75,16 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
 
         mockMvc.perform(get("/api/intentos")
                         .param("estudianteId", mateo.getId().toString())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/intentos")
-                        .with(httpBasic("docente", "doc12345")))
+                        .with(bearer("docente")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(4)));
 
         mockMvc.perform(get("/api/intentos")
-                        .with(httpBasic("utp", "utp12345")))
+                        .with(bearer("utp")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(4)));
     }
@@ -96,16 +95,16 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
         Intento intentoMateo = intentoDe("mateo");
 
         mockMvc.perform(get("/api/intentos/{id}", intentoMateo.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/intentos/{id}", intentoMateo.getId())
-                        .with(httpBasic("docente", "doc12345")))
+                        .with(bearer("docente")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estudianteId").value(mateo.getId()));
 
         mockMvc.perform(get("/api/intentos/{id}", intentoMateo.getId())
-                        .with(httpBasic("utp", "utp12345")))
+                        .with(bearer("utp")))
                 .andExpect(status().isOk());
     }
 
@@ -117,12 +116,12 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
 
         mockMvc.perform(post("/api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos",
                         mateo.getId(), actividad.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos",
                         camila.getId(), actividad.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estudianteId").value(camila.getId()))
                 .andExpect(jsonPath("$.numero").value(1));
@@ -133,11 +132,11 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
         Intento intentoJaviera = intentoDe("javiera");
 
         mockMvc.perform(patch("/api/intentos/{id}/completar", intentoJaviera.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(patch("/api/intentos/{id}/completar", intentoJaviera.getId())
-                        .with(httpBasic("javiera", "alu12345")))
+                        .with(bearer("javiera")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fechaFin").isNotEmpty());
     }
@@ -154,19 +153,19 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
                 """.formatted(pregunta.getId(), alternativa.getId());
 
         mockMvc.perform(post("/api/intentos/{id}/respuestas", intentoJaviera.getId())
-                        .with(httpBasic("camila", "alu12345"))
+                        .with(bearer("camila"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpo))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/intentos/{id}/respuestas", intentoJaviera.getId())
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpo))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/intentos/{id}/respuestas", intentoJaviera.getId())
-                        .with(httpBasic("javiera", "alu12345"))
+                        .with(bearer("javiera"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpo))
                 .andExpect(status().isCreated())
@@ -180,16 +179,16 @@ class EvaluacionSecurityTest extends PostgresIntegrationTest {
         Intento intentoMateo = intentoDe("mateo");
 
         mockMvc.perform(get("/api/intentos/{id}/respuestas", intentoCamila.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(6)));
 
         mockMvc.perform(get("/api/intentos/{id}/respuestas", intentoMateo.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/intentos/{id}/respuestas", intentoMateo.getId())
-                        .with(httpBasic("docente", "doc12345")))
+                        .with(bearer("docente")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(6)));
     }

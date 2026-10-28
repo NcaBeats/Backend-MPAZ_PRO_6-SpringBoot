@@ -15,7 +15,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,7 +47,7 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
         InformePedagogico informeCamila = informeRepository.findByEstudianteId(camila.getId()).getFirst();
 
         mockMvc.perform(get("/api/informes-pedagogicos")
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].id").value(informeCamila.getId()))
@@ -72,20 +71,20 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
 
         mockMvc.perform(get("/api/informes-pedagogicos")
                         .param("estudianteId", mateo.getId().toString())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/informes-pedagogicos/{id}", informeMateo.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informeMateo.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
 
         // La UTP si puede consultar el informe de Mateo.
         mockMvc.perform(get("/api/informes-pedagogicos/{id}", informeMateo.getId())
-                        .with(httpBasic("utp", "utp12345")))
+                        .with(bearer("utp")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estudianteId").value(mateo.getId()));
     }
@@ -98,7 +97,7 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
         InformePedagogico informeCamila = informeRepository.findByEstudianteId(camila.getId()).getFirst();
 
         mockMvc.perform(post("/api/informes-pedagogicos")
-                        .with(httpBasic("camila", "alu12345"))
+                        .with(bearer("camila"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"estudianteId":%d,"unidadId":%d,"docenteId":%d}
@@ -106,7 +105,7 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(patch("/api/informes-pedagogicos/{id}/validacion", informeCamila.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isForbidden());
     }
 
@@ -130,7 +129,7 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
         InformePedagogico informe = informeRepository.findByEstudianteId(camila.getId()).getFirst();
 
         mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informe.getId())
-                        .with(httpBasic("camila", "alu12345")))
+                        .with(bearer("camila")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].oaCodigo").isNotEmpty())

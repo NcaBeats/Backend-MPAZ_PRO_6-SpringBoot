@@ -1,5 +1,11 @@
 package com.example.mpaz_pro_6springboot.common;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
+import com.example.mpaz_pro_6springboot.common.security.JwtService;
+import com.example.mpaz_pro_6springboot.identidad.usuario.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -19,5 +25,24 @@ public abstract class PostgresIntegrationTest {
 
     static {
         POSTGRES.start();
+    }
+
+    @Autowired
+    protected JwtService jwtService;
+
+    @Autowired
+    protected UsuarioRepository usuarioRepository;
+
+    /**
+     * Genera un bearer token para un usuario del seed y lo agrega a la
+     * solicitud. Evita que cada test tenga que hacer login manualmente.
+     */
+    protected RequestPostProcessor bearer(String username) {
+        return request -> {
+            var usuario = usuarioRepository.findByUsername(username).orElseThrow();
+            String token = jwtService.generateToken(new CustomUserDetails(usuario));
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            return request;
+        };
     }
 }

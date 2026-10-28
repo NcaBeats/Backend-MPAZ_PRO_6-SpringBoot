@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,19 +36,19 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/asignaturas")
-                        .with(httpBasic("camila", "alu12345"))
+                        .with(bearer("camila"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/asignaturas")
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/asignaturas")
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -58,7 +57,7 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
     @Test
     void laAutorizacionDeUnidadesNoQuedaEnManosDelDocente() throws Exception {
         mockMvc.perform(put("/api/unidades/{id}", 999999)
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"estado":"AUTORIZADO","autorizadaPorId":1,"fechaAutorizacion":"2026-01-01T00:00:00Z"}
@@ -66,7 +65,7 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(put("/api/unidades/{id}", 999999)
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"titulo":"Otra unidad"}
@@ -75,24 +74,24 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void lasAsignacionesSoloLasEscribenDocenteYUtp() throws Exception {
+    void lasAsignacionesSoloLasEscribeElDocente() throws Exception {
         mockMvc.perform(post("/api/asignaciones")
-                        .with(httpBasic("camila", "alu12345"))
+                        .with(bearer("camila"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/asignaciones")
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/asignaciones")
-                        .with(httpBasic("utp", "utp12345"))
+                        .with(bearer("utp"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -101,11 +100,11 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos", 3, 1)
-                        .with(httpBasic("docente", "doc12345")))
+                        .with(bearer("docente")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/estudiantes/{estudianteId}/actividades/{actividadId}/intentos", 3, 1)
-                        .with(httpBasic("utp", "utp12345")))
+                        .with(bearer("utp")))
                 .andExpect(status().isForbidden());
     }
 
@@ -133,11 +132,11 @@ class SeguridadRutasTest extends PostgresIntegrationTest {
     @Test
     void elCompletarUnIntentoEsSoloParaElEstudiante() throws Exception {
         mockMvc.perform(patch("/api/intentos/{id}/completar", 1)
-                        .with(httpBasic("docente", "doc12345")))
+                        .with(bearer("docente")))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/intentos/{id}/respuestas", 1)
-                        .with(httpBasic("docente", "doc12345"))
+                        .with(bearer("docente"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"preguntaId\":1,\"alternativaId\":1}"))
                 .andExpect(status().isForbidden());

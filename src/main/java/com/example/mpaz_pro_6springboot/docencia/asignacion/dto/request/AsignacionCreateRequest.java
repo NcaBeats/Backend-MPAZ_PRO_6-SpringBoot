@@ -13,9 +13,6 @@ public record AsignacionCreateRequest(
         @NotNull
         Long unidadId,
 
-        @NotNull
-        Long docenteId,
-
         /** CHECK max_intentos > 0. Si se omite el Service aplica 1. */
         @Min(1)
         Integer maxIntentos,

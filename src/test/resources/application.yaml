@@ -15,6 +15,10 @@ spring:
 mpaz:
   seed:
     enabled: true
+  auth:
+    jwt:
+      secret: "test-secret-with-at-least-32-bytes-0123456789"
+      expiration-seconds: 3600
 
 logging:
   level:

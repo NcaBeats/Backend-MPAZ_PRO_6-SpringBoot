@@ -15,6 +15,7 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository.AsignacionActividadRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.repository.AsignacionOaRepository;
+import com.example.mpaz_pro_6springboot.docencia.docencia.repository.DocenteCursoAsignaturaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
@@ -81,6 +82,8 @@ class DataInitializerTest extends PostgresIntegrationTest {
     @Autowired
     private AsignacionOaRepository asignacionOaRepository;
     @Autowired
+    private DocenteCursoAsignaturaRepository docenciaRepository;
+    @Autowired
     private AsignacionActividadRepository asignacionActividadRepository;
     @Autowired
     private IntentoRepository intentoRepository;
@@ -93,8 +96,8 @@ class DataInitializerTest extends PostgresIntegrationTest {
 
     @Test
     void elSeedCargaTodosLosDatos() {
-        assertEquals(1, cursoRepository.count());
-        assertEquals(6, usuarioRepository.count());
+        assertEquals(2, cursoRepository.count());
+        assertEquals(8, usuarioRepository.count());
         assertEquals(4, asignaturaRepository.count());
         assertEquals(4, unidadRepository.count());
         assertEquals(8, objetivoAprendizajeRepository.count());
@@ -103,9 +106,10 @@ class DataInitializerTest extends PostgresIntegrationTest {
         assertEquals(12, actividadRepository.count());
         assertEquals(6, preguntaRepository.count());
         assertEquals(19, alternativaRepository.count());
-        assertEquals(4, asignacionRepository.count());
-        assertEquals(8, asignacionOaRepository.count());
-        assertEquals(12, asignacionActividadRepository.count());
+        assertEquals(8, asignacionRepository.count());
+        assertEquals(16, asignacionOaRepository.count());
+        assertEquals(24, asignacionActividadRepository.count());
+        assertEquals(8, docenciaRepository.count());
         assertEquals(4, intentoRepository.count());
         assertEquals(12, respuestaEstudianteRepository.count());
         assertEquals(1, informePedagogicoRepository.count());

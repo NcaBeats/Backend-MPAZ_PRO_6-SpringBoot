@@ -6,7 +6,6 @@ public record AsignacionResponse(
         Long id,
         Long cursoId,
         Long unidadId,
-        Long docenteId,
         Integer maxIntentos,
         Boolean pruebaFinalHabilitada,
         Instant fecha

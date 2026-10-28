@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.docencia.asignacion.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.dto.request.AsignacionCreateRequest;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.dto.request.AsignacionUpdateRequest;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.dto.response.AsignacionResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,24 +39,33 @@ public class AsignacionController {
     @GetMapping
     public ResponseEntity<List<AsignacionResponse>> findAll(
             @RequestParam(required = false) @Positive Long cursoId,
-            @RequestParam(required = false) @Positive Long unidadId,
-            @RequestParam(required = false) @Positive Long docenteId
+            @RequestParam(required = false) @Positive Long unidadId
     ) {
-        return ResponseEntity.ok(asignacionService.findAll(cursoId, unidadId, docenteId).stream()
+        return ResponseEntity.ok(asignacionService.findAll(cursoId, unidadId).stream()
                 .map(asignacionMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<AsignacionResponse> findById(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(asignacionMapper.toResponse(asignacionService.findById(id)));
+        return ResponseEntity.ok(asignacionMapper.toResponse(
+                asignacionService.findById(id)
+        ));
     }
 
     @PostMapping
-    public ResponseEntity<AsignacionResponse> create(@Valid @RequestBody AsignacionCreateRequest request) {
+    public ResponseEntity<AsignacionResponse> create(
+            @Valid @RequestBody AsignacionCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         Asignacion asignacion = asignacionMapper.toEntity(request);
         AsignacionResponse created = asignacionMapper.toResponse(
-                asignacionService.create(asignacion, request.cursoId(), request.unidadId(), request.docenteId())
+                asignacionService.create(
+                        asignacion,
+                        request.cursoId(),
+                        request.unidadId(),
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -69,7 +80,9 @@ public class AsignacionController {
             @Valid @RequestBody AsignacionUpdateRequest request
     ) {
         Asignacion cambios = asignacionMapper.toEntity(request);
-        return ResponseEntity.ok(asignacionMapper.toResponse(asignacionService.update(id, cambios)));
+        return ResponseEntity.ok(asignacionMapper.toResponse(
+                asignacionService.update(id, cambios)
+        ));
     }
 
     @DeleteMapping("/{id}")

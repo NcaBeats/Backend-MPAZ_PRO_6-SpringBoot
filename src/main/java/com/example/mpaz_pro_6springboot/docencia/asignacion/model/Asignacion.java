@@ -5,7 +5,6 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionO
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
-import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,7 +40,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"curso", "unidad", "docente", "asignacionesOa", "asignacionesActividad"})
+@ToString(exclude = {"curso", "unidad", "asignacionesOa", "asignacionesActividad"})
 public class Asignacion {
 
     @Id
@@ -57,10 +56,6 @@ public class Asignacion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unidad_id", nullable = false)
     private Unidad unidad;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "docente_id", nullable = false)
-    private Usuario docente;
 
     @Column(name = "max_intentos")
     private Integer maxIntentos;
