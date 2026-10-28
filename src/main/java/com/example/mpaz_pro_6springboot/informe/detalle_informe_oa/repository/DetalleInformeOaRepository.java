@@ -1,6 +1,7 @@
 package com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.repository;
 
 import com.example.mpaz_pro_6springboot.informe.detalle_informe_oa.model.DetalleInformeOa;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,6 +13,7 @@ public interface DetalleInformeOaRepository extends JpaRepository<DetalleInforme
 
     List<DetalleInformeOa> findByInformeId(Long informeId);
 
+    @EntityGraph(attributePaths = {"oa"})
     List<DetalleInformeOa> findByInformeIdOrderByIdAsc(Long informeId);
 
     Optional<DetalleInformeOa> findByInformeIdAndOaId(Long informeId, Long oaId);

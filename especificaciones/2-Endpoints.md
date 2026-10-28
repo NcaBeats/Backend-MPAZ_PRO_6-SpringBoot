@@ -1,6 +1,6 @@
 # Endpoints implementados
 
-Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones y las alternativas.
+Este documento resume las API REST implementadas hasta el momento para Asignatura, RecursoContenido, Curso, Unidad, ObjetivoAprendizaje, Contenido, Actividad, Pregunta, Intento, RespuestaEstudiante, InformePedagogico (con su detalle por OA), Asignacion, Usuario, la asociación de objetivos de aprendizaje a asignaciones, la asociación de actividades a asignaciones, las alternativas y la autenticación (registro y login con HTTP Basic).
 
 ## Convenciones
 
@@ -18,6 +18,77 @@ Este documento resume las API REST implementadas hasta el momento para Asignatur
 - **Repository:** realiza la persistencia y consultas, sin asumir la lógica del caso de uso.
 
 Esta separación es la convención arquitectónica del backend. Los endpoints documentados a continuación siguen este patrón: sus Controllers convierten los DTOs con el Mapper y sus Services reciben/devuelven entidades, aplican reglas y coordinan los Repositories.
+
+## Autenticación
+
+Ruta base: `/api/auth`
+
+La autenticación usa **HTTP Basic** (`Authorization: Basic ...`) y no guarda estado en el servidor. No hay JWT ni sesiones HTTP.
+
+| Método | Ruta | Descripción | Respuesta exitosa |
+|---|---|---|---|
+| POST | `/api/auth/login` | Valida usuario y contraseña recibidos por Basic y devuelve el usuario autenticado. | `200 OK`, `UsuarioResponse` |
+| GET | `/api/auth/me` | Devuelve el usuario autenticado en la solicitud actual. | `200 OK`, `UsuarioResponse` |
+| POST | `/api/auth/register` | Registra un usuario. Solo puede invocarlo un usuario con rol `UTP`. | `201 Created`, `UsuarioResponse` y `Location` |
+
+### Login
+
+`POST /api/auth/login` no recibe cuerpo: las credenciales viajan en el header `Authorization: Basic {base64(username:password)}`. Sin credenciales o con credenciales inválidas devuelve `401 Unauthorized`.
+
+```bash
+curl -i -u camila:alu12345 -X POST http://localhost:8080/api/auth/login
+```
+
+```json
+{
+  "id": 3,
+  "nombre": "Camila Rivas",
+  "username": "camila",
+  "rol": "ESTUDIANTE",
+  "cursoId": 1
+}
+```
+
+`GET /api/auth/me` devuelve el mismo `UsuarioResponse` y requiere autenticación. No existe endpoint de logout: el cliente deja de enviar las credenciales.
+
+### Registro
+
+`POST /api/auth/register` requiere `Authorization: Basic` de un usuario `UTP`. El cuerpo es el mismo de `POST /api/usuarios`:
+
+```json
+{
+  "nombre": "Nuevo Alumno",
+  "username": "nuevo.alumno",
+  "password": "secreto123",
+  "rol": "ESTUDIANTE",
+  "cursoId": 1
+}
+```
+
+`nombre`, `username`, `password` y `rol` son obligatorios. `password` se guarda como hash BCrypt y nunca se expone. `cursoId` es obligatorio para `ESTUDIANTE` y debe omitirse para `UTP` y `DOCENTE`.
+
+Respuestas: `201 Created` con `UsuarioResponse` y `Location: /api/usuarios/{id}`; `400 Bad Request` por validación o estudiante sin curso; `401 Unauthorized` sin credenciales; `403 Forbidden` si el autenticado no es UTP; `404 Not Found` si el curso no existe; `409 Conflict` si el `username` ya está registrado.
+
+### Matriz de acceso por rol
+
+El catálogo curricular (asignaturas, cursos, unidades, objetivos de aprendizaje, contenidos, recursos de contenido, actividades, preguntas y alternativas) comparte la misma regla: **lectura autenticada** y **escritura solo `ROLE_UTP`**. La autorización de unidades (`autorizadaPorId`) es parte de `PUT /api/unidades/{id}`, por eso la escritura queda reservada a UTP.
+
+| Ruta | Lectura | Escritura |
+|---|---|---|
+| `POST /api/auth/login` | Público (Basic) | — |
+| `GET /api/auth/me` | Autenticado | — |
+| `POST /api/auth/register` | — | `ROLE_UTP` |
+| `/api/usuarios/**` | `ROLE_UTP` | `ROLE_UTP` |
+| Catálogo curricular | Autenticado | `ROLE_UTP` |
+| `/api/asignaciones/**` | Autenticado | `ROLE_DOCENTE` / `ROLE_UTP` |
+| `/api/intentos/**` | Autenticado; estudiante solo los suyos | `ROLE_ESTUDIANTE` dueño |
+| `/api/intentos/{id}/respuestas` | Autenticado; estudiante solo las suyas | `ROLE_ESTUDIANTE` dueño |
+| `/api/informes-pedagogicos/**` | Autenticado; estudiante solo los suyos | `ROLE_DOCENTE` / `ROLE_UTP` |
+| Cualquier otra ruta | Autenticado | Autenticado |
+
+Con credenciales inválidas o ausentes la respuesta es `401 Unauthorized`; con un rol no autorizado, `403 Forbidden`. La regla por dueño se aplica en el Service (`InformeAccessPolicy`, `EvaluacionAccessPolicy`), no solo en la ruta.
+
+Pendiente (regla 5 del modelo): filtrar el catálogo que ve un estudiante por curso y estado `AUTORIZADO`/`PUBLICADO`, y ocultar `esCorrecta`/`criterioRespuesta` a ese rol.
 
 ## Asignaturas
 
@@ -286,6 +357,8 @@ La actualización acepta cualquier combinación no vacía de `enunciado`, `crite
 
 ## Intentos
 
+Acceso: lectura autenticada (un estudiante solo ve sus propios intentos); iniciar y completar solo el estudiante dueño (`ROLE_ESTUDIANTE`).
+
 Ruta base: `/api/intentos`
 
 | Método | Ruta | Descripción | Respuesta exitosa |
@@ -297,11 +370,15 @@ Ruta base: `/api/intentos`
 
 La creación se realiza sin cuerpo de solicitud: el Service fija `fechaInicio` al instante actual y calcula `numero` como el correlativo siguiente del par estudiante-actividad. El estado de realización se deduce de `fechaFin` (nula = en progreso, con valor = completado).
 
-Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para iniciar un intento el usuario debe tener rol `ESTUDIANTE` y curso asignado, la unidad de la actividad debe estar `AUTORIZADO` o `PUBLICADO`, y la actividad debe estar asignada al curso del estudiante; en caso contrario devuelve `400 Bad Request`. Si la actividad es `PRUEBA_FINAL`, la asignación debe tener `pruebaFinalHabilitada` en `true` (si no, `400 Bad Request`) y, cuando `maxIntentos` no es nulo, el estudiante no debe haber alcanzado ese límite (superarlo devuelve `409 Conflict`). Los filtros `estudianteId` y `actividadId` deben ser positivos.
+Un `estudianteId` o `actividadId` inexistente devuelve `404 Not Found`. Para iniciar un intento el usuario debe tener rol `ESTUDIANTE`, el `estudianteId` de la ruta debe coincidir con el usuario autenticado (`403 Forbidden` en caso contrario) y curso asignado, la unidad de la actividad debe estar `AUTORIZADO` o `PUBLICADO`, y la actividad debe estar asignada al curso del estudiante; en caso contrario devuelve `400 Bad Request`. Si la actividad es `PRUEBA_FINAL`, la asignación debe tener `pruebaFinalHabilitada` en `true` (si no, `400 Bad Request`) y, cuando `maxIntentos` no es nulo, el estudiante no debe haber alcanzado ese límite (superarlo devuelve `409 Conflict`). Los filtros `estudianteId` y `actividadId` deben ser positivos.
 
-`PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente devuelve `404 Not Found`; completar un intento ya completado devuelve `409 Conflict`.
+`GET /api/intentos` fuerza el filtro al propio estudiante cuando el autenticado es `ROLE_ESTUDIANTE`; pedir explícitamente otro `estudianteId` devuelve `403 Forbidden`. `UTP` y `DOCENTE` consultan todos los intentos.
+
+`PATCH /api/intentos/{id}/completar` no recibe cuerpo. Un intento inexistente devuelve `404 Not Found`; completar el intento de otro estudiante devuelve `403 Forbidden`; completar un intento ya completado devuelve `409 Conflict`.
 
 ## Respuestas de estudiantes
+
+Acceso: lectura autenticada (un estudiante solo ve las respuestas de sus intentos); registrar solo el estudiante dueño del intento (`ROLE_ESTUDIANTE`).
 
 Ruta base: `/api/intentos/{intentoId}/respuestas`
 
@@ -312,9 +389,11 @@ Ruta base: `/api/intentos/{intentoId}/respuestas`
 
 El cuerpo de la creación incluye `preguntaId` y `alternativaId`, ambos obligatorios; `intentoId` proviene de la ruta. El Service deriva `esCorrecta` desde la alternativa seleccionada (foto congelada del resultado, según el modelo).
 
-Un `intentoId`, `preguntaId` o `alternativaId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si la alternativa no pertenece a la pregunta indicada o si la pregunta no pertenece a la actividad del intento (regla 9 del modelo). Registrar una respuesta en un intento ya completado o sobre una pregunta ya respondida devuelve `409 Conflict` (unicidad `intento_id, pregunta_id`). El `intentoId` de la ruta debe ser positivo.
+Un `intentoId`, `preguntaId` o `alternativaId` inexistente devuelve `404 Not Found`. Registrar una respuesta en el intento de otro estudiante devuelve `403 Forbidden`. Se devuelve `400 Bad Request` si la alternativa no pertenece a la pregunta indicada o si la pregunta no pertenece a la actividad del intento (regla 9 del modelo). Registrar una respuesta en un intento ya completado o sobre una pregunta ya respondida devuelve `409 Conflict` (unicidad `intento_id, pregunta_id`). El `intentoId` de la ruta debe ser positivo.
 
 ## Informes pedagógicos
+
+Acceso: lectura autenticada (un estudiante solo ve sus propios informes, en cualquier estado); generación y validación solo `ROLE_DOCENTE` / `ROLE_UTP`, y un docente solo opera los suyos.
 
 Ruta base: `/api/informes-pedagogicos`
 
@@ -330,9 +409,13 @@ El cuerpo de la generación incluye `estudianteId`, `unidadId` y `docenteId`, to
 
 Un `estudianteId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`. Se devuelve `400 Bad Request` si el estudiante no tiene rol `ESTUDIANTE` (regla 1), si el docente no tiene rol `DOCENTE` (regla 2) o si no hay respuestas de intentos completados para consolidar (regla 4). Generar un segundo informe del mismo estudiante y unidad devuelve `409 Conflict` (unicidad `estudiante_id, unidad_id`).
 
+Un estudiante que consulta el informe de otro estudiante recibe `403 Forbidden`, tanto en la lista (si fuerza `?estudianteId=otro`) como por ID. `UTP` y `DOCENTE` pueden consultar los informes de cualquier estudiante; un docente solo genera y valida los que tiene asignados (regla 6).
+
 `PATCH /api/informes-pedagogicos/{id}/validacion` no recibe cuerpo: fija `estado = VALIDADO` y `fechaValidacion` al instante actual. Un informe inexistente devuelve `404 Not Found`; validar un informe ya validado devuelve `409 Conflict`. Los filtros `estudianteId` y `unidadId` deben ser positivos.
 
 ## Asignaciones
+
+Acceso: lectura autenticada; escritura solo `ROLE_DOCENTE` / `ROLE_UTP`. Las rutas anidadas de OA (`/api/asignaciones/{id}/objetivos-aprendizaje`) y actividades (`/api/asignaciones/{id}/actividades`) siguen la misma regla.
 
 Ruta base: `/api/asignaciones`
 
@@ -365,6 +448,8 @@ Un `cursoId`, `unidadId` o `docenteId` inexistente devuelve `404 Not Found`; si 
 
 Ruta base: `/api/usuarios`
 
+Todas las rutas requieren `ROLE_UTP`.
+
 | Método | Ruta | Descripción | Respuesta exitosa |
 |---|---|---|---|
 | GET | `/api/usuarios` | Lista usuarios ordenados por ID. | `200 OK`, lista de `UsuarioResponse` |
@@ -386,11 +471,12 @@ Solicitud de creación:
 }
 ```
 
-`nombre`, `username`, `password` y `rol` son obligatorios; `cursoId` es opcional. La contraseña viaja en texto plano por HTTPS y el Service la guarda como hash BCrypt en `password_hash`; `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
+`nombre`, `username`, `password` y `rol` son obligatorios. La contraseña viaja en texto plano por HTTPS y el Service la guarda como hash BCrypt en `password_hash`; `passwordHash` no se expone en las respuestas. El `username` solo admite letras, dígitos, punto, guion y guion bajo (3 a 100 caracteres).
 
+- `cursoId` es obligatorio para `ESTUDIANTE` (el esquema exige `curso_id` en ese rol) y debe omitirse para `UTP` y `DOCENTE`; en caso contrario se devuelve `400 Bad Request`.
 - Crear rechaza un `username` ya registrado (`409 Conflict`) y un `cursoId` inexistente (`404 Not Found`).
-- `cursoId` se asigna solo a estudiantes: usarlo en un usuario `UTP` o `DOCENTE` devuelve `400 Bad Request`.
-- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, y un usuario inexistente devuelve `404 Not Found`.
+- Actualizar aplica solo los campos enviados; cambiar el `rol` a uno distinto de `ESTUDIANTE` limpia el curso, cambiar a `ESTUDIANTE` exige conservar o enviar un curso, y un usuario inexistente devuelve `404 Not Found`.
 - Eliminar un usuario referenciado por intentos, informes, unidades autorizadas o asignaciones devuelve `409 Conflict`.
+- `POST /api/auth/register` es la variante de registro administrativo y aplica las mismas reglas.
 
 `GET /api/usuarios/{id}/cursos` devuelve los cursos distintos en los que el docente tiene alguna asignación, ordenados por ID. Un usuario inexistente devuelve `404 Not Found` y un rol distinto de `DOCENTE` devuelve `400 Bad Request`.

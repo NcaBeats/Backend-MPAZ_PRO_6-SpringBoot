@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.informe.informe_pedagogico.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.dto.request.InformePedagogicoCreateRequest;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.dto.response.InformePedagogicoResponse;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.mapper.InformePedagogicoMapper;
@@ -8,6 +9,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -34,27 +37,35 @@ public class InformePedagogicoController {
     @GetMapping
     public ResponseEntity<List<InformePedagogicoResponse>> findAll(
             @RequestParam(required = false) @Positive Long estudianteId,
-            @RequestParam(required = false) @Positive Long unidadId
+            @RequestParam(required = false) @Positive Long unidadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(informePedagogicoService.findAll(estudianteId, unidadId).stream()
+        return ResponseEntity.ok(informePedagogicoService.findAll(estudianteId, unidadId, principal.getUsuario()).stream()
                 .map(informePedagogicoMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<InformePedagogicoResponse> findById(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(informePedagogicoMapper.toResponse(informePedagogicoService.findById(id)));
+    public ResponseEntity<InformePedagogicoResponse> findById(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(informePedagogicoMapper.toResponse(
+                informePedagogicoService.findById(id, principal.getUsuario())));
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('DOCENTE', 'UTP')")
     public ResponseEntity<InformePedagogicoResponse> generar(
-            @Valid @RequestBody InformePedagogicoCreateRequest request
+            @Valid @RequestBody InformePedagogicoCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
         InformePedagogicoResponse created = informePedagogicoMapper.toResponse(
                 informePedagogicoService.generar(
                         request.estudianteId(),
                         request.unidadId(),
-                        request.docenteId()
+                        request.docenteId(),
+                        principal.getUsuario()
                 )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -65,7 +76,12 @@ public class InformePedagogicoController {
     }
 
     @PatchMapping("/{id}/validacion")
-    public ResponseEntity<InformePedagogicoResponse> validar(@PathVariable @Positive Long id) {
-        return ResponseEntity.ok(informePedagogicoMapper.toResponse(informePedagogicoService.validar(id)));
+    @PreAuthorize("hasAnyRole('DOCENTE', 'UTP')")
+    public ResponseEntity<InformePedagogicoResponse> validar(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(informePedagogicoMapper.toResponse(
+                informePedagogicoService.validar(id, principal.getUsuario())));
     }
 }

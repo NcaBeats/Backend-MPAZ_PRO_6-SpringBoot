@@ -3,6 +3,7 @@ package com.example.mpaz_pro_6springboot.evaluacion.intento.service;
 import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
+import com.example.mpaz_pro_6springboot.common.security.EvaluacionAccessPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
@@ -32,20 +33,22 @@ public class IntentoService {
     private final ActividadRepository actividadRepository;
     private final AsignacionRepository asignacionRepository;
     private final AsignacionActividadRepository asignacionActividadRepository;
+    private final EvaluacionAccessPolicy evaluacionAccessPolicy;
 
-    public List<Intento> findAll(Long estudianteId, Long actividadId) {
-        if (estudianteId != null) {
-            getUsuario(estudianteId);
+    public List<Intento> findAll(Long estudianteId, Long actividadId, Usuario currentUser) {
+        Long efectivoEstudianteId = evaluacionAccessPolicy.scopeEstudianteId(estudianteId, currentUser);
+        if (efectivoEstudianteId != null) {
+            getUsuario(efectivoEstudianteId);
         }
         if (actividadId != null) {
             getActividad(actividadId);
         }
 
-        if (estudianteId != null && actividadId != null) {
-            return intentoRepository.findByEstudianteIdAndActividadIdOrderByNumeroAsc(estudianteId, actividadId);
+        if (efectivoEstudianteId != null && actividadId != null) {
+            return intentoRepository.findByEstudianteIdAndActividadIdOrderByNumeroAsc(efectivoEstudianteId, actividadId);
         }
-        if (estudianteId != null) {
-            return intentoRepository.findByEstudianteIdOrderByActividadIdAscNumeroAsc(estudianteId);
+        if (efectivoEstudianteId != null) {
+            return intentoRepository.findByEstudianteIdOrderByActividadIdAscNumeroAsc(efectivoEstudianteId);
         }
         if (actividadId != null) {
             return intentoRepository.findByActividadIdOrderByEstudianteIdAscNumeroAsc(actividadId);
@@ -53,12 +56,15 @@ public class IntentoService {
         return intentoRepository.findAllByOrderByEstudianteIdAscActividadIdAscNumeroAsc();
     }
 
-    public Intento findById(Long id) {
-        return getIntento(id);
+    public Intento findById(Long id, Usuario currentUser) {
+        Intento intento = getIntento(id);
+        evaluacionAccessPolicy.assertPuedeLeer(intento, currentUser);
+        return intento;
     }
 
     @Transactional
-    public Intento create(Long estudianteId, Long actividadId) {
+    public Intento create(Long estudianteId, Long actividadId, Usuario currentUser) {
+        evaluacionAccessPolicy.assertPuedeIniciar(estudianteId, currentUser);
         Usuario estudiante = getUsuario(estudianteId);
         if (estudiante.getRol() != Rol.ESTUDIANTE) {
             throw new ResponseStatusException(
@@ -125,8 +131,9 @@ public class IntentoService {
     }
 
     @Transactional
-    public Intento completar(Long id) {
+    public Intento completar(Long id, Usuario currentUser) {
         Intento intento = getIntento(id);
+        evaluacionAccessPolicy.assertPuedeOperar(intento, currentUser);
         if (intento.getFechaFin() != null) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,

@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.common.seed;
 
+import com.example.mpaz_pro_6springboot.common.PostgresIntegrationTest;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.repository.AlternativaRepository;
@@ -43,12 +44,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifica que el esquema SQLite + el DataInitializer dejen los datos de demo
+ * Verifica que el esquema PostgreSQL + el DataInitializer dejen los datos de demo
  * consistentes, incluidas las garantias que aporta la base (FK simples y
  * compuestas, CHECK e indice parcial) y el snapshot del informe.
  */
 @SpringBootTest
-class DataInitializerTest {
+class DataInitializerTest extends PostgresIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -126,9 +127,13 @@ class DataInitializerTest {
     }
 
     @Test
-    void lasClavesForaneasEstanActivas() {
-        Integer activas = jdbcTemplate.queryForObject("PRAGMA foreign_keys", Integer.class);
-        assertEquals(1, activas);
+    void lasClavesForaneasImpidenReferenciasInexistentes() {
+        // rol ESTUDIANTE + curso_id no nulo pasa el CHECK, pero el curso no
+        // existe: la FK debe rechazar la fila.
+        assertThrows(DataAccessException.class, () -> jdbcTemplate.update(
+                "INSERT INTO usuario (nombre, username, password_hash, rol, curso_id) "
+                        + "VALUES (?, ?, ?, 'ESTUDIANTE', ?)",
+                "Curso inexistente", "curso.inexistente", "hash", 999_999L));
     }
 
     @Test
