@@ -19,6 +19,7 @@ public interface ActividadMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "contenido", ignore = true)
     @Mapping(target = "preguntas", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
     @Mapping(target = "intentos", ignore = true)
@@ -26,6 +27,7 @@ public interface ActividadMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "contenido", ignore = true)
     @Mapping(target = "preguntas", ignore = true)
     @Mapping(target = "asignacionesActividad", ignore = true)
     @Mapping(target = "intentos", ignore = true)
@@ -34,5 +36,6 @@ public interface ActividadMapper {
     void updateEntity(ActividadUpdateRequest request, @MappingTarget Actividad entity);
 
     @Mapping(target = "unidadId", source = "unidad.id")
+    @Mapping(target = "contenidoId", source = "contenido.id")
     ActividadResponse toResponse(Actividad entity);
 }

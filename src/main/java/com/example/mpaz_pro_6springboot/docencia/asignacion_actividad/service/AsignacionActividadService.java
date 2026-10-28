@@ -5,9 +5,11 @@ import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
+import com.example.mpaz_pro_6springboot.docencia.asignacion.service.AsignacionService;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividadId;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository.AsignacionActividadRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class AsignacionActividadService {
     private final AsignacionActividadRepository asignacionActividadRepository;
     private final AsignacionRepository asignacionRepository;
     private final ActividadRepository actividadRepository;
+    private final AsignacionService asignacionService;
 
     public List<AsignacionActividad> findByAsignacionId(Long asignacionId) {
         getAsignacion(asignacionId);
@@ -31,8 +34,13 @@ public class AsignacionActividadService {
     }
 
     @Transactional
-    public AsignacionActividad assign(Long asignacionId, Long actividadId) {
+    public AsignacionActividad assign(
+            Long asignacionId,
+            Long actividadId,
+            Usuario currentUser
+    ) {
         Asignacion asignacion = getAsignacion(asignacionId);
+        asignacionService.assertDocenteDueno(asignacion, currentUser);
         Actividad actividad = getActividad(actividadId);
         Long unidadId = asignacion.getUnidad().getId();
 
@@ -68,7 +76,14 @@ public class AsignacionActividadService {
     }
 
     @Transactional
-    public void remove(Long asignacionId, Long actividadId) {
+    public void remove(
+            Long asignacionId,
+            Long actividadId,
+            Usuario currentUser
+    ) {
+        Asignacion asignacion = getAsignacion(asignacionId);
+        asignacionService.assertDocenteDueno(asignacion, currentUser);
+
         AsignacionActividad asignacionActividad = asignacionActividadRepository
                 .findByAsignacionIdAndActividadId(asignacionId, actividadId)
                 .orElseThrow(() -> new ResponseStatusException(

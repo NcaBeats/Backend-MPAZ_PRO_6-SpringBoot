@@ -17,10 +17,12 @@ public interface RecursoContenidoMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "contenido", ignore = true)
+    @Mapping(target = "estado", ignore = true)
     RecursoContenido toEntity(RecursoContenidoCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "contenido", ignore = true)
+    @Mapping(target = "estado", ignore = true)
     RecursoContenido toEntity(RecursoContenidoUpdateRequest request);
 
     void updateEntity(RecursoContenidoUpdateRequest request, @MappingTarget RecursoContenido entity);

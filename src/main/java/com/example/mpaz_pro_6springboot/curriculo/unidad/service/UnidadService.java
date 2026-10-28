@@ -2,10 +2,15 @@ package com.example.mpaz_pro_6springboot.curriculo.unidad.service;
 
 import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
+import com.example.mpaz_pro_6springboot.common.security.CurriculoAuthoringPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.model.Asignatura;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.repository.ContenidoRepository;
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.repository.AsignaturaRepository;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repository.ObjetivoAprendizajeRepository;
+import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
+import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.repository.RecursoContenidoRepository;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
@@ -33,8 +38,11 @@ public class UnidadService {
     private final UsuarioRepository usuarioRepository;
     private final ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
     private final ActividadRepository actividadRepository;
+    private final ContenidoRepository contenidoRepository;
+    private final RecursoContenidoRepository recursoContenidoRepository;
     private final AsignacionRepository asignacionRepository;
     private final InformePedagogicoRepository informePedagogicoRepository;
+    private final CurriculoAuthoringPolicy authoringPolicy;
 
     public List<Unidad> findAll(Long asignaturaId) {
         if (asignaturaId == null) {
@@ -51,7 +59,14 @@ public class UnidadService {
 
     @Transactional
     public Unidad create(Unidad unidad, Long asignaturaId) {
-        unidad.setAsignatura(getAsignatura(asignaturaId));
+        Asignatura asignatura = getAsignatura(asignaturaId);
+        if (unidadRepository.existsByAsignaturaId(asignaturaId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "La asignatura ya tiene una unidad; el MVP admite máximo una por asignatura"
+            );
+        }
+        unidad.setAsignatura(asignatura);
         if (unidad.getNivelEducativo() == null) {
             unidad.setNivelEducativo(NIVEL_EDUCATIVO_PREDETERMINADO);
         }
@@ -100,6 +115,42 @@ public class UnidadService {
         }
 
         validateAuthorization(unidad);
+        Unidad saved = unidadRepository.save(unidad);
+        sincronizarEstadoMaterial(saved);
+        return saved;
+    }
+
+    /**
+     * Propaga el estado de la unidad a sus contenidos y recursos.
+     *
+     * El docente crea material en BORRADOR; cuando la UTP autoriza o publica,
+     * ese material debe acompañar el estado de la unidad para que el estudiante
+     * lo reciba. El material no se publica por una vía distinta a la unidad.
+     */
+    private void sincronizarEstadoMaterial(Unidad unidad) {
+        if (unidad.getEstado() != EstadoContenido.AUTORIZADO
+                && unidad.getEstado() != EstadoContenido.PUBLICADO) {
+            return;
+        }
+
+        List<Contenido> contenidos = contenidoRepository.findByUnidadId(unidad.getId());
+        contenidos.forEach(contenido -> contenido.setEstado(unidad.getEstado()));
+        if (!contenidos.isEmpty()) {
+            contenidoRepository.saveAll(contenidos);
+        }
+
+        List<RecursoContenido> recursos = recursoContenidoRepository.findByUnidadId(unidad.getId());
+        recursos.forEach(recurso -> recurso.setEstado(unidad.getEstado()));
+        if (!recursos.isEmpty()) {
+            recursoContenidoRepository.saveAll(recursos);
+        }
+    }
+
+    @Transactional
+    public Unidad enviarARevision(Long id, Usuario currentUser) {
+        Unidad unidad = getUnidad(id);
+        authoringPolicy.assertCanSubmitReview(currentUser, unidad);
+        unidad.setEstado(EstadoContenido.EN_REVISION);
         return unidadRepository.save(unidad);
     }
 

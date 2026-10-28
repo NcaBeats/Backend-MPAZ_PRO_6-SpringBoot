@@ -1,16 +1,21 @@
 package com.example.mpaz_pro_6springboot.common.seed;
 
 import com.example.mpaz_pro_6springboot.common.PostgresIntegrationTest;
+import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.repository.AlternativaRepository;
 import com.example.mpaz_pro_6springboot.curriculo.asignatura.repository.AsignaturaRepository;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.repository.ContenidoRepository;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repository.ObjetivoAprendizajeRepository;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.repository.PreguntaRepository;
+import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.repository.RecursoContenidoRepository;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
+import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
+import com.example.mpaz_pro_6springboot.curriculo.unidad.service.UnidadService;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository.AsignacionActividadRepository;
@@ -31,6 +36,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +73,8 @@ class DataInitializerTest extends PostgresIntegrationTest {
     @Autowired
     private UnidadRepository unidadRepository;
     @Autowired
+    private UnidadService unidadService;
+    @Autowired
     private ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
     @Autowired
     private ContenidoRepository contenidoRepository;
@@ -97,26 +106,56 @@ class DataInitializerTest extends PostgresIntegrationTest {
     @Test
     void elSeedCargaTodosLosDatos() {
         assertEquals(2, cursoRepository.count());
-        assertEquals(8, usuarioRepository.count());
+        assertEquals(10, usuarioRepository.count());
         assertEquals(4, asignaturaRepository.count());
         assertEquals(4, unidadRepository.count());
-        assertEquals(8, objetivoAprendizajeRepository.count());
-        assertEquals(8, contenidoRepository.count());
-        assertEquals(8, recursoContenidoRepository.count());
+        assertEquals(36, objetivoAprendizajeRepository.count());
+        assertEquals(4, contenidoRepository.count());
+        assertEquals(4, recursoContenidoRepository.count());
         assertEquals(12, actividadRepository.count());
-        assertEquals(6, preguntaRepository.count());
-        assertEquals(19, alternativaRepository.count());
-        assertEquals(8, asignacionRepository.count());
-        assertEquals(16, asignacionOaRepository.count());
-        assertEquals(24, asignacionActividadRepository.count());
+        assertEquals(20, preguntaRepository.count());
+        assertEquals(60, alternativaRepository.count());
+        assertEquals(6, asignacionRepository.count());
+        assertEquals(6, asignacionOaRepository.count());
+        assertEquals(12, asignacionActividadRepository.count());
         assertEquals(8, docenciaRepository.count());
         assertEquals(4, intentoRepository.count());
-        assertEquals(12, respuestaEstudianteRepository.count());
+        assertEquals(9, respuestaEstudianteRepository.count());
         assertEquals(1, informePedagogicoRepository.count());
-        assertEquals(2, detalleInformeOaRepository.count());
+        assertEquals(1, detalleInformeOaRepository.count());
 
         assertTrue(asignacionRepository.findAllByOrderByIdAsc().stream()
                 .allMatch(a -> Boolean.TRUE.equals(a.getPruebaFinalHabilitada())));
+
+        Contenido contenidoPublicado = contenidoRepository
+                .findAllByOrderByOaIdAscOrdenAscIdAsc().get(0);
+        assertEquals(EstadoContenido.PUBLICADO, contenidoPublicado.getEstado());
+
+        Contenido contenidoBorrador = contenidoRepository
+                .findAllByOrderByOaIdAscOrdenAscIdAsc().get(3);
+        assertEquals(EstadoContenido.BORRADOR, contenidoBorrador.getEstado());
+
+        RecursoContenido recursoPublicado = recursoContenidoRepository
+                .findByContenidoId(contenidoPublicado.getId()).get(0);
+        assertEquals(EstadoContenido.PUBLICADO, recursoPublicado.getEstado());
+    }
+
+    @Test
+    @Transactional
+    void noPermiteCrearUnaSegundaUnidadEnLaMismaAsignatura() {
+        Long asignaturaId = unidadRepository.findAllByOrderByAsignaturaIdAscOrdenAsc().get(0)
+                .getAsignatura().getId();
+        Unidad segunda = Unidad.builder()
+                .titulo("Segunda unidad")
+                .estado(EstadoContenido.BORRADOR)
+                .build();
+
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> unidadService.create(segunda, asignaturaId)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
     }
 
     @Test

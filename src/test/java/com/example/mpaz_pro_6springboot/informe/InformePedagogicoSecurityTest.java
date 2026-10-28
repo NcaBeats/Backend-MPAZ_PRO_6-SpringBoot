@@ -5,7 +5,6 @@ import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadReposi
 import com.example.mpaz_pro_6springboot.identidad.usuario.repository.UsuarioRepository;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.repository.InformePedagogicoRepository;
-import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.service.InformePedagogicoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,8 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Reglas de la seccion 8: un estudiante solo ve sus propios informes y no
- * puede generarlos ni validarlos. Los endpoints dejan de ser publicos.
+ * Los informes son exclusivos del docente responsable. Estudiantes y UTP no
+ * pueden leerlos, generarlos ni validarlos.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -38,16 +37,14 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
     private UnidadRepository unidadRepository;
     @Autowired
     private InformePedagogicoRepository informeRepository;
-    @Autowired
-    private InformePedagogicoService informePedagogicoService;
 
     @Test
-    void elEstudianteSoloVeSusPropiosInformes() throws Exception {
+    void elDocenteVeSusPropiosInformesConNombres() throws Exception {
         var camila = usuarioRepository.findByUsername("camila").orElseThrow();
         InformePedagogico informeCamila = informeRepository.findByEstudianteId(camila.getId()).getFirst();
 
         mockMvc.perform(get("/api/informes-pedagogicos")
-                        .with(bearer("camila")))
+                        .with(bearer("docente")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].id").value(informeCamila.getId()))
@@ -59,38 +56,31 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void elEstudianteNoPuedeConsultarAOtroEstudiante() throws Exception {
-        var camila = usuarioRepository.findByUsername("camila").orElseThrow();
-        var mateo = usuarioRepository.findByUsername("mateo").orElseThrow();
-        var docente = usuarioRepository.findByUsername("docente").orElseThrow();
-        var utp = usuarioRepository.findByUsername("utp").orElseThrow();
-        var unidad = unidadRepository.findAllByOrderByAsignaturaIdAscOrdenAsc().getFirst();
+    void estudianteYUtpNoPuedenConsultarInformes() throws Exception {
+        InformePedagogico informe = informeRepository.findAllByOrderByIdAsc().getFirst();
 
-        InformePedagogico informeMateo = informePedagogicoService.generar(
-                mateo.getId(), unidad.getId(), docente.getId(), utp);
-
-        mockMvc.perform(get("/api/informes-pedagogicos")
-                        .param("estudianteId", mateo.getId().toString())
-                        .with(bearer("camila")))
+        mockMvc.perform(get("/api/informes-pedagogicos").with(bearer("camila")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/informes-pedagogicos").with(bearer("utp")))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(get("/api/informes-pedagogicos/{id}", informeMateo.getId())
+        mockMvc.perform(get("/api/informes-pedagogicos/{id}", informe.getId())
                         .with(bearer("camila")))
                 .andExpect(status().isForbidden());
-
-        mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informeMateo.getId())
-                        .with(bearer("camila")))
-                .andExpect(status().isForbidden());
-
-        // La UTP si puede consultar el informe de Mateo.
-        mockMvc.perform(get("/api/informes-pedagogicos/{id}", informeMateo.getId())
+        mockMvc.perform(get("/api/informes-pedagogicos/{id}", informe.getId())
                         .with(bearer("utp")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estudianteId").value(mateo.getId()));
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informe.getId())
+                        .with(bearer("camila")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informe.getId())
+                        .with(bearer("utp")))
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    void elEstudianteNoPuedeGenerarNiValidarInformes() throws Exception {
+    void estudianteYUtpNoPuedenGenerarNiValidarInformes() throws Exception {
         var camila = usuarioRepository.findByUsername("camila").orElseThrow();
         var docente = usuarioRepository.findByUsername("docente").orElseThrow();
         var unidad = unidadRepository.findAllByOrderByAsignaturaIdAscOrdenAsc().getFirst();
@@ -104,8 +94,19 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
                                 """.formatted(camila.getId(), unidad.getId(), docente.getId())))
                 .andExpect(status().isForbidden());
 
+        mockMvc.perform(post("/api/informes-pedagogicos")
+                        .with(bearer("utp"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"estudianteId":%d,"unidadId":%d,"docenteId":%d}
+                                """.formatted(camila.getId(), unidad.getId(), docente.getId())))
+                .andExpect(status().isForbidden());
+
         mockMvc.perform(patch("/api/informes-pedagogicos/{id}/validacion", informeCamila.getId())
                         .with(bearer("camila")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(patch("/api/informes-pedagogicos/{id}/validacion", informeCamila.getId())
+                        .with(bearer("utp")))
                 .andExpect(status().isForbidden());
     }
 
@@ -124,12 +125,12 @@ class InformePedagogicoSecurityTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void elDetalleIncluyeLosDatosDelOaYLosPorcentajes() throws Exception {
+    void elDetalleDelInformeEsVisibleParaElDocente() throws Exception {
         var camila = usuarioRepository.findByUsername("camila").orElseThrow();
         InformePedagogico informe = informeRepository.findByEstudianteId(camila.getId()).getFirst();
 
         mockMvc.perform(get("/api/informes-pedagogicos/{id}/objetivos-aprendizaje", informe.getId())
-                        .with(bearer("camila")))
+                        .with(bearer("docente")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].oaCodigo").isNotEmpty())

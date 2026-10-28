@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.dto.response.AsignacionActividadResponse;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.mapper.AsignacionActividadMapper;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
@@ -7,6 +8,7 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.service.As
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,10 +42,15 @@ public class AsignacionActividadController {
     @PostMapping("/{actividadId}")
     public ResponseEntity<AsignacionActividadResponse> assign(
             @PathVariable @Positive Long asignacionId,
-            @PathVariable @Positive Long actividadId
+            @PathVariable @Positive Long actividadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
         AsignacionActividadResponse response = asignacionActividadMapper.toResponse(
-                asignacionActividadService.assign(asignacionId, actividadId)
+                asignacionActividadService.assign(
+                        asignacionId,
+                        actividadId,
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().build().toUri();
         return ResponseEntity.created(location).body(response);
@@ -52,9 +59,14 @@ public class AsignacionActividadController {
     @DeleteMapping("/{actividadId}")
     public ResponseEntity<Void> remove(
             @PathVariable @Positive Long asignacionId,
-            @PathVariable @Positive Long actividadId
+            @PathVariable @Positive Long actividadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        asignacionActividadService.remove(asignacionId, actividadId);
+        asignacionActividadService.remove(
+                asignacionId,
+                actividadId,
+                principal.getUsuario()
+        );
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,8 +1,11 @@
 package com.example.mpaz_pro_6springboot.identidad.curso.service;
 
+import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
+import com.example.mpaz_pro_6springboot.docencia.docencia.repository.DocenteCursoAsignaturaRepository;
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.identidad.curso.repository.CursoRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import com.example.mpaz_pro_6springboot.identidad.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +23,7 @@ public class CursoService {
     private final CursoRepository cursoRepository;
     private final UsuarioRepository usuarioRepository;
     private final AsignacionRepository asignacionRepository;
+    private final DocenteCursoAsignaturaRepository docenciaRepository;
 
     public List<Curso> findAll(Integer anio) {
         List<Curso> cursos = anio == null
@@ -30,6 +34,40 @@ public class CursoService {
 
     public Curso findById(Long id) {
         return getCurso(id);
+    }
+
+    /**
+     * Lista los estudiantes de un curso.
+     *
+     * La UTP puede consultar cualquier curso; un docente solo los cursos en los
+     * que tiene alguna docencia. El endpoint es de solo lectura y no expone
+     * usuarios de otros roles.
+     */
+    public List<Usuario> findEstudiantes(Long cursoId, Usuario currentUser) {
+        getCurso(cursoId);
+
+        if (currentUser.getRol() == Rol.DOCENTE
+                && !docenciaRepository.existsByDocenteIdAndCursoId(
+                        currentUser.getId(),
+                        cursoId
+                )) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo puedes consultar estudiantes de tus cursos"
+            );
+        }
+
+        if (currentUser.getRol() != Rol.DOCENTE && currentUser.getRol() != Rol.UTP) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo la UTP y los docentes pueden consultar estudiantes"
+            );
+        }
+
+        return usuarioRepository.findByRolAndCursoIdOrderByNombreAsc(
+                Rol.ESTUDIANTE,
+                cursoId
+        );
     }
 
     @Transactional

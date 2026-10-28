@@ -13,6 +13,10 @@ public record ActividadUpdateRequest(
 
         TipoActividad tipo,
 
+        Long contenidoId,
+
+        Boolean desasociarContenido,
+
         @Min(1)
         Integer orden
 ) {

@@ -1,16 +1,21 @@
 package com.example.mpaz_pro_6springboot.identidad.curso.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.request.CursoCreateRequest;
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.request.CursoUpdateRequest;
 import com.example.mpaz_pro_6springboot.identidad.curso.dto.response.CursoResponse;
 import com.example.mpaz_pro_6springboot.identidad.curso.mapper.CursoMapper;
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.identidad.curso.service.CursoService;
+import com.example.mpaz_pro_6springboot.identidad.usuario.dto.response.UsuarioResponse;
+import com.example.mpaz_pro_6springboot.identidad.usuario.mapper.UsuarioMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +39,7 @@ public class CursoController {
 
     private final CursoService cursoService;
     private final CursoMapper cursoMapper;
+    private final UsuarioMapper usuarioMapper;
 
     @GetMapping
     public ResponseEntity<List<CursoResponse>> findAll(
@@ -47,6 +53,19 @@ public class CursoController {
     @GetMapping("/{id}")
     public ResponseEntity<CursoResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(cursoMapper.toResponse(cursoService.findById(id)));
+    }
+
+    @GetMapping("/{id}/estudiantes")
+    @PreAuthorize("hasAnyRole('DOCENTE', 'UTP')")
+    public ResponseEntity<List<UsuarioResponse>> findEstudiantes(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(cursoService
+                .findEstudiantes(id, principal.getUsuario())
+                .stream()
+                .map(usuarioMapper::toResponse)
+                .toList());
     }
 
     @PostMapping

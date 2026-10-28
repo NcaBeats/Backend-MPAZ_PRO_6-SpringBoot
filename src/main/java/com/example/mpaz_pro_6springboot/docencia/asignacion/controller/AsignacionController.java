@@ -39,17 +39,22 @@ public class AsignacionController {
     @GetMapping
     public ResponseEntity<List<AsignacionResponse>> findAll(
             @RequestParam(required = false) @Positive Long cursoId,
-            @RequestParam(required = false) @Positive Long unidadId
+            @RequestParam(required = false) @Positive Long unidadId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(asignacionService.findAll(cursoId, unidadId).stream()
+        return ResponseEntity.ok(asignacionService
+                .findAll(cursoId, unidadId, principal.getUsuario()).stream()
                 .map(asignacionMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AsignacionResponse> findById(@PathVariable @Positive Long id) {
+    public ResponseEntity<AsignacionResponse> findById(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         return ResponseEntity.ok(asignacionMapper.toResponse(
-                asignacionService.findById(id)
+                asignacionService.findById(id, principal.getUsuario())
         ));
     }
 
@@ -77,17 +82,21 @@ public class AsignacionController {
     @PutMapping("/{id}")
     public ResponseEntity<AsignacionResponse> update(
             @PathVariable @Positive Long id,
-            @Valid @RequestBody AsignacionUpdateRequest request
+            @Valid @RequestBody AsignacionUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
         Asignacion cambios = asignacionMapper.toEntity(request);
         return ResponseEntity.ok(asignacionMapper.toResponse(
-                asignacionService.update(id, cambios)
+                asignacionService.update(id, cambios, principal.getUsuario())
         ));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable @Positive Long id) {
-        asignacionService.delete(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable @Positive Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        asignacionService.delete(id, principal.getUsuario());
         return ResponseEntity.noContent().build();
     }
 }

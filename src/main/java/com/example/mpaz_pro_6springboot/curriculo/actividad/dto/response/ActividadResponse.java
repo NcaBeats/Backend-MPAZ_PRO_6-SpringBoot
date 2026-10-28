@@ -5,6 +5,7 @@ import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
 public record ActividadResponse(
         Long id,
         Long unidadId,
+        Long contenidoId,
         String titulo,
         TipoActividad tipo,
         Integer orden

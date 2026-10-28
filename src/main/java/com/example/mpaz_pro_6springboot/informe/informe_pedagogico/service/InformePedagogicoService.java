@@ -3,12 +3,18 @@ package com.example.mpaz_pro_6springboot.informe.informe_pedagogico.service;
 import com.example.mpaz_pro_6springboot.common.enums.EstadoInforme;
 import com.example.mpaz_pro_6springboot.common.enums.NivelOa;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
+import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
 import com.example.mpaz_pro_6springboot.common.security.InformeAccessPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
+import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
+import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
+import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.repository.AsignacionActividadRepository;
+import com.example.mpaz_pro_6springboot.docencia.docencia.model.DocenteCursoAsignatura;
+import com.example.mpaz_pro_6springboot.docencia.docencia.repository.DocenteCursoAsignaturaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.model.RespuestaEstudiante;
@@ -29,6 +35,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,27 +51,42 @@ public class InformePedagogicoService {
     private final ActividadRepository actividadRepository;
     private final IntentoRepository intentoRepository;
     private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+    private final AsignacionRepository asignacionRepository;
+    private final AsignacionActividadRepository asignacionActividadRepository;
+    private final DocenteCursoAsignaturaRepository docenciaRepository;
     private final InformeAccessPolicy informeAccessPolicy;
 
     public List<InformePedagogico> findAll(Long estudianteId, Long unidadId, Usuario currentUser) {
-        Long efectivoEstudianteId = informeAccessPolicy.scopeEstudianteId(estudianteId, currentUser);
-        if (efectivoEstudianteId != null) {
-            getUsuario(efectivoEstudianteId);
+        informeAccessPolicy.assertCanList(currentUser);
+        if (estudianteId != null) {
+            getUsuario(estudianteId);
         }
         if (unidadId != null) {
             getUnidad(unidadId);
         }
 
-        if (efectivoEstudianteId != null && unidadId != null) {
-            return informeRepository.findByEstudianteIdAndUnidadIdOrderByIdAsc(efectivoEstudianteId, unidadId);
+        Long docenteId = currentUser.getId();
+        if (estudianteId != null && unidadId != null) {
+            return informeRepository
+                    .findByDocenteIdAndEstudianteIdAndUnidadIdOrderByIdAsc(
+                            docenteId,
+                            estudianteId,
+                            unidadId
+                    );
         }
-        if (efectivoEstudianteId != null) {
-            return informeRepository.findByEstudianteIdOrderByIdAsc(efectivoEstudianteId);
+        if (estudianteId != null) {
+            return informeRepository.findByDocenteIdAndEstudianteIdOrderByIdAsc(
+                    docenteId,
+                    estudianteId
+            );
         }
         if (unidadId != null) {
-            return informeRepository.findByUnidadIdOrderByIdAsc(unidadId);
+            return informeRepository.findByDocenteIdAndUnidadIdOrderByIdAsc(
+                    docenteId,
+                    unidadId
+            );
         }
-        return informeRepository.findAllByOrderByIdAsc();
+        return informeRepository.findByDocenteIdOrderByIdAsc(docenteId);
     }
 
     public InformePedagogico findById(Long id, Usuario currentUser) {
@@ -91,6 +114,29 @@ public class InformePedagogicoService {
         }
         Unidad unidad = getUnidad(unidadId);
 
+        if (estudiante.getCurso() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El estudiante no tiene un curso asignado"
+            );
+        }
+
+        DocenteCursoAsignatura docencia = docenciaRepository
+                .findByCursoIdAndAsignaturaId(
+                        estudiante.getCurso().getId(),
+                        unidad.getAsignatura().getId()
+                )
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "No tienes docencia para la asignatura del estudiante"
+                ));
+        if (!docencia.getDocente().getId().equals(docenteId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo el docente de la asignatura puede generar el informe"
+            );
+        }
+
         if (informeRepository.existsByEstudianteIdAndUnidadId(estudianteId, unidadId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -98,10 +144,32 @@ public class InformePedagogicoService {
             );
         }
 
+        Asignacion asignacion = asignacionRepository
+                .findByCursoIdAndUnidadId(estudiante.getCurso().getId(), unidadId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "El estudiante no tiene una asignación para esa unidad"
+                ));
+        Set<Long> actividadesAsignadas = asignacionActividadRepository
+                .findByAsignacionId(asignacion.getId())
+                .stream()
+                .map(asignacionActividad -> asignacionActividad.getActividad().getId())
+                .collect(Collectors.toSet());
+        if (actividadesAsignadas.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La asignación no tiene actividades para generar el informe"
+            );
+        }
+
         Map<Long, int[]> acumulado = new LinkedHashMap<>();
         Map<Long, ObjetivoAprendizaje> oas = new LinkedHashMap<>();
 
         for (Actividad actividad : actividadRepository.findByUnidadId(unidadId)) {
+            if (!actividadesAsignadas.contains(actividad.getId())
+                    || actividad.getTipo() == TipoActividad.PRUEBA_FINAL) {
+                continue;
+            }
             Optional<Intento> ultimo = intentoRepository
                     .findFirstByEstudianteIdAndActividadIdAndFechaFinIsNotNullOrderByNumeroDesc(estudianteId, actividad.getId());
             if (ultimo.isEmpty()) {
@@ -122,7 +190,7 @@ public class InformePedagogicoService {
         if (acumulado.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "No hay respuestas de intentos completados para generar el informe"
+                    "No hay respuestas de actividades asignadas para generar el informe"
             );
         }
 

@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.contenido.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.dto.request.ContenidoCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.dto.request.ContenidoUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.contenido.dto.response.ContenidoResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,23 +38,36 @@ public class ContenidoController {
 
     @GetMapping
     public ResponseEntity<List<ContenidoResponse>> findAll(
-            @RequestParam(required = false) @Positive Long oaId
+            @RequestParam(required = false) @Positive Long oaId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(contenidoService.findAll(oaId).stream()
+        return ResponseEntity.ok(contenidoService.findAll(oaId, principal.getUsuario()).stream()
                 .map(contenidoMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ContenidoResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(contenidoMapper.toResponse(contenidoService.findById(id)));
+    public ResponseEntity<ContenidoResponse> findById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(contenidoMapper.toResponse(
+                contenidoService.findById(id, principal.getUsuario())
+        ));
     }
 
     @PostMapping
-    public ResponseEntity<ContenidoResponse> create(@Valid @RequestBody ContenidoCreateRequest request) {
+    public ResponseEntity<ContenidoResponse> create(
+            @Valid @RequestBody ContenidoCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         Contenido contenido = contenidoMapper.toEntity(request);
         ContenidoResponse created = contenidoMapper.toResponse(
-                contenidoService.create(contenido, request.oaId())
+                contenidoService.create(
+                        contenido,
+                        request.oaId(),
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")

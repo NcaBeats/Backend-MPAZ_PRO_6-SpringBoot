@@ -55,7 +55,7 @@ public class InformePedagogicoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('DOCENTE', 'UTP')")
+    @PreAuthorize("hasRole('DOCENTE')")
     public ResponseEntity<InformePedagogicoResponse> generar(
             @Valid @RequestBody InformePedagogicoCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails principal
@@ -76,7 +76,7 @@ public class InformePedagogicoController {
     }
 
     @PatchMapping("/{id}/validacion")
-    @PreAuthorize("hasAnyRole('DOCENTE', 'UTP')")
+    @PreAuthorize("hasRole('DOCENTE')")
     public ResponseEntity<InformePedagogicoResponse> validar(
             @PathVariable @Positive Long id,
             @AuthenticationPrincipal CustomUserDetails principal

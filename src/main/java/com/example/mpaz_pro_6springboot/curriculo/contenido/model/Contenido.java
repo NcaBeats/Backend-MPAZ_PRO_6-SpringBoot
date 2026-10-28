@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.contenido.model;
 
+import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.model.RecursoContenido;
@@ -63,6 +64,11 @@ public class Contenido {
     @Column(name = "orden", nullable = false)
     @Builder.Default
     private Integer orden = 1;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false, length = 20)
+    @Builder.Default
+    private EstadoContenido estado = EstadoContenido.BORRADOR;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "origen", nullable = false, length = 20)

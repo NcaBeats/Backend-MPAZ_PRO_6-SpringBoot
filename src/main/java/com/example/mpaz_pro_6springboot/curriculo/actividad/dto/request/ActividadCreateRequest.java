@@ -18,6 +18,8 @@ public record ActividadCreateRequest(
         @NotNull
         TipoActividad tipo,
 
+        Long contenidoId,
+
         @Min(1)
         Integer orden
 ) {

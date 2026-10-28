@@ -8,51 +8,35 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Reglas de acceso a los informes pedagogicos. La regla base de la seccion 8
- * es que un estudiante solo puede ver sus propios datos; UTP y DOCENTE pueden
- * consultar los informes, pero un DOCENTE solo genera/valida los suyos.
+ * Reglas de acceso a los informes pedagogicos.
+ *
+ * <p>Los informes son exclusivos del rol DOCENTE. Un docente solo puede
+ * consultar, generar y validar los informes en los que figura como responsable.
+ * Los estudiantes y la UTP no tienen acceso.</p>
  */
 @Component
 public class InformeAccessPolicy {
 
-    /**
-     * Si el usuario es estudiante, fuerza el filtro a su propio id y rechaza
-     * cualquier intento de consultar a otro estudiante.
-     */
-    public Long scopeEstudianteId(Long estudianteIdSolicitado, Usuario usuario) {
-        requireAuthenticated(usuario);
-        if (usuario.getRol() != Rol.ESTUDIANTE) {
-            return estudianteIdSolicitado;
-        }
-        if (estudianteIdSolicitado != null && !estudianteIdSolicitado.equals(usuario.getId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Un estudiante solo puede consultar sus propios informes"
-            );
-        }
-        return usuario.getId();
+    /** Valida que el usuario autenticado pueda listar informes. */
+    public void assertCanList(Usuario usuario) {
+        requireDocente(usuario);
     }
 
+    /** Valida que el docente sea el responsable del informe. */
     public void assertCanRead(InformePedagogico informe, Usuario usuario) {
-        requireAuthenticated(usuario);
-        if (usuario.getRol() == Rol.ESTUDIANTE
-                && !informe.getEstudiante().getId().equals(usuario.getId())) {
+        requireDocente(usuario);
+        if (!informe.getDocente().getId().equals(usuario.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Un estudiante solo puede consultar sus propios informes"
+                    "Un docente solo puede consultar sus propios informes"
             );
         }
     }
 
+    /** Valida que el docente genere el informe como responsable. */
     public void assertCanGenerate(Long docenteId, Usuario usuario) {
-        requireAuthenticated(usuario);
-        if (usuario.getRol() == Rol.ESTUDIANTE) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "El estudiante no puede generar informes"
-            );
-        }
-        if (usuario.getRol() == Rol.DOCENTE && !docenteId.equals(usuario.getId())) {
+        requireDocente(usuario);
+        if (docenteId == null || !docenteId.equals(usuario.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Un docente solo puede generar informes como responsable"
@@ -60,26 +44,26 @@ public class InformeAccessPolicy {
         }
     }
 
+    /** Valida que el docente sea el responsable del informe que valida. */
     public void assertCanValidate(InformePedagogico informe, Usuario usuario) {
-        requireAuthenticated(usuario);
-        if (usuario.getRol() == Rol.ESTUDIANTE) {
+        requireDocente(usuario);
+        if (!informe.getDocente().getId().equals(usuario.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "El estudiante no puede validar informes"
-            );
-        }
-        if (usuario.getRol() == Rol.DOCENTE
-                && !informe.getDocente().getId().equals(usuario.getId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Un docente solo puede validar los informes que genero"
+                    "Un docente solo puede validar sus propios informes"
             );
         }
     }
 
-    private void requireAuthenticated(Usuario usuario) {
+    private void requireDocente(Usuario usuario) {
         if (usuario == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado");
+        }
+        if (usuario.getRol() != Rol.DOCENTE) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo un docente puede consultar informes pedagógicos"
+            );
         }
     }
 }

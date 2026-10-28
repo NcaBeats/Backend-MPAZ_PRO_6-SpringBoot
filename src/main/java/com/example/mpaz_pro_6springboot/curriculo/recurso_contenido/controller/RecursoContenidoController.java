@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.dto.request.RecursoContenidoCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.dto.request.RecursoContenidoUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.dto.response.RecursoContenidoResponse;
@@ -9,6 +10,7 @@ import com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.service.Recu
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,16 +35,23 @@ public class RecursoContenidoController {
 
     @GetMapping
     public ResponseEntity<List<RecursoContenidoResponse>> findAll(
-            @RequestParam(required = false) Long contenidoId
+            @RequestParam(required = false) Long contenidoId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(recursoContenidoService.findAll(contenidoId).stream()
+        return ResponseEntity.ok(recursoContenidoService
+                .findAll(contenidoId, principal.getUsuario()).stream()
                 .map(recursoContenidoMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RecursoContenidoResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(recursoContenidoMapper.toResponse(recursoContenidoService.findById(id)));
+    public ResponseEntity<RecursoContenidoResponse> findById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(recursoContenidoMapper.toResponse(
+                recursoContenidoService.findById(id, principal.getUsuario())
+        ));
     }
 
     @PostMapping

@@ -57,22 +57,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Carga los datos de demo (especificaciones/mpaz_pro_modelo_definitivo.md,
- * seccion 11) la primera vez que arranca la aplicacion, para que el proyecto
- * quede listo para consultar sin pasos manuales.
+ * Carga los datos de demo alineados con el seed local de la app:
+ * una unidad por asignatura, cuatro unidades, una de ellas en BORRADOR.
  *
- * - Idempotente: si ya hay usuarios, no hace nada.
- * - Se puede desactivar con mpaz.seed.enabled=false.
- * - Inserta con repositorios (no con Services) porque el seed representa un
- *   estado ya consolidado: incluye intentos completados y un snapshot de
- *   informe que no debe recalcularse al arrancar.
- * - Las contrasenas son ficticias: utp/utp12345, docente/doc12345 y
- *   estudiantes/alu12345. Se guardan con BCrypt real.
+ * La UTP conserva el acceso a todo. El docente puede crear material en la
+ * unidad de Historia y enviarla a revisión. El estudiante solo ve las unidades
+ * publicadas y asignadas a su curso.
  */
 @Component
 @RequiredArgsConstructor
@@ -114,7 +107,7 @@ public class DataInitializer implements ApplicationRunner {
 
         seed();
 
-        log.info("DataInitializer: datos de demo cargados (4 unidades, 12 actividades, 4 intentos, 1 informe)");
+        log.info("DataInitializer: datos de demo cargados (4 unidades, 36 OAs, 12 actividades, 20 preguntas, 1 informe)");
     }
 
     private void seed() {
@@ -135,9 +128,8 @@ public class DataInitializer implements ApplicationRunner {
         List<Contenido> contenidos = crearContenidos(oas);
         crearRecursos(contenidos);
 
-        List<Actividad> actividades = crearActividades(unidades);
-        Actividad pruebaFinalUnidad1 = actividades.get(2);
-        BancoPreguntas banco = crearPreguntas(unidades.get(0), pruebaFinalUnidad1, oas.get(0), oas.get(1));
+        List<Actividad> actividades = crearActividades(unidades, contenidos);
+        BancoPreguntas banco = crearPreguntas(actividades, oas);
 
         List<Asignacion> asignaciones = crearAsignaciones(
                 List.of(curso6A, curso6B),
@@ -146,15 +138,18 @@ public class DataInitializer implements ApplicationRunner {
         crearAsignacionesOa(asignaciones, oas);
         crearAsignacionesActividad(asignaciones, actividades);
 
-        Intentos intentos = crearIntentos(usuarios, pruebaFinalUnidad1);
-        crearRespuestas(intentos, banco);
+        Intento camila1 = intentoRepository.save(intento(usuarios.camila(), actividades.get(2), 1,
+                "2026-05-04T10:00:00Z", "2026-05-04T10:14:00Z"));
+        Intento camila2 = intentoRepository.save(intento(usuarios.camila(), actividades.get(2), 2,
+                "2026-05-06T15:20:00Z", "2026-05-06T15:33:00Z"));
+        Intento mateo1 = intentoRepository.save(intento(usuarios.mateo(), actividades.get(5), 1,
+                "2026-05-05T11:00:00Z", "2026-05-05T11:19:00Z"));
+        Intento javiera1 = intentoRepository.save(intento(usuarios.javiera(), actividades.get(8), 1,
+                "2026-05-07T16:00:00Z", null));
 
+        crearRespuestas(camila1, camila2, mateo1, banco, actividades);
         crearInforme(usuarios, unidades.get(0), oas);
     }
-
-    // ------------------------------------------------------------------
-    // A) Cursos y usuarios
-    // ------------------------------------------------------------------
 
     private Usuarios crearUsuarios(Curso curso6A, Curso curso6B) {
         String hashUtp = passwordEncoder.encode(PASSWORD_UTP);
@@ -179,8 +174,11 @@ public class DataInitializer implements ApplicationRunner {
         Usuario mateo = usuarioRepository.save(estudiante("Mateo Cortes", "mateo", hashEstudiante, curso6A));
         Usuario javiera = usuarioRepository.save(estudiante("Javiera Munoz", "javiera", hashEstudiante, curso6A));
         Usuario benjamin = usuarioRepository.save(estudiante("Benjamin Ortiz", "benjamin", hashEstudiante, curso6A));
+
         usuarioRepository.save(estudiante("Sofia Herrera", "sofia", hashEstudiante, curso6B));
         usuarioRepository.save(estudiante("Tomas Vega", "tomas", hashEstudiante, curso6B));
+        usuarioRepository.save(estudiante("Antonia Paredes", "antonia", hashEstudiante, curso6B));
+        usuarioRepository.save(estudiante("Vicente Silva", "vicente", hashEstudiante, curso6B));
 
         return new Usuarios(utp, docente, camila, mateo, javiera, benjamin);
     }
@@ -195,10 +193,6 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // B) Asignaturas y unidades
-    // ------------------------------------------------------------------
-
     private List<Asignatura> crearAsignaturas() {
         return List.of(
                 asignaturaRepository.save(Asignatura.builder().nombre("Lengua y Comunicacion").build()),
@@ -212,70 +206,184 @@ public class DataInitializer implements ApplicationRunner {
         return List.of(
                 unidadRepository.save(Unidad.builder()
                         .asignatura(asignaturas.get(0))
-                        .titulo("Lectura y comprehension de textos")
+                        .titulo("Lectura - Comprension")
                         .orden(1)
-                        .estado(EstadoContenido.AUTORIZADO)
+                        .estado(EstadoContenido.PUBLICADO)
                         .autorizadaPor(utp)
-                        .fechaAutorizacion(Instant.parse("2026-03-02T09:00:00Z"))
+                        .fechaAutorizacion(Instant.ofEpochMilli(1772409600000L))
                         .build()),
                 unidadRepository.save(Unidad.builder()
                         .asignatura(asignaturas.get(1))
-                        .titulo("Numeros, operaciones y problemas")
+                        .titulo("Numeros y operaciones")
                         .orden(1)
-                        .estado(EstadoContenido.AUTORIZADO)
+                        .estado(EstadoContenido.PUBLICADO)
                         .autorizadaPor(utp)
-                        .fechaAutorizacion(Instant.parse("2026-03-02T09:05:00Z"))
+                        .fechaAutorizacion(Instant.ofEpochMilli(1772409600000L))
                         .build()),
                 unidadRepository.save(Unidad.builder()
                         .asignatura(asignaturas.get(2))
-                        .titulo("Materia y energia en los seres vivos")
+                        .titulo("Ciencias de la Vida")
                         .orden(1)
                         .estado(EstadoContenido.PUBLICADO)
                         .autorizadaPor(utp)
-                        .fechaAutorizacion(Instant.parse("2026-03-02T09:10:00Z"))
+                        .fechaAutorizacion(Instant.ofEpochMilli(1772668800000L))
                         .build()),
                 unidadRepository.save(Unidad.builder()
                         .asignatura(asignaturas.get(3))
-                        .titulo("Las sociedades en el tiempo y el espacio")
+                        .titulo("Historia")
                         .orden(1)
-                        .estado(EstadoContenido.PUBLICADO)
-                        .autorizadaPor(utp)
-                        .fechaAutorizacion(Instant.parse("2026-03-02T09:15:00Z"))
+                        .estado(EstadoContenido.BORRADOR)
                         .build())
         );
     }
 
-    // ------------------------------------------------------------------
-    // C) Objetivos de aprendizaje: 2 por unidad
-    // ------------------------------------------------------------------
-
     private List<ObjetivoAprendizaje> crearObjetivos(List<Unidad> unidades) {
         List<ObjetivoAprendizaje> oas = new ArrayList<>();
 
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(0), "OA-LC-6A-01",
-                "Comprender el proposito y la idea principal de un texto informativo breve, distinguiendo tema y detalles.",
-                "Lectura y comprension")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(0), "OA-LC-6A-02",
-                "Interpretar mensajes que combinan lenguaje verbal y no verbal, como titulos, subtitulos e imagenes de apoyo.",
-                "Comprension multimodal")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(1), "OA-MA-6A-01",
-                "Resolver problemas de la vida diaria usando operaciones con numeros naturales y decimales.",
-                "Numeros y operaciones")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(1), "OA-MA-6A-02",
-                "Reconocer y describir patrones numericos y geometricos presentes en objetos y figuras.",
-                "Patrones y formas")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(2), "OA-CN-6A-01",
-                "Explicar como se organiza la materia en los seres vivos y que cambios sofre en un proceso observable.",
-                "Materia y energia")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(2), "OA-CN-6A-02",
-                "Relacionar la luz con la produccion de energia en las plantas y su importancia para los otros seres vivos.",
-                "Luz y vida")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(3), "OA-HG-6A-01",
-                "Ubicar en el tiempo y en el espacio hechos y fenomenos sociales, usando categorias simples.",
-                "Tiempo y espacio")));
-        oas.add(objetivoAprendizajeRepository.save(oa(unidades.get(3), "OA-HG-6A-02",
-                "Reconocer la influencia de las actividades humanas en el ambiente de su comunidad.",
-                "Convivencia y ambiente")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 01",
+                "Leer de manera fluida textos variados apropiados a su edad: pronunciando las palabras con precisión; respetando la prosodia indicada por todos los signos de puntuación; decodificando de manera automática la mayoría de las palabras del texto.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 02",
+                "Comprender textos aplicando estrategias de comprensión lectora; por ejemplo: relacionar la información del texto con sus experiencias y conocimientos; releer lo que no fue comprendido; formular preguntas sobre lo leído y responderlas; organizar la información en esquemas o mapas conceptuales; resumir.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 03",
+                "Leer y familiarizarse con un amplio repertorio de literatura para aumentar su conocimiento del mundo, desarrollar su imaginación y reconocer su valor social y cultural; por ejemplo: poemas, cuentos folclóricos y de autor, fábulas, leyendas, mitos, novelas, historietas, entre otros.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 04",
+                "Analizar aspectos relevantes de las narraciones leídas para profundizar su comprensión: identificar las acciones principales del relato y explicar cómo influyen en el desarrollo de la historia; explicar las actitudes y reacciones de los personajes de acuerdo con sus motivaciones y las situaciones que viven; describir el ambiente y las costumbres representadas en el texto y explicar su influencia en las acciones del relato; relacionar el relato, si es pertinente, con la época y el lugar en que se ambienta; interpretar el lenguaje figurado; expresar opiniones sobre las actitudes y acciones de los personajes y fundamentarlas con ejemplos del texto; llegar a conclusiones sustentadas en la información del texto; comparar textos de autores diferentes y justificar su preferencia por alguno.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 05",
+                "Analizar aspectos relevantes de diversos poemas para profundizar su comprensión: explicar cómo el lenguaje poético empleado por el autor apela a los sentidos, sugiere estados de ánimo y crea imágenes en el lector; identificar personificaciones, comparaciones e hipérboles y explicar su significado dentro del poema; analizar cómo los efectos sonoros (aliteración y onomatopeya) utilizados por el poeta refuerzan lo dicho.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 06",
+                "Leer independientemente y comprender textos no literarios (cartas, biografías, relatos históricos, libros y artículos informativos, noticias, etc.) para ampliar su conocimiento del mundo y formarse una opinión: extraer información explícita e implícita; hacer inferencias a partir de la información del texto y de sus experiencias y conocimientos; relacionar la información de imágenes, gráficos, tablas, mapas o diagramas con el texto; interpretar expresiones en lenguaje figurado; comparar información entre dos textos del mismo tema; formular una opinión sobre algún aspecto de la lectura y fundamentarla con información del texto o conocimientos previos.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 07",
+                "Evaluar críticamente la información presente en textos de diversa procedencia: determinar quién es el emisor, cuál es su propósito y a quién dirige el mensaje; evaluar si un texto entrega suficiente información para responder una pregunta o cumplir un propósito; comparar la información que se entrega sobre una misma noticia en distintas fuentes.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 08",
+                "Sintetizar, registrar y ordenar las ideas principales de textos leídos para satisfacer propósitos como estudiar, hacer una investigación, recordar detalles, entre otros.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 09",
+                "Desarrollar el gusto por la lectura, leyendo habitualmente diversos textos.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 10",
+                "Asistir habitualmente a la biblioteca para satisfacer diversos propósitos (seleccionar textos, investigar sobre un tema, informarse sobre actualidad, etc.), adecuando su comportamiento y cuidando el material para permitir el trabajo y la lectura de los demás.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 11",
+                "Buscar y comparar información sobre un tema, utilizando fuentes como internet, enciclopedias, libros y prensa, entre otras, para llevar a cabo una investigación.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(0), "LE06 OA 12",
+                "Aplicar estrategias para determinar el significado de palabras nuevas: claves contextuales; raíces y afijos; preguntar a otro; diccionarios, enciclopedias e internet.",
+                "Lectura - Comprensión")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 01",
+                "Demostrar que comprenden los factores y múltiplos: determinar los múltiplos y factores de números naturales menores de 100; identificar números primos y compuestos; resolver problemas que involucran múltiplos.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 02",
+                "Realizar cálculos que involucren las cuatro operaciones en el contexto de la resolución de problemas, utilizando la calculadora en ámbitos superiores a 10 000.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 03",
+                "Demostrar que comprenden el concepto de razón de manera concreta, pictórica y simbólica, en forma manual y/o usando software educativo.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 04",
+                "Demostrar que comprenden el concepto de porcentaje de manera concreta, pictórica y simbólica, de forma manual y/o usando software educativo.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 05",
+                "Demostrar que comprenden las fracciones y números mixtos: identificar y determinar equivalencias entre fracciones impropias y números mixtos usando material concreto y representaciones pictóricas, de manera manual y/o con software educativo; representar estos números en la recta numérica.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 06",
+                "Resolver adiciones y sustracciones de fracciones propias e impropias y números mixtos con numeradores y denominadores de hasta dos dígitos.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 07",
+                "Demostrar que comprenden la multiplicación y la división de decimales por números naturales de un dígito, múltiplos de 10 y decimales hasta la milésima, de manera concreta, pictórica y simbólica.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(1), "MA06 OA 08",
+                "Resolver problemas rutinarios y no rutinarios que involucren adiciones y sustracciones de fracciones propias, impropias, números mixtos o decimales hasta la milésima.",
+                "Números y operaciones")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 01",
+                "Explicar, a partir de una investigación experimental, los requerimientos de agua, dióxido de carbono y energía lumínica para la producción de azúcar y liberación de oxígeno en la fotosíntesis, comunicando sus resultados y los aportes de científicos en este campo a través del tiempo.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 02",
+                "Representar, por medio de modelos, la transferencia de energía y materia desde los organismos fotosintéticos a otros seres vivos por medio de cadenas y redes alimentarias en diferentes ecosistemas.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 03",
+                "Analizar los efectos de la actividad humana sobre las redes alimentarias.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 04",
+                "Identificar y describir las funciones de las principales estructuras del sistema reproductor humano femenino y masculino.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 05",
+                "Describir y comparar los cambios que se producen en la pubertad en mujeres y hombres, reconociéndola como una etapa del desarrollo humano.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 06",
+                "Reconocer los beneficios de realizar actividad física en forma regular y de cuidar la higiene corporal en el período de la pubertad.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(2), "CN06 OA 07",
+                "Investigar y comunicar los efectos nocivos de algunas drogas para la salud, proponiendo conductas de protección.",
+                "Ciencias de la Vida")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 01",
+                "Explicar los múltiples antecedentes de la independencia de las colonias americanas y reconocer que la independencia de Chile se enmarca en un proceso continental.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 02",
+                "Explicar el desarrollo del proceso de independencia de Chile, considerando actores y bandos que se enfrentaron, hombres y mujeres destacados, avances y retrocesos de la causa patriota y acontecimientos significativos, como el cabildo abierto de 1810 y la formación de la Primera Junta Nacional de Gobierno, la elección del primer Congreso Nacional, las batallas de Rancagua, Chacabuco y Maipú y la Declaración de la Independencia, entre otros.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 03",
+                "Describir hitos y procesos de la organización de la república, incluyendo las dificultades y desafíos que implicó organizar en Chile una nueva forma de gobierno, el surgimiento de grupos con diferentes ideas políticas (conservadores y liberales), las características de la Constitución de 1833 y el impacto de las reformas realizadas por los liberales en la segunda mitad del siglo XIX.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 04",
+                "Investigar aspectos culturales del siglo XIX, como los avances en educación y la fundación de instituciones, el aporte de intelectuales y científicos nacionales (por ejemplo, Diego Barros Arana, Benjamín Vicuña Mackenna y José Victorino Lastarria) y extranjeros (por ejemplo, Andrés Bello, Claudio Gay, Charles Darwin y María Graham), las primeras mujeres en obtener títulos universitarios y el impacto de la llegada del ferrocarril y otros avances tecnológicos.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 05",
+                "Describir cómo se conformó el territorio de Chile durante el siglo XIX, considerando colonizaciones europeas, la incorporación de Isla de Pascua, la ocupación de la Araucanía, la Guerra del Pacífico y diversos conflictos bélicos, entre otros factores.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 06",
+                "Caracterizar los principales aspectos que definieron el período de riqueza aportada por la explotación del salitre, considerando la expansión económica y el inicio de la cuestión social.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 07",
+                "Explicar y dar ejemplos de la progresiva democratización de la sociedad durante el siglo XX, considerando el acceso creciente al voto, la participación de la mujer en la vida pública y el acceso a la educación y la cultura, entre otros.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 08",
+                "Comparar diferentes visiones sobre el quiebre de la democracia en Chile, el régimen o dictadura militar y el proceso de recuperación de la democracia a fines del siglo XX, considerando los distintos actores, experiencias y puntos de vista, y el consenso actual con respecto al valor de la democracia.",
+                "Historia")));
+        oas.add(objetivoAprendizajeRepository.save(oa(
+                unidades.get(3), "HI06 OA 09",
+                "Explicar y dar ejemplos de aspectos que se mantienen y aspectos que han cambiado o se han desarrollado en la sociedad chilena a lo largo de su historia.",
+                "Historia")));
 
         return oas;
     }
@@ -290,60 +398,29 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // D) Contenidos y recursos: 1 por OA
-    // ------------------------------------------------------------------
-
     private List<Contenido> crearContenidos(List<ObjetivoAprendizaje> oas) {
         List<Contenido> contenidos = new ArrayList<>();
 
-        contenidos.add(contenidoRepository.save(contenido(oas.get(0),
-                "De que se trata un texto informativo",
-                "Un texto informativo explica algo de forma ordenada. Su idea principal responde a la pregunta de que trata, y los detalles la acompanan sin reemplazarla. Para encontrarla, conviene leer el titulo y el primer parrafo antes de seguir.",
-                "Un texto sobre el ciclo del agua suele decir en su primera linea que tratara sobre ese proceso.",
-                "Busca el titulo y la primera frase. Escribi en una linea de que trata el texto.")));
-
         contenidos.add(contenidoRepository.save(contenido(oas.get(1),
-                "Cuando la imagen completa al texto",
-                "Muchos textos informativos incorporan imagenes, diagramas o infografias. La imagen no decora: aporta datos que el texto no repite. Para leerla hay que identificar que muestra, que rotulos tiene y que relacion propone.",
-                "En un diagrama de etapas, cada recuadro es un paso y las flechas indican el orden.",
-                "Mira la imagen y responde: que dato agrega al texto y donde lo encuentras.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(2),
-                "Elegir la operacion que corresponde",
-                "Un problema de la vida diaria se resuelve identificando primero que se pide y despues eligiendo la operacion. Sumar acumula, restar quita, multiplicar repite y divide repartir. Elegir mal la operacion es la causa mas comun de error.",
-                "Si hay 6 cajas con 8 utiles cada una y se necesitan 40, toca multiplicar y luego restar.",
-                "Subraya que se pide antes de calcular. Anota la operacion que elegiste y por que.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(3),
-                "Patrones que se repiten",
-                "Un patron es una secuencia que se repite con la misma regla. Se puede describir, continuar y anticipar. En figuras, el patron suele ser una regla de posicion o de forma que se aplica a cada elemento.",
-                "Una fila de 3 cuadrados y un circulo que se repite cada cuatro figuras.",
-                "Completa la secuencia y explica la regla con la que la completaste.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(4),
-                "La materia cambia de forma",
-                "La materia es todo lo que ocupa espacio. En los seres vivos cambia de forma sin dejar de ser materia: el hielo se derrite, una hoja verde se pone amarilla, la madera se convierte en ceniza. Estos cambios se pueden describir y observar.",
-                "Al dejar un cubo de hielo a temperatura ambiente, pasa de solido a liquido sin volverse otra sustancia.",
-                "Describe un cambio de estado o de aspecto que hayas observado en una planta o en un objeto.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(5),
-                "De donde sale la energia de una planta",
-                "Las plantas captan energia de la luz y la usan para fabricar su propio alimento. Ese alimento es la base de la cadena alimentaria: sin el, los animales no tendrian energia disponible.",
-                "Por eso las areas con poca luz tienen menos vegetacion y menos animales asociados.",
-                "Explica con tus palabras por que se dice que las plantas son la base de la cadena alimentaria.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(6),
-                "Ubicar un hecho en el tiempo y el lugar",
-                "Ubicar un hecho significa ubicar cuando ocurrio y donde. El tiempo se ordena con categorias amplias y el lugar se ubica con un punto de referencia mas general. Un mismo hecho puede explicarse distinto segun desde que lugar se mire.",
-                "La migracion del chancho de azucar se asocia al invierno en el hemisferio sur.",
-                "Ubica un hecho que ocurrio en tu comuna y di por que importa saber donde y cuando.")));
-
-        contenidos.add(contenidoRepository.save(contenido(oas.get(7),
-                "Como las personas cambian su entorno",
-                "Las actividades humanas, como construir, cultivar o sacar minerales, modifican el ambiente. Los cambios pueden mejorar o deteriorar, y el efecto depende de como se haga la actividad.",
-                "Un parque bien cuidado mantiene arboles y deja el suelo permeable; uno descuidado pierde vegetacion.",
-                "Describe una actividad de tu barrio y que cambio produce en el ambiente.")));
+                "Estrategias de comprensión lectora",
+                "Comprender un texto requiere construir significado: conectar sus ideas con conocimientos previos, releer pasajes poco claros, formular preguntas y resumir la información central. Un esquema ayuda a separar las ideas principales de los detalles.",
+                "Al leer una noticia sobre el agua, se puede resumir la idea central y anotar dos datos que la apoyan.",
+                "Lee un texto breve. Formula una pregunta, responde con información del texto y escribe un resumen de dos oraciones.")));
+        contenidos.add(contenidoRepository.save(contenido(oas.get(15),
+                "Comprender y calcular porcentajes",
+                "Un porcentaje expresa una cantidad como parte de 100. Puede representarse con una cuadrícula de cien partes, como fracción con denominador 100 o con un número seguido del símbolo %.",
+                "Si 25 de 100 casillas están marcadas, está representado el 25 %. En una encuesta de 20 estudiantes, 5 equivalen al 25 %.",
+                "Representa 10 %, 25 % y 50 % de una cuadrícula de cien. Luego resuelve un problema sencillo e indica cómo encontraste el resultado.")));
+        contenidos.add(contenidoRepository.save(contenido(oas.get(21),
+                "Cadenas y redes alimentarias",
+                "La materia y la energía pasan de los organismos fotosintéticos a otros seres vivos a través de la alimentación. Las flechas de una cadena alimentaria indican la dirección de la transferencia de materia y energía.",
+                "Hierba → saltamontes → rana → culebra muestra una posible relación alimentaria en un ecosistema.",
+                "Construye una cadena alimentaria de un ecosistema, identifica al productor y explica qué podría ocurrir si uno de sus organismos disminuye.")));
+        contenidos.add(contenidoRepository.save(contenido(oas.get(28),
+                "El proceso de independencia de Chile",
+                "La independencia de Chile fue un proceso con avances y retrocesos, protagonizado por distintos grupos y personas. Entre sus hitos están el cabildo abierto de 1810, la Primera Junta de Gobierno, las batallas de Rancagua, Chacabuco y Maipú y la Declaración de Independencia.",
+                "Una línea de tiempo permite ordenar los hitos y relacionarlos con los cambios en el control político del territorio.",
+                "Ordena tres hitos del proceso de independencia y explica por qué uno de ellos fue importante para la causa patriota.")));
 
         return contenidos;
     }
@@ -358,34 +435,23 @@ public class DataInitializer implements ApplicationRunner {
                 .instrucciones(instrucciones)
                 .orden(1)
                 .origen(OrigenMaterial.PROPIO)
+                .estado(oa.getUnidad().getEstado())
                 .build();
     }
 
     private void crearRecursos(List<Contenido> contenidos) {
         recursoContenidoRepository.save(recurso(contenidos.get(0), TipoRecurso.IMAGEN,
-                "recursos/texto-informativo-organizacion.png",
-                "Diagrama con las cuatro partes de un texto informativo: titulo, introduccion, desarrollo y cierre."));
+                "recursos/6basico/eje-01-oa.png",
+                "Recurso visual de apoyo para estrategias de comprensión lectora, relacionado con LE06 OA 02."));
         recursoContenidoRepository.save(recurso(contenidos.get(1), TipoRecurso.IMAGEN,
-                "recursos/infografia-ciclo-agua.png",
-                "Infografia de seis recuadros con las etapas del ciclo del agua."));
+                "recursos/6basico/eje-04-oa.png",
+                "Recurso visual de apoyo para comprender y calcular porcentajes, relacionado con MA06 OA 04."));
         recursoContenidoRepository.save(recurso(contenidos.get(2), TipoRecurso.IMAGEN,
-                "recursos/jerarquia-operaciones.png",
-                "Organigrama que ordena las operaciones segun la accion que realizar."));
+                "recursos/6basico/eje-09-oa.png",
+                "Recurso visual de apoyo para cadenas y redes alimentarias, relacionado con CN06 OA 02."));
         recursoContenidoRepository.save(recurso(contenidos.get(3), TipoRecurso.IMAGEN,
-                "recursos/patrones-figuras.png",
-                "Franja con cinco figuras de una secuencia y la regla escrita al lado."));
-        recursoContenidoRepository.save(recurso(contenidos.get(4), TipoRecurso.AUDIO,
-                "recursos/auditivo-cambio-estado.mp3",
-                "Transcripcion de una explicacion de 90 segundos sobre cambios de estado."));
-        recursoContenidoRepository.save(recurso(contenidos.get(5), TipoRecurso.IMAGEN,
-                "recursos/cadena-alimentaria.png",
-                "Cadena de cuatro niveles con flechas que unen sol, planta, insecto y ave."));
-        recursoContenidoRepository.save(recurso(contenidos.get(6), TipoRecurso.IMAGEN,
-                "recursos/mapa-comuna-marcadores.png",
-                "Mapa simple de la comuna con cuatro puntos de referencia y una leyenda."));
-        recursoContenidoRepository.save(recurso(contenidos.get(7), TipoRecurso.AUDIO,
-                "recursos/auditivo-entorno-comunitario.mp3",
-                "Transcripcion de una entrevista breve a dos vecinos sobre su plaza."));
+                "recursos/6basico/eje-12-oa.png",
+                "Recurso visual de apoyo para el proceso de independencia de chile, relacionado con HI06 OA 02."));
     }
 
     private RecursoContenido recurso(Contenido contenido, TipoRecurso tipo, String url, String descripcion) {
@@ -395,164 +461,186 @@ public class DataInitializer implements ApplicationRunner {
                 .url(url)
                 .descripcion(descripcion)
                 .origen(OrigenMaterial.PROPIO)
+                .estado(contenido.getEstado())
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // E) Actividades: 1 ACTIVIDAD, 1 DESAFIO y 1 PRUEBA_FINAL por unidad
-    //    El indice 0..2 es la unidad 1, 3..5 la unidad 2, etc.
-    // ------------------------------------------------------------------
-
-    private List<Actividad> crearActividades(List<Unidad> unidades) {
+    private List<Actividad> crearActividades(List<Unidad> unidades, List<Contenido> contenidos) {
         List<Actividad> actividades = new ArrayList<>();
 
         actividades.add(actividadRepository.save(actividad(unidades.get(0),
-                "Explorar un texto informativo", TipoActividad.ACTIVIDAD, 1)));
+                contenidos.get(0), "Actividad: Estrategias de comprensión lectora",
+                TipoActividad.ACTIVIDAD, 1)));
         actividades.add(actividadRepository.save(actividad(unidades.get(0),
-                "Desafio: reconstruir un aviso", TipoActividad.DESAFIO, 2)));
+                contenidos.get(0), "Desafío: aplicar estrategias de comprensión lectora",
+                TipoActividad.DESAFIO, 2)));
         actividades.add(actividadRepository.save(actividad(unidades.get(0),
-                "Prueba final de Lengua y Comunicacion", TipoActividad.PRUEBA_FINAL, 3)));
-
+                null, "Evaluación: Lectura - Comprensión",
+                TipoActividad.PRUEBA_FINAL, 3)));
         actividades.add(actividadRepository.save(actividad(unidades.get(1),
-                "Explorar problemas de la vida diaria", TipoActividad.ACTIVIDAD, 1)));
+                contenidos.get(1), "Actividad: Comprender y calcular porcentajes",
+                TipoActividad.ACTIVIDAD, 1)));
         actividades.add(actividadRepository.save(actividad(unidades.get(1),
-                "Desafio: encontrar el patron", TipoActividad.DESAFIO, 2)));
+                contenidos.get(1), "Desafío: aplicar comprender y calcular porcentajes",
+                TipoActividad.DESAFIO, 2)));
         actividades.add(actividadRepository.save(actividad(unidades.get(1),
-                "Prueba final de Matematica", TipoActividad.PRUEBA_FINAL, 3)));
-
+                null, "Evaluación: Números y operaciones",
+                TipoActividad.PRUEBA_FINAL, 3)));
         actividades.add(actividadRepository.save(actividad(unidades.get(2),
-                "Explorar los cambios de la materia", TipoActividad.ACTIVIDAD, 1)));
+                contenidos.get(2), "Actividad: Cadenas y redes alimentarias",
+                TipoActividad.ACTIVIDAD, 1)));
         actividades.add(actividadRepository.save(actividad(unidades.get(2),
-                "Desafio: ordenar una cadena", TipoActividad.DESAFIO, 2)));
+                contenidos.get(2), "Desafío: aplicar cadenas y redes alimentarias",
+                TipoActividad.DESAFIO, 2)));
         actividades.add(actividadRepository.save(actividad(unidades.get(2),
-                "Prueba final de Ciencias Naturales", TipoActividad.PRUEBA_FINAL, 3)));
-
+                null, "Evaluación: Ciencias de la Vida",
+                TipoActividad.PRUEBA_FINAL, 3)));
         actividades.add(actividadRepository.save(actividad(unidades.get(3),
-                "Explorar la ubicacion de un hecho", TipoActividad.ACTIVIDAD, 1)));
+                contenidos.get(3), "Actividad: El proceso de independencia de Chile",
+                TipoActividad.ACTIVIDAD, 1)));
         actividades.add(actividadRepository.save(actividad(unidades.get(3),
-                "Desafio: comparar dos lugares", TipoActividad.DESAFIO, 2)));
+                contenidos.get(3), "Desafío: aplicar el proceso de independencia de chile",
+                TipoActividad.DESAFIO, 2)));
         actividades.add(actividadRepository.save(actividad(unidades.get(3),
-                "Prueba final de Historia y Ciencias Sociales", TipoActividad.PRUEBA_FINAL, 3)));
+                null, "Evaluación: Historia",
+                TipoActividad.PRUEBA_FINAL, 3)));
 
         return actividades;
     }
 
-    private Actividad actividad(Unidad unidad, String titulo, TipoActividad tipo, int orden) {
+    private Actividad actividad(Unidad unidad, Contenido contenido, String titulo,
+                                TipoActividad tipo, int orden) {
         return Actividad.builder()
                 .unidad(unidad)
+                .contenido(contenido)
                 .titulo(titulo)
                 .tipo(tipo)
                 .orden(orden)
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // F) Preguntas y alternativas de la prueba final de la unidad 1
-    // ------------------------------------------------------------------
+    private BancoPreguntas crearPreguntas(
+            List<Actividad> actividades,
+            List<ObjetivoAprendizaje> oas
+    ) {
+        List<PreguntaCreada> preguntas = new ArrayList<>();
 
-    private BancoPreguntas crearPreguntas(Unidad unidad, Actividad pruebaFinal,
-                                          ObjetivoAprendizaje oa1, ObjetivoAprendizaje oa2) {
-        List<Pregunta> preguntas = new ArrayList<>();
-        Map<String, Alternativa> alternativas = new LinkedHashMap<>();
+        crearPregunta(preguntas, actividades.get(0),
+                oas.get(1), "¿Qué conviene hacer cuando una parte del texto no se comprende?",
+                "Indica una estrategia de comprensión lectora.", Dificultad.BAJA, 1, 1,
+                "Continuar sin prestar atención", "Releer el pasaje y formular una pregunta", "Mirar solo la última palabra");
+        crearPregunta(preguntas, actividades.get(1),
+                oas.get(1), "¿Para qué sirve resumir un texto?",
+                "Relaciona el resumen con las ideas principales.", Dificultad.BAJA, 2, 2,
+                "Para copiar todas las oraciones", "Para reemplazar el título por una imagen", "Para registrar sus ideas principales de forma breve");
+        crearPregunta(preguntas, actividades.get(2),
+                oas.get(1), "¿Qué debe incluir un buen resumen?",
+                "Reconoce selección de información central.", Dificultad.MEDIA, 3, 0,
+                "Las ideas principales del texto", "Opiniones que no aparecen en el texto", "Todas las palabras en el mismo orden");
+        crearPregunta(preguntas, actividades.get(2),
+                oas.get(1), "Si una respuesta no aparece escrita literalmente, ¿qué puede hacer el lector?",
+                "Explica que puede inferir a partir de pistas y conocimientos previos.", Dificultad.MEDIA, 4, 1,
+                "Inventar un dato sin revisar el texto", "Relacionar pistas del texto con sus conocimientos", "Ignorar la pregunta");
+        crearPregunta(preguntas, actividades.get(2),
+                oas.get(1), "¿Cuál estrategia ayuda a comprobar una interpretación?",
+                "Selecciona una estrategia basada en evidencia textual.", Dificultad.ALTA, 5, 0,
+                "Buscar pistas y releer la parte pertinente", "Elegir la respuesta más larga", "Cambiar de tema");
+        crearPregunta(preguntas, actividades.get(3),
+                oas.get(15), "¿Qué representa 25 %?",
+                "Interpreta porcentaje como parte de 100.", Dificultad.BAJA, 1, 0,
+                "25 partes de cada 100", "25 partes de cada 10", "100 partes de cada 25");
+        crearPregunta(preguntas, actividades.get(4),
+                oas.get(15), "¿Cuánto es el 50 % de 20?",
+                "Calcula la mitad de una cantidad.", Dificultad.BAJA, 2, 1,
+                "5", "10", "15");
+        crearPregunta(preguntas, actividades.get(5),
+                oas.get(15), "En una encuesta de 100 personas, 30 prefieren leer. ¿Qué porcentaje corresponde?",
+                "Relaciona cantidad sobre 100 con porcentaje.", Dificultad.MEDIA, 3, 2,
+                "3 %", "70 %", "30 %");
+        crearPregunta(preguntas, actividades.get(5),
+                oas.get(15), "¿Qué representación corresponde al 25 % de una cuadrícula de 100 casillas?",
+                "Identifica 25 de 100 casillas.", Dificultad.MEDIA, 4, 0,
+                "25 casillas marcadas", "50 casillas marcadas", "75 casillas marcadas");
+        crearPregunta(preguntas, actividades.get(5),
+                oas.get(15), "Una mochila cuesta $20 000 y tiene un descuento del 10 %. ¿Cuánto se descuenta?",
+                "Calcula 10 % de 20 000.", Dificultad.ALTA, 5, 1,
+                "$10 000", "$2 000", "$200");
+        crearPregunta(preguntas, actividades.get(6),
+                oas.get(21), "¿Qué organismos incorporan energía lumínica a muchas cadenas alimentarias?",
+                "Identifica productores fotosintéticos.", Dificultad.BAJA, 1, 0,
+                "Los productores fotosintéticos", "Solo los consumidores terciarios", "Los descomponedores exclusivamente");
+        crearPregunta(preguntas, actividades.get(7),
+                oas.get(21), "¿Qué indican las flechas en una cadena alimentaria?",
+                "Interpreta transferencia de materia y energía.", Dificultad.BAJA, 2, 1,
+                "El tamaño de los organismos", "La dirección de transferencia de materia y energía", "La distancia entre hábitats");
+        crearPregunta(preguntas, actividades.get(8),
+                oas.get(21), "En hierba → saltamontes → rana, ¿qué organismo es consumidor primario?",
+                "Reconoce quién se alimenta del productor.", Dificultad.MEDIA, 3, 2,
+                "La hierba", "La rana", "El saltamontes");
+        crearPregunta(preguntas, actividades.get(8),
+                oas.get(21), "¿Qué podría suceder si disminuye mucho la población de productores?",
+                "Relaciona productores con disponibilidad de alimento y energía.", Dificultad.MEDIA, 4, 0,
+                "Podría reducirse el alimento para otros niveles", "Todas las poblaciones aumentarían necesariamente", "La red alimentaria no tendría ningún cambio");
+        crearPregunta(preguntas, actividades.get(8),
+                oas.get(21), "¿Por qué las redes alimentarias representan mejor algunas relaciones que una sola cadena?",
+                "Reconoce múltiples relaciones tróficas.", Dificultad.ALTA, 5, 0,
+                "Muestran varias relaciones alimentarias conectadas", "Solo muestran un organismo", "Eliminan los productores");
+        crearPregunta(preguntas, actividades.get(9),
+                oas.get(28), "¿Qué hito ocurrió en Chile en 1810?",
+                "Reconoce la Primera Junta/cabildo abierto.", Dificultad.BAJA, 1, 2,
+                "La batalla de Maipú", "La Declaración de Independencia de 1818", "El cabildo abierto y la formación de la Primera Junta de Gobierno");
+        crearPregunta(preguntas, actividades.get(10),
+                oas.get(28), "¿Por qué se considera que la independencia de Chile fue un proceso?",
+                "Reconoce avances, retrocesos y distintos hitos.", Dificultad.BAJA, 2, 0,
+                "Porque ocurrió mediante distintos acontecimientos y etapas", "Porque ocurrió en un único día sin conflictos", "Porque no participaron personas");
+        crearPregunta(preguntas, actividades.get(11),
+                oas.get(28), "¿Qué permite mostrar una línea de tiempo?",
+                "Organiza acontecimientos cronológicamente.", Dificultad.MEDIA, 3, 1,
+                "La altura de las montañas", "El orden temporal de los acontecimientos", "Solo la población actual");
+        crearPregunta(preguntas, actividades.get(11),
+                oas.get(28), "¿Cuál de estos hitos se relaciona con la causa patriota?",
+                "Identifica batalla vinculada al proceso.", Dificultad.MEDIA, 4, 2,
+                "La formación de la ONU", "La llegada del ferrocarril en el siglo XIX", "La batalla de Chacabuco");
+        crearPregunta(preguntas, actividades.get(11),
+                oas.get(28), "¿Qué enfoque ayuda a explicar el proceso de independencia?",
+                "Considera actores, bandos y acontecimientos.", Dificultad.ALTA, 5, 0,
+                "Analizar actores, bandos, avances, retrocesos e hitos", "Mencionar solo una fecha sin contexto", "Excluir los acontecimientos políticos");
 
-        Pregunta p1 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa1,
-                "Lee el siguiente texto sobre el ciclo del agua y responde: el texto informa principalmente sobre",
-                "Responde en una frase. Basta con nombrar el tema del texto.", Dificultad.BAJA, 1));
-        preguntas.add(p1);
-        guardarAlternativas(p1, alternativas, "1",
-                "las formas de empezar el dia",
-                "el proceso por el que el agua recorre la tierra",
-                "las plantas y su alimento",
-                "las partes de un texto");
-        marcarCorrecta(alternativas, "1-2");
-
-        Pregunta p2 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa1,
-                "Cual de estas partes de un texto informativo aparece primero y anuncia de que se tratara",
-                "Marca una sola alternativa y explica en una linea por que.", Dificultad.BAJA, 2));
-        preguntas.add(p2);
-        guardarAlternativas(p2, alternativas, "2",
-                "El desarrollo",
-                "El titulo",
-                "La conclusion");
-        marcarCorrecta(alternativas, "2-2");
-
-        Pregunta p3 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa2,
-                "Observa la infografia que acompana al texto. Que dato aporta la imagen que el texto no repite",
-                "Menciona un dato concreto de la imagen.", Dificultad.MEDIA, 1));
-        preguntas.add(p3);
-        guardarAlternativas(p3, alternativas, "3",
-                "Un dato sobre etapas del agua que el texto no detalla",
-                "El numero de palabras del texto",
-                "El nombre de quien lo escribio");
-        marcarCorrecta(alternativas, "3-1");
-
-        Pregunta p4 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa2,
-                "En una secuencia de figuras donde se repite un circulo cada cuatro elementos, que figura ocupara la posicion 10",
-                "Escribe el numero de la posicion y el nombre de la figura.", Dificultad.MEDIA, 2));
-        preguntas.add(p4);
-        guardarAlternativas(p4, alternativas, "4",
-                "Un cuadrado",
-                "Un circulo",
-                "Un triangulo");
-        marcarCorrecta(alternativas, "4-2");
-
-        Pregunta p5 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa1,
-                "Un texto explica que las plantas usan la luz para fabricar su alimento. De que tipo de texto se trata",
-                "Responde indicando el tipo y una caracteristica que lo delate.", Dificultad.ALTA, 1));
-        preguntas.add(p5);
-        guardarAlternativas(p5, alternativas, "5",
-                "Un texto informativo, porque explica un proceso de la naturaleza",
-                "Un texto poetico, porque usa imagenes",
-                "Un articulo de opinion, porque critica");
-        marcarCorrecta(alternativas, "5-1");
-
-        Pregunta p6 = preguntaRepository.save(pregunta(unidad, pruebaFinal, oa2,
-                "Dos personas leen el mismo texto pero sacan conclusiones distintas. Cual es la razon mas probable",
-                "Explica usando la idea de que los mensajes combinan texto e imagen.", Dificultad.ALTA, 2));
-        preguntas.add(p6);
-        guardarAlternativas(p6, alternativas, "6",
-                "Leyeron partes distintas del mensaje completo",
-                "El texto estaba mal escrito",
-                "No tenia imagenes");
-        marcarCorrecta(alternativas, "6-1");
-
-        return new BancoPreguntas(preguntas, alternativas);
+        return new BancoPreguntas(preguntas);
     }
 
-    private Pregunta pregunta(Unidad unidad, Actividad actividad, ObjetivoAprendizaje oa,
-                              String enunciado, String criterio, Dificultad dificultad, int orden) {
-        return Pregunta.builder()
+    private void crearPregunta(
+            List<PreguntaCreada> preguntas,
+            Actividad actividad,
+            ObjetivoAprendizaje oa,
+            String enunciado,
+            String criterio,
+            Dificultad dificultad,
+            int orden,
+            int indiceCorrecta,
+            String... textos
+    ) {
+        Pregunta pregunta = preguntaRepository.save(Pregunta.builder()
                 .actividad(actividad)
-                .unidad(unidad)
+                .unidad(actividad.getUnidad())
                 .oa(oa)
                 .enunciado(enunciado)
                 .criterioRespuesta(criterio)
                 .dificultad(dificultad)
                 .orden(orden)
-                .build();
-    }
+                .build());
 
-    private void guardarAlternativas(Pregunta pregunta, Map<String, Alternativa> destino,
-                                     String clavePregunta, String... textos) {
+        List<Alternativa> alternativas = new ArrayList<>();
         for (int i = 0; i < textos.length; i++) {
             Alternativa alternativa = alternativaRepository.save(Alternativa.builder()
                     .pregunta(pregunta)
                     .texto(textos[i])
-                    .esCorrecta(false)
+                    .esCorrecta(i == indiceCorrecta)
                     .build());
-            destino.put(clavePregunta + "-" + (i + 1), alternativa);
+            alternativas.add(alternativa);
         }
+        preguntas.add(new PreguntaCreada(pregunta, alternativas));
     }
-
-    private void marcarCorrecta(Map<String, Alternativa> alternativas, String clave) {
-        Alternativa alternativa = alternativas.get(clave);
-        alternativa.setEsCorrecta(true);
-        alternativaRepository.save(alternativa);
-    }
-
-    // ------------------------------------------------------------------
-    // G) Docencias y asignaciones (cada unidad en 6A y 6B)
-    // ------------------------------------------------------------------
 
     private void crearDocencias(
             Usuario docente,
@@ -575,64 +663,53 @@ public class DataInitializer implements ApplicationRunner {
             List<Unidad> unidades
     ) {
         List<Asignacion> asignaciones = new ArrayList<>();
+        Instant[] fechas = {
+                Instant.parse("2026-04-06T08:00:00Z"),
+                Instant.parse("2026-04-06T08:01:00Z"),
+                Instant.parse("2026-04-06T08:02:00Z"),
+                Instant.parse("2026-04-06T08:03:00Z"),
+                Instant.parse("2026-04-06T08:04:00Z"),
+                Instant.parse("2026-04-06T08:05:00Z")
+        };
+        int index = 0;
         for (Curso curso : cursos) {
-            for (int i = 0; i < unidades.size(); i++) {
-                int maxIntentos = i < 2 ? 2 : 1;
-                String fecha = "2026-04-06T08:0" + i + ":00Z";
-                asignaciones.add(asignacionRepository.save(
-                        asignacion(curso, unidades.get(i), maxIntentos, fecha)
-                ));
+            for (int unitIndex = 0; unitIndex < 3; unitIndex++) {
+                asignaciones.add(asignacionRepository.save(Asignacion.builder()
+                        .curso(curso)
+                        .unidad(unidades.get(unitIndex))
+                        .maxIntentos(unitIndex == 2 ? 1 : 2)
+                        .pruebaFinalHabilitada(true)
+                        .fecha(fechas[index])
+                        .build()));
+                index++;
             }
         }
         return asignaciones;
     }
 
-    private Asignacion asignacion(
-            Curso curso,
-            Unidad unidad,
-            int maxIntentos,
-            String fecha
-    ) {
-        return Asignacion.builder()
-                .curso(curso)
-                .unidad(unidad)
-                .maxIntentos(maxIntentos)
-                .pruebaFinalHabilitada(true)
-                .fecha(Instant.parse(fecha))
-                .build();
-    }
-
-    private void crearAsignacionesOa(
-            List<Asignacion> asignaciones,
-            List<ObjetivoAprendizaje> oas
-    ) {
+    private void crearAsignacionesOa(List<Asignacion> asignaciones, List<ObjetivoAprendizaje> oas) {
+        int[] indices = {1, 15, 21};
         for (int i = 0; i < asignaciones.size(); i++) {
             Asignacion asignacion = asignaciones.get(i);
-            int unitIndex = i % 4;
-            for (int j = 0; j < 2; j++) {
-                ObjetivoAprendizaje oa = oas.get(unitIndex * 2 + j);
-                asignacionOaRepository.save(AsignacionOa.builder()
-                        .id(AsignacionOaId.builder()
-                                .asignacionId(asignacion.getId())
-                                .oaId(oa.getId())
-                                .build())
-                        .asignacion(asignacion)
-                        .objetivoAprendizaje(oa)
-                        .unidadId(asignacion.getUnidad().getId())
-                        .build());
-            }
+            ObjetivoAprendizaje oa = oas.get(indices[i % indices.length]);
+            asignacionOaRepository.save(AsignacionOa.builder()
+                    .id(AsignacionOaId.builder()
+                            .asignacionId(asignacion.getId())
+                            .oaId(oa.getId())
+                            .build())
+                    .asignacion(asignacion)
+                    .objetivoAprendizaje(oa)
+                    .unidadId(asignacion.getUnidad().getId())
+                    .build());
         }
     }
 
-    private void crearAsignacionesActividad(
-            List<Asignacion> asignaciones,
-            List<Actividad> actividades
-    ) {
+    private void crearAsignacionesActividad(List<Asignacion> asignaciones, List<Actividad> actividades) {
+        int[][] indices = {{0, 1}, {3, 4}, {6, 7}};
         for (int i = 0; i < asignaciones.size(); i++) {
             Asignacion asignacion = asignaciones.get(i);
-            int unitIndex = i % 4;
-            for (int j = 0; j < 3; j++) {
-                Actividad actividad = actividades.get(unitIndex * 3 + j);
+            for (int indice : indices[i % indices.length]) {
+                Actividad actividad = actividades.get(indice);
                 asignacionActividadRepository.save(AsignacionActividad.builder()
                         .id(AsignacionActividadId.builder()
                                 .asignacionId(asignacion.getId())
@@ -646,27 +723,6 @@ public class DataInitializer implements ApplicationRunner {
         }
     }
 
-    // ------------------------------------------------------------------
-    // H) Intentos y respuestas de ejemplo
-    //    Camila (2 intentos, el ultimo completado), Mateo (1), Javiera
-    //    (en progreso) y Benjamin (sin intentos).
-    // ------------------------------------------------------------------
-
-    private Intentos crearIntentos(Usuarios usuarios, Actividad pruebaFinal) {
-        // El primer intento de Camila queda registrado pero no se usa en el
-        // informe: la regla toma el ultimo intento completado.
-        intentoRepository.save(intento(usuarios.camila(), pruebaFinal, 1,
-                "2026-05-04T10:00:00Z", "2026-05-04T10:14:00Z"));
-        Intento camila2 = intentoRepository.save(intento(usuarios.camila(), pruebaFinal, 2,
-                "2026-05-06T15:20:00Z", "2026-05-06T15:33:00Z"));
-        Intento mateo = intentoRepository.save(intento(usuarios.mateo(), pruebaFinal, 1,
-                "2026-05-05T11:00:00Z", "2026-05-05T11:19:00Z"));
-        Intento javiera = intentoRepository.save(intento(usuarios.javiera(), pruebaFinal, 1,
-                "2026-05-07T16:00:00Z", null));
-
-        return new Intentos(camila2, mateo, javiera);
-    }
-
     private Intento intento(Usuario estudiante, Actividad actividad, int numero,
                             String inicio, String fin) {
         return Intento.builder()
@@ -678,48 +734,35 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
     }
 
-    /**
-     * Respuestas del ultimo intento completado de Camila (2/3 en el OA 1 y
-     * 1/3 en el OA 2) y del intento de Mateo. es_correcta se deriva de la
-     * alternativa elegida, igual que lo hace RespuestaEstudianteService.
-     */
-    private void crearRespuestas(Intentos intentos, BancoPreguntas banco) {
-        // Camila: responde mal las preguntas 4, 5 y 6.
-        responder(intentos.camila(), banco, 1, 2);
-        responder(intentos.camila(), banco, 2, 2);
-        responder(intentos.camila(), banco, 3, 1);
-        responder(intentos.camila(), banco, 4, 1);
-        responder(intentos.camila(), banco, 5, 2);
-        responder(intentos.camila(), banco, 6, 3);
-
-        // Mateo: le cuesta el OA 1 y le va mejor el OA 2.
-        responder(intentos.mateo(), banco, 1, 1);
-        responder(intentos.mateo(), banco, 2, 1);
-        responder(intentos.mateo(), banco, 3, 1);
-        responder(intentos.mateo(), banco, 4, 2);
-        responder(intentos.mateo(), banco, 5, 1);
-        responder(intentos.mateo(), banco, 6, 2);
+    private void crearRespuestas(
+            Intento camila1,
+            Intento camila2,
+            Intento mateo1,
+            BancoPreguntas banco,
+            List<Actividad> actividades
+    ) {
+        responder(camila1, banco, actividades.get(2), 3, 0);
+        responder(camila1, banco, actividades.get(2), 4, 0);
+        responder(camila1, banco, actividades.get(2), 5, 1);
+        responder(camila2, banco, actividades.get(2), 3, 1);
+        responder(camila2, banco, actividades.get(2), 4, 1);
+        responder(camila2, banco, actividades.get(2), 5, 0);
+        responder(mateo1, banco, actividades.get(5), 3, 2);
+        responder(mateo1, banco, actividades.get(5), 4, 0);
+        responder(mateo1, banco, actividades.get(5), 5, 0);
     }
 
-    private void responder(Intento intento, BancoPreguntas banco, int numeroPregunta, int numeroAlternativa) {
-        Pregunta pregunta = banco.preguntas().get(numeroPregunta - 1);
-        Alternativa alternativa = banco.alternativas()
-                .get(numeroPregunta + "-" + numeroAlternativa);
-
+    private void responder(Intento intento, BancoPreguntas banco, Actividad actividad,
+                           int orden, int indiceAlternativa) {
+        PreguntaCreada creada = banco.buscar(actividad.getId(), orden);
+        Alternativa alternativa = creada.alternativas().get(indiceAlternativa);
         respuestaEstudianteRepository.save(RespuestaEstudiante.builder()
                 .intento(intento)
-                .pregunta(pregunta)
+                .pregunta(creada.pregunta())
                 .alternativaId(alternativa.getId())
                 .esCorrecta(alternativa.getEsCorrecta())
                 .build());
     }
-
-    // ------------------------------------------------------------------
-    // I) Informe de ejemplo de Camila en la unidad 1
-    //    Snapshot congelado del ultimo intento completado (seccion 5):
-    //      OA 1 -> 2 correctas de 3 -> REFUERZO
-    //      OA 2 -> 1 correcta de 3  -> REFUERZO
-    // ------------------------------------------------------------------
 
     private void crearInforme(Usuarios usuarios, Unidad unidad, List<ObjetivoAprendizaje> oas) {
         InformePedagogico informe = informePedagogicoRepository.save(InformePedagogico.builder()
@@ -731,8 +774,7 @@ public class DataInitializer implements ApplicationRunner {
                 .fechaValidacion(null)
                 .build());
 
-        detalleInformeOaRepository.save(detalle(informe, oas.get(0), 3, 2, NivelOa.REFUERZO));
-        detalleInformeOaRepository.save(detalle(informe, oas.get(1), 3, 1, NivelOa.REFUERZO));
+        detalleInformeOaRepository.save(detalle(informe, oas.get(1), 3, 2, NivelOa.REFUERZO));
     }
 
     private DetalleInformeOa detalle(InformePedagogico informe, ObjetivoAprendizaje oa,
@@ -746,17 +788,22 @@ public class DataInitializer implements ApplicationRunner {
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // Estructuras auxiliares del seed
-    // ------------------------------------------------------------------
-
     private record Usuarios(Usuario utp, Usuario docente, Usuario camila,
                             Usuario mateo, Usuario javiera, Usuario benjamin) {
     }
 
-    private record Intentos(Intento camila, Intento mateo, Intento javiera) {
+    private record PreguntaCreada(Pregunta pregunta, List<Alternativa> alternativas) {
     }
 
-    private record BancoPreguntas(List<Pregunta> preguntas, Map<String, Alternativa> alternativas) {
+    private record BancoPreguntas(List<PreguntaCreada> preguntas) {
+        PreguntaCreada buscar(Long actividadId, int orden) {
+            return preguntas.stream()
+                    .filter(p -> p.pregunta().getActividad().getId().equals(actividadId)
+                            && p.pregunta().getOrden() == orden)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No existe la pregunta " + actividadId + "/" + orden
+                    ));
+        }
     }
 }

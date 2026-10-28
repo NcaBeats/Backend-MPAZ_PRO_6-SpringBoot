@@ -1,5 +1,7 @@
 package com.example.mpaz_pro_6springboot.curriculo.pregunta.service;
 
+import com.example.mpaz_pro_6springboot.common.security.CurriculoAuthoringPolicy;
+import com.example.mpaz_pro_6springboot.common.security.StudentVisibilityService;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.repository.ActividadRepository;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.repository.AlternativaRepository;
@@ -8,6 +10,7 @@ import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repositor
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.repository.PreguntaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.repository.RespuestaEstudianteRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,35 +31,69 @@ public class PreguntaService {
     private final ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
     private final AlternativaRepository alternativaRepository;
     private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+    private final CurriculoAuthoringPolicy authoringPolicy;
+    private final StudentVisibilityService visibilityService;
 
-    public List<Pregunta> findAll(Long actividadId, Long oaId) {
+    public List<Pregunta> findAll(Long actividadId, Long oaId, Usuario currentUser) {
         if (actividadId != null) {
             getActividad(actividadId);
+            if (!visibilityService.canSeeActivity(currentUser, actividadId)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "La actividad no está asignada al curso del estudiante"
+                );
+            }
         }
         if (oaId != null) {
             getObjetivoAprendizaje(oaId);
         }
 
+        List<Pregunta> preguntas;
         if (actividadId != null && oaId != null) {
-            return preguntaRepository.findByActividadIdAndOaIdOrderByOrdenAscIdAsc(actividadId, oaId);
+            preguntas = preguntaRepository.findByActividadIdAndOaIdOrderByOrdenAscIdAsc(
+                    actividadId,
+                    oaId
+            );
+        } else if (actividadId != null) {
+            preguntas = preguntaRepository.findByActividadIdOrderByOrdenAsc(actividadId);
+        } else if (oaId != null) {
+            preguntas = preguntaRepository.findByOaIdOrderByOrdenAscIdAsc(oaId);
+        } else {
+            preguntas = preguntaRepository.findAllByOrderByActividadIdAscOrdenAscIdAsc();
         }
-        if (actividadId != null) {
-            return preguntaRepository.findByActividadIdOrderByOrdenAsc(actividadId);
+
+        if (!visibilityService.isStudent(currentUser)) {
+            return preguntas;
         }
-        if (oaId != null) {
-            return preguntaRepository.findByOaIdOrderByOrdenAscIdAsc(oaId);
-        }
-        return preguntaRepository.findAllByOrderByActividadIdAscOrdenAscIdAsc();
+
+        var visibles = visibilityService.visibleActivityIds(currentUser);
+        return preguntas.stream()
+                .filter(pregunta -> visibles.contains(pregunta.getActividad().getId()))
+                .toList();
     }
 
-    public Pregunta findById(Long id) {
-        return getPregunta(id);
+    public Pregunta findById(Long id, Usuario currentUser) {
+        Pregunta pregunta = getPregunta(id);
+        if (!visibilityService.canSeeActivity(currentUser, pregunta.getActividad())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "La actividad de la pregunta no está asignada al curso del estudiante"
+            );
+        }
+        return pregunta;
     }
 
     @Transactional
-    public Pregunta create(Pregunta pregunta, Long actividadId, Long unidadId, Long oaId) {
+    public Pregunta create(
+            Pregunta pregunta,
+            Long actividadId,
+            Long unidadId,
+            Long oaId,
+            Usuario currentUser
+    ) {
         Actividad actividad = getActividad(actividadId);
         ObjetivoAprendizaje oa = getObjetivoAprendizaje(oaId);
+        authoringPolicy.assertCanAuthor(currentUser, actividad.getUnidad());
         Long unidadActividad = actividad.getUnidad().getId();
 
         if (!unidadActividad.equals(unidadId) || !unidadActividad.equals(oa.getUnidad().getId())) {

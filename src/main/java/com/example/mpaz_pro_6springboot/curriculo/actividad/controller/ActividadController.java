@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.actividad.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.dto.request.ActividadCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.dto.request.ActividadUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.actividad.dto.response.ActividadResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,23 +38,46 @@ public class ActividadController {
 
     @GetMapping
     public ResponseEntity<List<ActividadResponse>> findAll(
-            @RequestParam(required = false) @Positive Long unidadId
+            @RequestParam(required = false) @Positive Long unidadId,
+            @RequestParam(required = false) @Positive Long contenidoId,
+            @RequestParam(required = false) Boolean soloTransversales,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(actividadService.findAll(unidadId).stream()
+        return ResponseEntity.ok(actividadService
+                .findAll(
+                        unidadId,
+                        contenidoId,
+                        soloTransversales,
+                        principal.getUsuario()
+                )
+                .stream()
                 .map(actividadMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ActividadResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(actividadMapper.toResponse(actividadService.findById(id)));
+    public ResponseEntity<ActividadResponse> findById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(actividadMapper.toResponse(
+                actividadService.findById(id, principal.getUsuario())
+        ));
     }
 
     @PostMapping
-    public ResponseEntity<ActividadResponse> create(@Valid @RequestBody ActividadCreateRequest request) {
+    public ResponseEntity<ActividadResponse> create(
+            @Valid @RequestBody ActividadCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         Actividad actividad = actividadMapper.toEntity(request);
         ActividadResponse created = actividadMapper.toResponse(
-                actividadService.create(actividad, request.unidadId())
+                actividadService.create(
+                        actividad,
+                        request.unidadId(),
+                        request.contenidoId(),
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -67,7 +92,14 @@ public class ActividadController {
             @Valid @RequestBody ActividadUpdateRequest request
     ) {
         Actividad cambios = actividadMapper.toEntity(request);
-        return ResponseEntity.ok(actividadMapper.toResponse(actividadService.update(id, cambios)));
+        return ResponseEntity.ok(actividadMapper.toResponse(
+                actividadService.update(
+                        id,
+                        cambios,
+                        request.contenidoId(),
+                        request.desasociarContenido()
+                )
+        ));
     }
 
     @DeleteMapping("/{id}")

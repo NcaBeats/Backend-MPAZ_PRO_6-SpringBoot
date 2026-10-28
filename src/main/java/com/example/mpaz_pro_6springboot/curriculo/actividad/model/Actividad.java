@@ -2,6 +2,7 @@ package com.example.mpaz_pro_6springboot.curriculo.actividad.model;
 
 import com.example.mpaz_pro_6springboot.docencia.asignacion_actividad.model.AsignacionActividad;
 import com.example.mpaz_pro_6springboot.common.enums.TipoActividad;
+import com.example.mpaz_pro_6springboot.curriculo.contenido.model.Contenido;
 import com.example.mpaz_pro_6springboot.evaluacion.intento.model.Intento;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
@@ -41,7 +42,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"unidad", "preguntas", "asignacionesActividad", "intentos"})
+@ToString(exclude = {"unidad", "contenido", "preguntas", "asignacionesActividad", "intentos"})
 public class Actividad {
 
     @Id
@@ -53,6 +54,16 @@ public class Actividad {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unidad_id", nullable = false)
     private Unidad unidad;
+
+    /**
+     * Contenido de la misma unidad al que pertenece la actividad.
+     *
+     * {@code null} significa que la actividad es transversal a la unidad, como
+     * la prueba final.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contenido_id")
+    private Contenido contenido;
 
     @Column(name = "titulo", nullable = false, length = 200)
     private String titulo;

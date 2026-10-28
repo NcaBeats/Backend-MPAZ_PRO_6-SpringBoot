@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.docencia.asignacion.service;
 
+import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.repository.UnidadRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
@@ -35,7 +36,11 @@ public class AsignacionService {
     private final IntentoRepository intentoRepository;
     private final DocenteCursoAsignaturaRepository docenciaRepository;
 
-    public List<Asignacion> findAll(Long cursoId, Long unidadId) {
+    public List<Asignacion> findAll(
+            Long cursoId,
+            Long unidadId,
+            Usuario currentUser
+    ) {
         if (cursoId != null) {
             getCurso(cursoId);
         }
@@ -43,23 +48,27 @@ public class AsignacionService {
             getUnidad(unidadId);
         }
 
+        List<Asignacion> asignaciones;
         if (cursoId != null && unidadId != null) {
-            return asignacionRepository.findByCursoIdAndUnidadIdOrderByIdAsc(
+            asignaciones = asignacionRepository.findByCursoIdAndUnidadIdOrderByIdAsc(
                     cursoId,
                     unidadId
             );
+        } else if (cursoId != null) {
+            asignaciones = asignacionRepository.findByCursoIdOrderByIdAsc(cursoId);
+        } else if (unidadId != null) {
+            asignaciones = asignacionRepository.findByUnidadIdOrderByIdAsc(unidadId);
+        } else {
+            asignaciones = asignacionRepository.findAllByOrderByIdAsc();
         }
-        if (cursoId != null) {
-            return asignacionRepository.findByCursoIdOrderByIdAsc(cursoId);
-        }
-        if (unidadId != null) {
-            return asignacionRepository.findByUnidadIdOrderByIdAsc(unidadId);
-        }
-        return asignacionRepository.findAllByOrderByIdAsc();
+
+        return filtrarVisibles(asignaciones, currentUser);
     }
 
-    public Asignacion findById(Long id) {
-        return getAsignacion(id);
+    public Asignacion findById(Long id, Usuario currentUser) {
+        Asignacion asignacion = getAsignacion(id);
+        assertPuedeLeer(asignacion, currentUser);
+        return asignacion;
     }
 
     @Transactional
@@ -105,7 +114,7 @@ public class AsignacionService {
     }
 
     @Transactional
-    public Asignacion update(Long id, Asignacion cambios) {
+    public Asignacion update(Long id, Asignacion cambios, Usuario currentUser) {
         if (cambios.getMaxIntentos() == null
                 && cambios.getPruebaFinalHabilitada() == null
                 && cambios.getFecha() == null) {
@@ -116,6 +125,8 @@ public class AsignacionService {
         }
 
         Asignacion asignacion = getAsignacion(id);
+        assertDocenteDueno(asignacion, currentUser);
+
         if (cambios.getMaxIntentos() != null) {
             asignacion.setMaxIntentos(cambios.getMaxIntentos());
         }
@@ -129,8 +140,10 @@ public class AsignacionService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, Usuario currentUser) {
         Asignacion asignacion = getAsignacion(id);
+        assertDocenteDueno(asignacion, currentUser);
+
         if (asignacionOaRepository.existsByAsignacionId(id)
                 || asignacionActividadRepository.existsByAsignacionId(id)
                 || intentoRepository.existsByActividadUnidadIdAndEstudianteCursoId(
@@ -143,6 +156,90 @@ public class AsignacionService {
             );
         }
         asignacionRepository.delete(asignacion);
+    }
+
+    /** Valida que el docente autenticado sea el dueño de la docencia de la asignación. */
+    public void assertDocenteDueno(Asignacion asignacion, Usuario currentUser) {
+        if (currentUser == null || currentUser.getRol() != Rol.DOCENTE) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo el docente de la asignatura puede modificarla"
+            );
+        }
+
+        DocenteCursoAsignatura docencia = docenciaRepository
+                .findByCursoIdAndAsignaturaId(
+                        asignacion.getCurso().getId(),
+                        asignacion.getUnidad().getAsignatura().getId()
+                )
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "No tienes docencia para esa asignación"
+                ));
+        if (!docencia.getDocente().getId().equals(currentUser.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo el docente de la asignatura puede modificarla"
+            );
+        }
+    }
+
+    private List<Asignacion> filtrarVisibles(
+            List<Asignacion> asignaciones,
+            Usuario currentUser
+    ) {
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No autenticado");
+        }
+        if (currentUser.getRol() == Rol.UTP) {
+            return asignaciones;
+        }
+        if (currentUser.getRol() == Rol.DOCENTE) {
+            return asignaciones.stream()
+                    .filter(a -> esDocenteDe(a, currentUser))
+                    .toList();
+        }
+        if (currentUser.getRol() == Rol.ESTUDIANTE) {
+            Long cursoId = currentUser.getCurso() == null
+                    ? null
+                    : currentUser.getCurso().getId();
+            return asignaciones.stream()
+                    .filter(a -> cursoId != null
+                            && cursoId.equals(a.getCurso().getId()))
+                    .toList();
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Rol no autorizado");
+    }
+
+    private void assertPuedeLeer(Asignacion asignacion, Usuario currentUser) {
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No autenticado");
+        }
+        if (currentUser.getRol() == Rol.UTP) {
+            return;
+        }
+        if (currentUser.getRol() == Rol.DOCENTE && esDocenteDe(asignacion, currentUser)) {
+            return;
+        }
+        if (currentUser.getRol() == Rol.ESTUDIANTE
+                && currentUser.getCurso() != null
+                && currentUser.getCurso().getId().equals(asignacion.getCurso().getId())) {
+            return;
+        }
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "No puedes consultar una asignación ajena"
+        );
+    }
+
+    private boolean esDocenteDe(Asignacion asignacion, Usuario currentUser) {
+        return docenciaRepository
+                .findByCursoIdAndAsignaturaId(
+                        asignacion.getCurso().getId(),
+                        asignacion.getUnidad().getAsignatura().getId()
+                )
+                .map(d -> d.getDocente().getId().equals(currentUser.getId()))
+                .orElse(false);
     }
 
     private Asignacion getAsignacion(Long id) {

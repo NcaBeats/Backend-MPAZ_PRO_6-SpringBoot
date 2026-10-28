@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.unidad.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.dto.request.UnidadCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.dto.request.UnidadUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.unidad.dto.response.UnidadResponse;
@@ -10,9 +11,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -67,6 +71,17 @@ public class UnidadController {
         Unidad cambios = unidadMapper.toEntity(request);
         Unidad actualizada = unidadService.update(id, cambios, request.autorizadaPorId());
         return ResponseEntity.ok(unidadMapper.toResponse(actualizada));
+    }
+
+    @PatchMapping("/{id}/envio-revision")
+    @PreAuthorize("hasRole('DOCENTE')")
+    public ResponseEntity<UnidadResponse> enviarARevision(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(unidadMapper.toResponse(
+                unidadService.enviarARevision(id, principal.getUsuario())
+        ));
     }
 
     @DeleteMapping("/{id}")

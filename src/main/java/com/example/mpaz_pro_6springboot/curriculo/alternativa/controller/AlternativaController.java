@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.alternativa.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.request.AlternativaCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.request.AlternativaUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.dto.response.AlternativaResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,23 +38,39 @@ public class AlternativaController {
 
     @GetMapping
     public ResponseEntity<List<AlternativaResponse>> findAll(
-            @RequestParam(required = false) @Positive Long preguntaId
+            @RequestParam(required = false) @Positive Long preguntaId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(alternativaService.findAll(preguntaId).stream()
+        return ResponseEntity.ok(alternativaService.findAll(
+                preguntaId,
+                principal.getUsuario()
+        ).stream()
                 .map(alternativaMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AlternativaResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(alternativaMapper.toResponse(alternativaService.findById(id)));
+    public ResponseEntity<AlternativaResponse> findById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(alternativaMapper.toResponse(
+                alternativaService.findById(id, principal.getUsuario())
+        ));
     }
 
     @PostMapping
-    public ResponseEntity<AlternativaResponse> create(@Valid @RequestBody AlternativaCreateRequest request) {
+    public ResponseEntity<AlternativaResponse> create(
+            @Valid @RequestBody AlternativaCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         Alternativa alternativa = alternativaMapper.toEntity(request);
         AlternativaResponse created = alternativaMapper.toResponse(
-                alternativaService.create(alternativa, request.preguntaId())
+                alternativaService.create(
+                        alternativa,
+                        request.preguntaId(),
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")

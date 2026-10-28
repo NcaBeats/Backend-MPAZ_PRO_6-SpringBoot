@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.pregunta.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.dto.request.PreguntaCreateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.dto.request.PreguntaUpdateRequest;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.dto.response.PreguntaResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,23 +39,42 @@ public class PreguntaController {
     @GetMapping
     public ResponseEntity<List<PreguntaResponse>> findAll(
             @RequestParam(required = false) @Positive Long actividadId,
-            @RequestParam(required = false) @Positive Long oaId
+            @RequestParam(required = false) @Positive Long oaId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        return ResponseEntity.ok(preguntaService.findAll(actividadId, oaId).stream()
+        return ResponseEntity.ok(preguntaService.findAll(
+                actividadId,
+                oaId,
+                principal.getUsuario()
+        ).stream()
                 .map(preguntaMapper::toResponse)
                 .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PreguntaResponse> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(preguntaMapper.toResponse(preguntaService.findById(id)));
+    public ResponseEntity<PreguntaResponse> findById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
+        return ResponseEntity.ok(preguntaMapper.toResponse(
+                preguntaService.findById(id, principal.getUsuario())
+        ));
     }
 
     @PostMapping
-    public ResponseEntity<PreguntaResponse> create(@Valid @RequestBody PreguntaCreateRequest request) {
+    public ResponseEntity<PreguntaResponse> create(
+            @Valid @RequestBody PreguntaCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal
+    ) {
         Pregunta pregunta = preguntaMapper.toEntity(request);
         PreguntaResponse created = preguntaMapper.toResponse(
-                preguntaService.create(pregunta, request.actividadId(), request.unidadId(), request.oaId())
+                preguntaService.create(
+                        pregunta,
+                        request.actividadId(),
+                        request.unidadId(),
+                        request.oaId(),
+                        principal.getUsuario()
+                )
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")

@@ -30,7 +30,27 @@ public interface InformePedagogicoRepository extends JpaRepository<InformePedago
     @EntityGraph(attributePaths = {"estudiante", "unidad", "unidad.asignatura", "docente"})
     List<InformePedagogico> findByEstudianteIdAndUnidadIdOrderByIdAsc(Long estudianteId, Long unidadId);
 
-    List<InformePedagogico> findByDocenteId(Long docenteId);
+    @EntityGraph(attributePaths = {"estudiante", "unidad", "unidad.asignatura", "docente"})
+    List<InformePedagogico> findByDocenteIdOrderByIdAsc(Long docenteId);
+
+    @EntityGraph(attributePaths = {"estudiante", "unidad", "unidad.asignatura", "docente"})
+    List<InformePedagogico> findByDocenteIdAndEstudianteIdOrderByIdAsc(
+            Long docenteId,
+            Long estudianteId
+    );
+
+    @EntityGraph(attributePaths = {"estudiante", "unidad", "unidad.asignatura", "docente"})
+    List<InformePedagogico> findByDocenteIdAndUnidadIdOrderByIdAsc(
+            Long docenteId,
+            Long unidadId
+    );
+
+    @EntityGraph(attributePaths = {"estudiante", "unidad", "unidad.asignatura", "docente"})
+    List<InformePedagogico> findByDocenteIdAndEstudianteIdAndUnidadIdOrderByIdAsc(
+            Long docenteId,
+            Long estudianteId,
+            Long unidadId
+    );
 
     List<InformePedagogico> findByEstado(EstadoInforme estado);
 

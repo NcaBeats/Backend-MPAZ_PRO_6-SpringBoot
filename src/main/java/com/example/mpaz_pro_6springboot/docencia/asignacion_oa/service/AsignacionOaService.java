@@ -4,9 +4,11 @@ import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.model.Obj
 import com.example.mpaz_pro_6springboot.curriculo.objetivo_aprendizaje.repository.ObjetivoAprendizajeRepository;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.docencia.asignacion.repository.AsignacionRepository;
+import com.example.mpaz_pro_6springboot.docencia.asignacion.service.AsignacionService;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOa;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOaId;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.repository.AsignacionOaRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class AsignacionOaService {
     private final AsignacionOaRepository asignacionOaRepository;
     private final AsignacionRepository asignacionRepository;
     private final ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
+    private final AsignacionService asignacionService;
 
     public List<AsignacionOa> findByAsignacionId(Long asignacionId) {
         getAsignacion(asignacionId);
@@ -30,8 +33,13 @@ public class AsignacionOaService {
     }
 
     @Transactional
-    public AsignacionOa assign(Long asignacionId, Long oaId) {
+    public AsignacionOa assign(
+            Long asignacionId,
+            Long oaId,
+            Usuario currentUser
+    ) {
         Asignacion asignacion = getAsignacion(asignacionId);
+        asignacionService.assertDocenteDueno(asignacion, currentUser);
         ObjetivoAprendizaje objetivoAprendizaje = getObjetivoAprendizaje(oaId);
         Long unidadId = asignacion.getUnidad().getId();
 
@@ -61,7 +69,14 @@ public class AsignacionOaService {
     }
 
     @Transactional
-    public void remove(Long asignacionId, Long oaId) {
+    public void remove(
+            Long asignacionId,
+            Long oaId,
+            Usuario currentUser
+    ) {
+        Asignacion asignacion = getAsignacion(asignacionId);
+        asignacionService.assertDocenteDueno(asignacion, currentUser);
+
         AsignacionOa asignacionOa = asignacionOaRepository
                 .findByAsignacionIdAndObjetivoAprendizajeId(asignacionId, oaId)
                 .orElseThrow(() -> new ResponseStatusException(

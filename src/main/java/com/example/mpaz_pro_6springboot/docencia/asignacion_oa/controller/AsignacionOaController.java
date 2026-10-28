@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.docencia.asignacion_oa.controller;
 
+import com.example.mpaz_pro_6springboot.common.security.CustomUserDetails;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.dto.response.AsignacionOaResponse;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.mapper.AsignacionOaMapper;
 import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.model.AsignacionOa;
@@ -7,6 +8,7 @@ import com.example.mpaz_pro_6springboot.docencia.asignacion_oa.service.Asignacio
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,10 +42,11 @@ public class AsignacionOaController {
     @PostMapping("/{oaId}")
     public ResponseEntity<AsignacionOaResponse> assign(
             @PathVariable @Positive Long asignacionId,
-            @PathVariable @Positive Long oaId
+            @PathVariable @Positive Long oaId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
         AsignacionOaResponse response = asignacionOaMapper.toResponse(
-                asignacionOaService.assign(asignacionId, oaId)
+                asignacionOaService.assign(asignacionId, oaId, principal.getUsuario())
         );
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().build().toUri();
         return ResponseEntity.created(location).body(response);
@@ -52,9 +55,10 @@ public class AsignacionOaController {
     @DeleteMapping("/{oaId}")
     public ResponseEntity<Void> remove(
             @PathVariable @Positive Long asignacionId,
-            @PathVariable @Positive Long oaId
+            @PathVariable @Positive Long oaId,
+            @AuthenticationPrincipal CustomUserDetails principal
     ) {
-        asignacionOaService.remove(asignacionId, oaId);
+        asignacionOaService.remove(asignacionId, oaId, principal.getUsuario());
         return ResponseEntity.noContent().build();
     }
 }

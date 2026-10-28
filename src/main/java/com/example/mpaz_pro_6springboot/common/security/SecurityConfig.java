@@ -65,6 +65,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/docencias", "/api/docencias/**").hasRole("UTP")
                         .requestMatchers(HttpMethod.DELETE, "/api/docencias", "/api/docencias/**").hasRole("UTP")
                         .requestMatchers("/api/docencias", "/api/docencias/**").authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/contenidos", "/api/contenidos/**",
+                                "/api/actividades", "/api/actividades/**",
+                                "/api/preguntas", "/api/preguntas/**",
+                                "/api/alternativas", "/api/alternativas/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/unidades/*/envio-revision"
+                        ).hasRole("DOCENTE")
                         .requestMatchers(HttpMethod.POST, CATALOGO).hasRole("UTP")
                         .requestMatchers(HttpMethod.PUT, CATALOGO).hasRole("UTP")
                         .requestMatchers(HttpMethod.DELETE, CATALOGO).hasRole("UTP")
@@ -92,15 +103,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/intentos/*/respuestas")
                         .hasRole("ESTUDIANTE")
                         .requestMatchers(HttpMethod.POST, "/api/informes-pedagogicos")
-                        .hasAnyRole("DOCENTE", "UTP")
+                        .hasRole("DOCENTE")
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/informes-pedagogicos/*/validacion"
-                        ).hasAnyRole("DOCENTE", "UTP")
+                        ).hasRole("DOCENTE")
                         .requestMatchers(
                                 "/api/informes-pedagogicos",
                                 "/api/informes-pedagogicos/**"
-                        ).authenticated()
+                        ).hasRole("DOCENTE")
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

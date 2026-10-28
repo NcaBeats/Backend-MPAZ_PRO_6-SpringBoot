@@ -37,4 +37,8 @@ public interface DocenteCursoAsignaturaRepository
     );
 
     boolean existsByDocenteId(Long docenteId);
+
+    boolean existsByDocenteIdAndCursoId(Long docenteId, Long cursoId);
+
+    boolean existsByDocenteIdAndAsignaturaId(Long docenteId, Long asignaturaId);
 }

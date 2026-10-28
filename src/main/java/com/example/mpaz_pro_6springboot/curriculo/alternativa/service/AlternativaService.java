@@ -1,10 +1,13 @@
 package com.example.mpaz_pro_6springboot.curriculo.alternativa.service;
 
+import com.example.mpaz_pro_6springboot.common.security.CurriculoAuthoringPolicy;
+import com.example.mpaz_pro_6springboot.common.security.StudentVisibilityService;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.model.Alternativa;
 import com.example.mpaz_pro_6springboot.curriculo.alternativa.repository.AlternativaRepository;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.model.Pregunta;
 import com.example.mpaz_pro_6springboot.curriculo.pregunta.repository.PreguntaRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.respuesta_estudiante.repository.RespuestaEstudianteRepository;
+import com.example.mpaz_pro_6springboot.identidad.usuario.model.Usuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,23 +24,59 @@ public class AlternativaService {
     private final AlternativaRepository alternativaRepository;
     private final PreguntaRepository preguntaRepository;
     private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+    private final CurriculoAuthoringPolicy authoringPolicy;
+    private final StudentVisibilityService visibilityService;
 
-    public List<Alternativa> findAll(Long preguntaId) {
-        if (preguntaId == null) {
-            return alternativaRepository.findAllByOrderByPreguntaIdAscIdAsc();
+    public List<Alternativa> findAll(Long preguntaId, Usuario currentUser) {
+        if (preguntaId != null) {
+            Pregunta pregunta = getPregunta(preguntaId);
+            if (!visibilityService.canSeeActivity(currentUser, pregunta.getActividad())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "La actividad de la pregunta no está asignada al curso del estudiante"
+                );
+            }
+            return alternativaRepository.findByPreguntaIdOrderByIdAsc(preguntaId);
         }
 
-        getPregunta(preguntaId);
-        return alternativaRepository.findByPreguntaIdOrderByIdAsc(preguntaId);
+        List<Alternativa> alternativas = alternativaRepository
+                .findAllByOrderByPreguntaIdAscIdAsc();
+        if (!visibilityService.isStudent(currentUser)) {
+            return alternativas;
+        }
+
+        var visibleActivities = visibilityService.visibleActivityIds(currentUser);
+        return alternativas.stream()
+                .filter(alternativa -> alternativa.getPregunta().getActividad() != null
+                        && visibleActivities.contains(
+                        alternativa.getPregunta().getActividad().getId()
+                ))
+                .toList();
     }
 
-    public Alternativa findById(Long id) {
-        return getAlternativa(id);
+    public Alternativa findById(Long id, Usuario currentUser) {
+        Alternativa alternativa = getAlternativa(id);
+        if (!visibilityService.canSeeActivity(
+                currentUser,
+                alternativa.getPregunta().getActividad()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "La actividad de la alternativa no está asignada al curso del estudiante"
+            );
+        }
+        return alternativa;
     }
 
     @Transactional
-    public Alternativa create(Alternativa alternativa, Long preguntaId) {
-        alternativa.setPregunta(getPregunta(preguntaId));
+    public Alternativa create(
+            Alternativa alternativa,
+            Long preguntaId,
+            Usuario currentUser
+    ) {
+        Pregunta pregunta = getPregunta(preguntaId);
+        authoringPolicy.assertCanAuthor(currentUser, pregunta.getUnidad());
+        alternativa.setPregunta(pregunta);
         if (alternativa.getEsCorrecta() == null) {
             alternativa.setEsCorrecta(false);
         }

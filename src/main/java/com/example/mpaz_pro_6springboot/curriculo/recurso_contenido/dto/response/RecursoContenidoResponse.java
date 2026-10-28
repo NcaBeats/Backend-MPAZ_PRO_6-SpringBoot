@@ -1,5 +1,6 @@
 package com.example.mpaz_pro_6springboot.curriculo.recurso_contenido.dto.response;
 
+import com.example.mpaz_pro_6springboot.common.enums.EstadoContenido;
 import com.example.mpaz_pro_6springboot.common.enums.OrigenMaterial;
 import com.example.mpaz_pro_6springboot.common.enums.TipoRecurso;
 
@@ -9,6 +10,7 @@ public record RecursoContenidoResponse(
         TipoRecurso tipo,
         String url,
         String descripcion,
-        OrigenMaterial origen
+        OrigenMaterial origen,
+        EstadoContenido estado
 ) {
 }

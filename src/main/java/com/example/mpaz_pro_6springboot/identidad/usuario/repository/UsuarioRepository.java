@@ -25,6 +25,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     List<Usuario> findByRolAndCursoId(Rol rol, Long cursoId);
 
+    List<Usuario> findByRolAndCursoIdOrderByNombreAsc(Rol rol, Long cursoId);
+
     boolean existsByUsername(String username);
 
     boolean existsByUsernameAndIdNot(String username, Long id);
