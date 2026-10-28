@@ -1,6 +1,5 @@
 package com.example.mpaz_pro_6springboot.identidad.usuario.model;
 
-import com.example.mpaz_pro_6springboot.docencia.asignacion.model.Asignacion;
 import com.example.mpaz_pro_6springboot.common.enums.Rol;
 import com.example.mpaz_pro_6springboot.identidad.curso.model.Curso;
 import com.example.mpaz_pro_6springboot.informe.informe_pedagogico.model.InformePedagogico;
@@ -40,7 +39,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"curso", "intentos", "informesEstudiante", "informesDocente", "unidadesAutorizadas", "asignacionesDocente"})
+@ToString(exclude = {"curso", "intentos", "informesEstudiante", "informesDocente", "unidadesAutorizadas"})
 public class Usuario {
 
     @Id
@@ -83,8 +82,4 @@ public class Usuario {
     @OneToMany(mappedBy = "autorizadaPor", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Unidad> unidadesAutorizadas = new ArrayList<>();
-
-    @OneToMany(mappedBy = "docente", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Asignacion> asignacionesDocente = new ArrayList<>();
 }

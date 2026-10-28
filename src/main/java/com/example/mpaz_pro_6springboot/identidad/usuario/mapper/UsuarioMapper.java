@@ -24,7 +24,6 @@ public interface UsuarioMapper {
     @Mapping(target = "informesEstudiante", ignore = true)
     @Mapping(target = "informesDocente", ignore = true)
     @Mapping(target = "unidadesAutorizadas", ignore = true)
-    @Mapping(target = "asignacionesDocente", ignore = true)
     Usuario toEntity(UsuarioCreateRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -34,7 +33,6 @@ public interface UsuarioMapper {
     @Mapping(target = "informesEstudiante", ignore = true)
     @Mapping(target = "informesDocente", ignore = true)
     @Mapping(target = "unidadesAutorizadas", ignore = true)
-    @Mapping(target = "asignacionesDocente", ignore = true)
     Usuario toEntity(UsuarioUpdateRequest request);
 
     void updateEntity(UsuarioUpdateRequest request, @MappingTarget Usuario entity);
