@@ -1,0 +1,378 @@
+-- ============================================================
+-- MODELO DE DATOS MPAZ
+-- Oracle Database 21c
+-- Todas las claves primarias son GENERATED ALWAYS AS IDENTITY.
+-- Ejecutar en un esquema vacío.
+-- ============================================================
+
+-- ============================================================
+-- 1. TABLAS
+-- ============================================================
+
+CREATE TABLE ACTIVIDAD (
+    actividad_id      NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    instrucciones     CLOB NOT NULL,
+    tipo_actividad_id NUMBER NOT NULL,
+    contenido_id      NUMBER NOT NULL,
+    fecha_inicio      TIMESTAMP,
+    fecha_termino     TIMESTAMP,
+    habilitada        CHAR(1) NOT NULL,
+    max_intentos      NUMBER,
+    estado_id         NUMBER NOT NULL,
+    CONSTRAINT ACTIVIDAD_PK PRIMARY KEY (actividad_id)
+);
+
+CREATE TABLE ALTERNATIVA (
+    alternativa_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    enunciado      CLOB,
+    recurso_id     NUMBER NOT NULL,
+    correcta       CHAR(1) NOT NULL,
+    CONSTRAINT ALTERNATIVA_PK PRIMARY KEY (alternativa_id)
+);
+
+CREATE TABLE ALTERNATIVA_PREGUNTA (
+    alternativa_pregunta_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    pregunta_id             NUMBER NOT NULL,
+    alternativa_id          NUMBER NOT NULL,
+    CONSTRAINT ALTERNATIVA_PREGUNTA_PK PRIMARY KEY (alternativa_pregunta_id),
+    CONSTRAINT ALTERNATIVA_PREGUNTA__UN UNIQUE (pregunta_id, alternativa_id)
+);
+
+CREATE TABLE ASIGNATURA (
+    asignatura_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre        VARCHAR2(50) NOT NULL,
+    CONSTRAINT ASIGNATURA_PK PRIMARY KEY (asignatura_id),
+    CONSTRAINT UNIQUE_ASIGNATURA_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE ASIGNATURA_CURSO (
+    id_asignaturas_curso NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    curso_id             NUMBER NOT NULL,
+    asignatura_id        NUMBER NOT NULL,
+    CONSTRAINT ASIGNATURA_CURSO_PK PRIMARY KEY (id_asignaturas_curso),
+    CONSTRAINT ASIGNATURA_CURSO__UN UNIQUE (curso_id, asignatura_id)
+);
+
+CREATE TABLE CONTENIDO (
+    contenido_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    descripcion  CLOB,
+    estado_id    NUMBER NOT NULL,
+    CONSTRAINT CONTENIDO_PK PRIMARY KEY (contenido_id)
+);
+
+CREATE TABLE CURSO (
+    curso_id   NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    annio      NUMBER NOT NULL,
+    nivel_id   NUMBER NOT NULL,
+    seccion_id NUMBER NOT NULL,
+    CONSTRAINT CURSO_PK PRIMARY KEY (curso_id),
+    CONSTRAINT CURSO__UN UNIQUE (annio, nivel_id, seccion_id)
+);
+
+CREATE TABLE DETALLE_INFORME_PEDAGOGICO (
+    detalle_ip_id           NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    informe_pedagogico_id   NUMBER NOT NULL,
+    objetivo_aprendizaje_id NUMBER NOT NULL,
+    correctas               NUMBER NOT NULL,
+    incorrectas             NUMBER NOT NULL,
+    CONSTRAINT DETALLE_INFORME_PEDAGOGICO_PK PRIMARY KEY (detalle_ip_id),
+    CONSTRAINT DETALLE_INFORME_PEDAGOGICO__UN
+        UNIQUE (informe_pedagogico_id, objetivo_aprendizaje_id)
+);
+
+CREATE TABLE ESTADO_AUTORIZACION (
+    estado_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre    VARCHAR2(50) NOT NULL,
+    CONSTRAINT ESTADO_AUTORIZACION_PK PRIMARY KEY (estado_id),
+    CONSTRAINT UNIQUE_EA_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE INFORME_PEDAGOGICO (
+    informe_pedagogico_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    usuario_id            NUMBER NOT NULL,
+    fecha                 TIMESTAMP NOT NULL,
+    descripcion           CLOB,
+    CONSTRAINT INFORME_PEDAGOGICO_PK PRIMARY KEY (informe_pedagogico_id)
+);
+
+CREATE TABLE INTENTO (
+    intento_id   NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    fecha_inicio TIMESTAMP NOT NULL,
+    fecha_fin    TIMESTAMP,
+    usuario_id   NUMBER NOT NULL,
+    actividad_id NUMBER NOT NULL,
+    CONSTRAINT INTENTO_PK PRIMARY KEY (intento_id)
+);
+
+CREATE TABLE NIVEL (
+    nivel_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre   VARCHAR2(25) NOT NULL,
+    CONSTRAINT NIVEL_PK PRIMARY KEY (nivel_id),
+    CONSTRAINT UNIQUE_NIVEL_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE OBJETIVO_APRENDIZAJE (
+    objetivo_aprendizaje_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    descripcion             CLOB NOT NULL,
+    codigo                  VARCHAR2(25) NOT NULL,
+    unidad_id               NUMBER NOT NULL,
+    CONSTRAINT OBJETIVO_APRENDIZAJE_PK PRIMARY KEY (objetivo_aprendizaje_id)
+);
+
+CREATE TABLE OBJETIVO_APRENDIZAJE_CONTENIDO (
+    oa_contenido_id         NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    objetivo_aprendizaje_id NUMBER NOT NULL,
+    contenido_id            NUMBER NOT NULL,
+    CONSTRAINT OA_CONT_PK PRIMARY KEY (oa_contenido_id),
+    CONSTRAINT OA_CONT_UN UNIQUE (contenido_id, objetivo_aprendizaje_id)
+);
+
+CREATE TABLE PREGUNTA (
+    pregunta_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    enunciado   CLOB NOT NULL,
+    recurso_id  NUMBER NOT NULL,
+    CONSTRAINT PREGUNTA_PK PRIMARY KEY (pregunta_id)
+);
+
+CREATE TABLE PREGUNTA_ACTIVIDAD (
+    pregunta_actividad_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    actividad_id          NUMBER NOT NULL,
+    pregunta_id           NUMBER NOT NULL,
+    CONSTRAINT PREGUNTA_ACTIVIDAD_PK PRIMARY KEY (pregunta_actividad_id),
+    CONSTRAINT PREGUNTA_ACTIVIDAD__UN UNIQUE (actividad_id, pregunta_id)
+);
+
+CREATE TABLE RECURSO (
+    recurso_id      NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre          VARCHAR2(100) NOT NULL,
+    url             VARCHAR2(255),
+    descripcion     VARCHAR2(255),
+    tipo_recurso_id NUMBER NOT NULL,
+    contenido_id    NUMBER NOT NULL,
+    CONSTRAINT RECURSO_PK PRIMARY KEY (recurso_id)
+);
+
+CREATE TABLE RESPUESTA (
+    respuesta_id   NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    alternativa_id NUMBER NOT NULL,
+    pregunta_id    NUMBER NOT NULL,
+    intento_id     NUMBER NOT NULL,
+    CONSTRAINT RESPUESTA_PK PRIMARY KEY (respuesta_id),
+    CONSTRAINT RESPUESTA__UNv1 UNIQUE (intento_id, pregunta_id, alternativa_id)
+);
+
+CREATE TABLE ROL (
+    rol_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre VARCHAR2(25) NOT NULL,
+    CONSTRAINT ROL_PK PRIMARY KEY (rol_id),
+    CONSTRAINT UNIQUE_ROL_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE SECCION (
+    seccion_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    letra      VARCHAR2(1) NOT NULL,
+    CONSTRAINT SECCION_PK PRIMARY KEY (seccion_id),
+    CONSTRAINT SECCION__UN UNIQUE (letra)
+);
+
+CREATE TABLE TIPO_ACTIVIDAD (
+    tipo_actividad_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre            VARCHAR2(50) NOT NULL,
+    CONSTRAINT TIPO_ACTIVIDAD_PK PRIMARY KEY (tipo_actividad_id),
+    CONSTRAINT UNIQUE_TA_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE TIPO_RECURSO (
+    tipo_recurso_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre          VARCHAR2(25) NOT NULL,
+    CONSTRAINT TIPO_RECURSO_PK PRIMARY KEY (tipo_recurso_id),
+    CONSTRAINT UNIQUE_TR_NOMBRE UNIQUE (nombre)
+);
+
+CREATE TABLE UNIDAD (
+    unidad_id     NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    nombre        VARCHAR2(50) NOT NULL,
+    descripcion   CLOB,
+    asignatura_id NUMBER NOT NULL,
+    estado_id     NUMBER NOT NULL,
+    CONSTRAINT UNIDAD_PK PRIMARY KEY (unidad_id)
+);
+
+CREATE TABLE USUARIO (
+    usuario_id     NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    pnombre        VARCHAR2(25),
+    snombre        VARCHAR2(25),
+    apaterno       VARCHAR2(25),
+    amaterno       VARCHAR2(25),
+    nombre_usuario VARCHAR2(50) NOT NULL,
+    password_hash  VARCHAR2(255) NOT NULL,
+    rol_id         NUMBER NOT NULL,
+    activo         CHAR(1) NOT NULL,
+    CONSTRAINT USUARIO_PK PRIMARY KEY (usuario_id),
+    CONSTRAINT UNIQUE_U_NOMBRE_U UNIQUE (nombre_usuario)
+);
+
+CREATE TABLE USUARIO_CURSO (
+    usuario_curso_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    usuario_id       NUMBER NOT NULL,
+    curso_id         NUMBER NOT NULL,
+    CONSTRAINT USUARIO_CURSO_PK PRIMARY KEY (usuario_curso_id),
+    CONSTRAINT USUARIO_CURSO__UN UNIQUE (usuario_id, curso_id)
+);
+
+
+-- ============================================================
+-- 2. CLAVES FORANEAS
+-- ============================================================
+
+-- ACTIVIDAD
+ALTER TABLE ACTIVIDAD
+    ADD CONSTRAINT ACTIVIDAD_CONTENIDO_FK
+    FOREIGN KEY (contenido_id) REFERENCES CONTENIDO (contenido_id);
+
+ALTER TABLE ACTIVIDAD
+    ADD CONSTRAINT ACTIVIDAD_ESTADO_FK
+    FOREIGN KEY (estado_id) REFERENCES ESTADO_AUTORIZACION (estado_id);
+
+ALTER TABLE ACTIVIDAD
+    ADD CONSTRAINT ACTIVIDAD_TIPO_ACTIVIDAD_FK
+    FOREIGN KEY (tipo_actividad_id) REFERENCES TIPO_ACTIVIDAD (tipo_actividad_id);
+
+-- ALTERNATIVA
+ALTER TABLE ALTERNATIVA
+    ADD CONSTRAINT ALTERNATIVA_RECURSO_FK
+    FOREIGN KEY (recurso_id) REFERENCES RECURSO (recurso_id);
+
+-- ALTERNATIVA_PREGUNTA
+ALTER TABLE ALTERNATIVA_PREGUNTA
+    ADD CONSTRAINT ALT_PREG_ALTERNATIVA_FK
+    FOREIGN KEY (alternativa_id) REFERENCES ALTERNATIVA (alternativa_id);
+
+ALTER TABLE ALTERNATIVA_PREGUNTA
+    ADD CONSTRAINT ALT_PREG_PREGUNTA_FK
+    FOREIGN KEY (pregunta_id) REFERENCES PREGUNTA (pregunta_id);
+
+-- ASIGNATURA_CURSO
+ALTER TABLE ASIGNATURA_CURSO
+    ADD CONSTRAINT ASIGNATURA_CURSO_ASIGNATURA_FK
+    FOREIGN KEY (asignatura_id) REFERENCES ASIGNATURA (asignatura_id);
+
+ALTER TABLE ASIGNATURA_CURSO
+    ADD CONSTRAINT ASIGNATURA_CURSO_CURSO_FK
+    FOREIGN KEY (curso_id) REFERENCES CURSO (curso_id);
+
+-- CONTENIDO
+ALTER TABLE CONTENIDO
+    ADD CONSTRAINT CONTENIDO_ESTADO_FK
+    FOREIGN KEY (estado_id) REFERENCES ESTADO_AUTORIZACION (estado_id);
+
+-- CURSO
+ALTER TABLE CURSO
+    ADD CONSTRAINT CURSO_NIVEL_FK
+    FOREIGN KEY (nivel_id) REFERENCES NIVEL (nivel_id);
+
+ALTER TABLE CURSO
+    ADD CONSTRAINT CURSO_SECCION_FK
+    FOREIGN KEY (seccion_id) REFERENCES SECCION (seccion_id);
+
+-- DETALLE_INFORME_PEDAGOGICO
+ALTER TABLE DETALLE_INFORME_PEDAGOGICO
+    ADD CONSTRAINT DET_INF_INFORME_FK
+    FOREIGN KEY (informe_pedagogico_id)
+    REFERENCES INFORME_PEDAGOGICO (informe_pedagogico_id);
+
+ALTER TABLE DETALLE_INFORME_PEDAGOGICO
+    ADD CONSTRAINT DET_INF_OBJETIVO_FK
+    FOREIGN KEY (objetivo_aprendizaje_id)
+    REFERENCES OBJETIVO_APRENDIZAJE (objetivo_aprendizaje_id);
+
+-- INFORME_PEDAGOGICO
+ALTER TABLE INFORME_PEDAGOGICO
+    ADD CONSTRAINT INFORME_PEDAGOGICO_USUARIO_FK
+    FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
+
+-- INTENTO
+ALTER TABLE INTENTO
+    ADD CONSTRAINT INTENTO_ACTIVIDAD_FK
+    FOREIGN KEY (actividad_id) REFERENCES ACTIVIDAD (actividad_id);
+
+ALTER TABLE INTENTO
+    ADD CONSTRAINT INTENTO_USUARIO_FK
+    FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
+
+-- OBJETIVO_APRENDIZAJE
+ALTER TABLE OBJETIVO_APRENDIZAJE
+    ADD CONSTRAINT OBJETIVO_APRENDIZAJE_UNIDAD_FK
+    FOREIGN KEY (unidad_id) REFERENCES UNIDAD (unidad_id);
+
+-- OBJETIVO_APRENDIZAJE_CONTENIDO
+ALTER TABLE OBJETIVO_APRENDIZAJE_CONTENIDO
+    ADD CONSTRAINT OA_CONT_CONTENIDO_FK
+    FOREIGN KEY (contenido_id) REFERENCES CONTENIDO (contenido_id);
+
+ALTER TABLE OBJETIVO_APRENDIZAJE_CONTENIDO
+    ADD CONSTRAINT OA_CONT_OBJETIVO_FK
+    FOREIGN KEY (objetivo_aprendizaje_id)
+    REFERENCES OBJETIVO_APRENDIZAJE (objetivo_aprendizaje_id);
+
+-- PREGUNTA
+ALTER TABLE PREGUNTA
+    ADD CONSTRAINT PREGUNTA_RECURSO_FK
+    FOREIGN KEY (recurso_id) REFERENCES RECURSO (recurso_id);
+
+-- PREGUNTA_ACTIVIDAD
+ALTER TABLE PREGUNTA_ACTIVIDAD
+    ADD CONSTRAINT PREG_ACT_ACTIVIDAD_FK
+    FOREIGN KEY (actividad_id) REFERENCES ACTIVIDAD (actividad_id);
+
+ALTER TABLE PREGUNTA_ACTIVIDAD
+    ADD CONSTRAINT PREGUNTA_ACTIVIDAD_PREGUNTA_FK
+    FOREIGN KEY (pregunta_id) REFERENCES PREGUNTA (pregunta_id);
+
+-- RECURSO
+ALTER TABLE RECURSO
+    ADD CONSTRAINT RECURSO_CONTENIDO_FK
+    FOREIGN KEY (contenido_id) REFERENCES CONTENIDO (contenido_id);
+
+ALTER TABLE RECURSO
+    ADD CONSTRAINT RECURSO_TIPO_RECURSO_FK
+    FOREIGN KEY (tipo_recurso_id) REFERENCES TIPO_RECURSO (tipo_recurso_id);
+
+-- RESPUESTA
+ALTER TABLE RESPUESTA
+    ADD CONSTRAINT FK_INTENTO_RESPUESTA
+    FOREIGN KEY (intento_id) REFERENCES INTENTO (intento_id);
+
+-- La FK compuesta garantiza que la alternativa pertenezca a la pregunta.
+-- ALTERNATIVA_PREGUNTA tiene UNIQUE (pregunta_id, alternativa_id).
+ALTER TABLE RESPUESTA
+    ADD CONSTRAINT RESPUESTA_ALT_PREG_FK
+    FOREIGN KEY (pregunta_id, alternativa_id)
+    REFERENCES ALTERNATIVA_PREGUNTA (pregunta_id, alternativa_id);
+
+-- UNIDAD
+ALTER TABLE UNIDAD
+    ADD CONSTRAINT UNIDAD_ASIGNATURA_FK
+    FOREIGN KEY (asignatura_id) REFERENCES ASIGNATURA (asignatura_id);
+
+ALTER TABLE UNIDAD
+    ADD CONSTRAINT UNIDAD_ESTADO_AUTORIZACION_FK
+    FOREIGN KEY (estado_id) REFERENCES ESTADO_AUTORIZACION (estado_id);
+
+-- USUARIO
+ALTER TABLE USUARIO
+    ADD CONSTRAINT USUARIO_ROL_FK
+    FOREIGN KEY (rol_id) REFERENCES ROL (rol_id);
+
+-- USUARIO_CURSO
+ALTER TABLE USUARIO_CURSO
+    ADD CONSTRAINT USUARIO_CURSO_CURSO_FK
+    FOREIGN KEY (curso_id) REFERENCES CURSO (curso_id);
+
+ALTER TABLE USUARIO_CURSO
+    ADD CONSTRAINT USUARIO_CURSO_USUARIO_FK
+    FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
+
+-- ============================================================
+-- FIN DEL SCRIPT
+-- ============================================================
