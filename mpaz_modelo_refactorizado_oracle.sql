@@ -3,6 +3,12 @@
 -- Oracle Database 21c
 -- Todas las claves primarias son GENERATED ALWAYS AS IDENTITY.
 -- Ejecutar en un esquema vacío.
+--
+-- Este DDL refleja el modelo vigente:
+--   * Un OA puede pertenecer a varias unidades (curriculum en espiral).
+--   * Un contenido pertenece a una única unidad, y esa unidad es inmutable.
+--   * El informe pedagógico se emite en el contexto de una unidad.
+-- Implementación PostgreSQL: V1__init.sql + V2__oa_unidad_contenido_informe.sql.
 -- ============================================================
 
 -- ============================================================
@@ -57,7 +63,9 @@ CREATE TABLE CONTENIDO (
     contenido_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
     descripcion  CLOB,
     estado_id    NUMBER NOT NULL,
-    CONSTRAINT CONTENIDO_PK PRIMARY KEY (contenido_id)
+    unidad_id    NUMBER NOT NULL,
+    CONSTRAINT CONTENIDO_PK PRIMARY KEY (contenido_id),
+    CONSTRAINT CONTENIDO__UN UNIQUE (contenido_id, unidad_id)
 );
 
 CREATE TABLE CURSO (
@@ -92,6 +100,7 @@ CREATE TABLE INFORME_PEDAGOGICO (
     usuario_id            NUMBER NOT NULL,
     fecha                 TIMESTAMP NOT NULL,
     descripcion           CLOB,
+    unidad_id             NUMBER NOT NULL,
     CONSTRAINT INFORME_PEDAGOGICO_PK PRIMARY KEY (informe_pedagogico_id)
 );
 
@@ -115,14 +124,22 @@ CREATE TABLE OBJETIVO_APRENDIZAJE (
     objetivo_aprendizaje_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
     descripcion             CLOB NOT NULL,
     codigo                  VARCHAR2(25) NOT NULL,
-    unidad_id               NUMBER NOT NULL,
     CONSTRAINT OBJETIVO_APRENDIZAJE_PK PRIMARY KEY (objetivo_aprendizaje_id)
+);
+
+CREATE TABLE OBJETIVO_APRENDIZAJE_UNIDAD (
+    oa_unidad_id            NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    objetivo_aprendizaje_id NUMBER NOT NULL,
+    unidad_id               NUMBER NOT NULL,
+    CONSTRAINT OA_UNIDAD_PK PRIMARY KEY (oa_unidad_id),
+    CONSTRAINT OA_UNIDAD__UN UNIQUE (objetivo_aprendizaje_id, unidad_id)
 );
 
 CREATE TABLE OBJETIVO_APRENDIZAJE_CONTENIDO (
     oa_contenido_id         NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
     objetivo_aprendizaje_id NUMBER NOT NULL,
     contenido_id            NUMBER NOT NULL,
+    unidad_id               NUMBER NOT NULL,
     CONSTRAINT OA_CONT_PK PRIMARY KEY (oa_contenido_id),
     CONSTRAINT OA_CONT_UN UNIQUE (contenido_id, objetivo_aprendizaje_id)
 );
@@ -266,6 +283,10 @@ ALTER TABLE CONTENIDO
     ADD CONSTRAINT CONTENIDO_ESTADO_FK
     FOREIGN KEY (estado_id) REFERENCES ESTADO_AUTORIZACION (estado_id);
 
+ALTER TABLE CONTENIDO
+    ADD CONSTRAINT CONTENIDO_UNIDAD_FK
+    FOREIGN KEY (unidad_id) REFERENCES UNIDAD (unidad_id);
+
 -- CURSO
 ALTER TABLE CURSO
     ADD CONSTRAINT CURSO_NIVEL_FK
@@ -291,6 +312,10 @@ ALTER TABLE INFORME_PEDAGOGICO
     ADD CONSTRAINT INFORME_PEDAGOGICO_USUARIO_FK
     FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
 
+ALTER TABLE INFORME_PEDAGOGICO
+    ADD CONSTRAINT INFORME_PEDAGOGICO_UNIDAD_FK
+    FOREIGN KEY (unidad_id) REFERENCES UNIDAD (unidad_id);
+
 -- INTENTO
 ALTER TABLE INTENTO
     ADD CONSTRAINT INTENTO_ACTIVIDAD_FK
@@ -300,20 +325,29 @@ ALTER TABLE INTENTO
     ADD CONSTRAINT INTENTO_USUARIO_FK
     FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
 
--- OBJETIVO_APRENDIZAJE
-ALTER TABLE OBJETIVO_APRENDIZAJE
-    ADD CONSTRAINT OBJETIVO_APRENDIZAJE_UNIDAD_FK
+-- OBJETIVO_APRENDIZAJE_UNIDAD
+ALTER TABLE OBJETIVO_APRENDIZAJE_UNIDAD
+    ADD CONSTRAINT OA_UNIDAD_OA_FK
+    FOREIGN KEY (objetivo_aprendizaje_id)
+    REFERENCES OBJETIVO_APRENDIZAJE (objetivo_aprendizaje_id);
+
+ALTER TABLE OBJETIVO_APRENDIZAJE_UNIDAD
+    ADD CONSTRAINT OA_UNIDAD_UNIDAD_FK
     FOREIGN KEY (unidad_id) REFERENCES UNIDAD (unidad_id);
 
 -- OBJETIVO_APRENDIZAJE_CONTENIDO
+-- Las FK compuestas garantizan que el contenido y el OA pertenezcan a la
+-- misma unidad. CONTENIDO tiene UNIQUE (contenido_id, unidad_id) y
+-- OBJETIVO_APRENDIZAJE_UNIDAD tiene UNIQUE (objetivo_aprendizaje_id, unidad_id).
 ALTER TABLE OBJETIVO_APRENDIZAJE_CONTENIDO
-    ADD CONSTRAINT OA_CONT_CONTENIDO_FK
-    FOREIGN KEY (contenido_id) REFERENCES CONTENIDO (contenido_id);
+    ADD CONSTRAINT OA_CONT_CONTENIDO_UNIDAD_FK
+    FOREIGN KEY (contenido_id, unidad_id)
+    REFERENCES CONTENIDO (contenido_id, unidad_id);
 
 ALTER TABLE OBJETIVO_APRENDIZAJE_CONTENIDO
-    ADD CONSTRAINT OA_CONT_OBJETIVO_FK
-    FOREIGN KEY (objetivo_aprendizaje_id)
-    REFERENCES OBJETIVO_APRENDIZAJE (objetivo_aprendizaje_id);
+    ADD CONSTRAINT OA_CONT_OA_UNIDAD_FK
+    FOREIGN KEY (objetivo_aprendizaje_id, unidad_id)
+    REFERENCES OBJETIVO_APRENDIZAJE_UNIDAD (objetivo_aprendizaje_id, unidad_id);
 
 -- PREGUNTA
 ALTER TABLE PREGUNTA
@@ -372,6 +406,26 @@ ALTER TABLE USUARIO_CURSO
 ALTER TABLE USUARIO_CURSO
     ADD CONSTRAINT USUARIO_CURSO_USUARIO_FK
     FOREIGN KEY (usuario_id) REFERENCES USUARIO (usuario_id);
+
+-- ============================================================
+-- 3. TRIGGERS
+-- ============================================================
+
+-- CONTENIDO.unidad_id es inmutable: protege el historial de intentos e
+-- informes. Para mover un contenido se debe crear uno nuevo en la unidad
+-- destino.
+CREATE OR REPLACE TRIGGER TRG_CONTENIDO_UNIDAD_INMUTABLE
+BEFORE UPDATE OF unidad_id ON CONTENIDO
+FOR EACH ROW
+BEGIN
+    IF :NEW.unidad_id <> :OLD.unidad_id THEN
+        RAISE_APPLICATION_ERROR(
+            -20001,
+            'contenido.unidad_id es inmutable (contenido_id=' || :OLD.contenido_id || ')'
+        );
+    END IF;
+END;
+/
 
 -- ============================================================
 -- FIN DEL SCRIPT

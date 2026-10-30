@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: MPAZ_PRO_6-SpringBoot
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mpaz}
+    username: ${POSTGRES_USER:mpaz}
+    password: ${POSTGRES_PASSWORD:mpaz}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # El esquema lo gobierna Flyway (V1__init.sql + V2__...).
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    org.hibernate.SQL: debug
