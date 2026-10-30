@@ -20,7 +20,11 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
   - `informe/model`: `InformePedagogico`, `DetalleInformePedagogico`.
 - Las entidades usan solo el lado propietario de las relaciones (`@ManyToOne`),
   sin colecciones bidireccionales, para evitar ciclos y cargas accidentales.
-- **Todavía no hay** repositorios, servicios, controladores, DTOs, mappers ni datos seed.
+- **Ya existe la capa `repository`**: 26 interfaces `JpaRepository<Entidad, Long>` en
+  `<feature>/repository`, con consultas derivadas para los accesos principales.
+- **Ya existe la capa `service`**: 26 clases `@Service` en `<feature>/service`, con
+  transacciones y reglas de negocio; por ahora devuelven y reciben entidades.
+- **Todavía no hay** controladores, DTOs, mappers ni datos seed.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 26 tablas
   - 34 claves foráneas
@@ -201,7 +205,7 @@ Paquete base: `com.example.mpaz_pro_6springboot`.
 ### 8.1. Paquetes por feature
 
 ```
-common/        (config, security, errores)
+common/        (config, security, errores, util)
 identidad/     (usuario, rol, curso, nivel, seccion)
 curriculo/     (asignatura, unidad, OA, OA-unidad, contenido, recurso, actividad, pregunta, alternativa)
 docencia/      (asignatura_curso, usuario_curso)
@@ -251,7 +255,12 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 ### 8.4. Servicios y controladores
 
 - Escrituras con `@Transactional`; lecturas con `@Transactional(readOnly = true)`.
+- Servicios concretos en `<feature>/service`, sin interfaz. La anotación de lectura
+  va a nivel de clase y las escrituras se marcan con `@Transactional`.
 - Reglas de negocio en servicio, no en controladores ni mappers.
+- Excepciones en `common/exception`: `ReglaNegocioException` (`400`),
+  `RecursoNoEncontradoException` (`404`) y `ConflictoException` (`409`).
+  Utilidades de validación en `common/util/Validaciones`.
 - Controladores bajo `/api/...`; aún no hay rutas implementadas.
 - Errores: cuando se agregue manejo global, usar `@RestControllerAdvice` con
   `400` (validación), `404` (no existe), `409` (conflicto/FK).
@@ -297,11 +306,13 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 ## 10. Flujo de trabajo
 
+- Nunca realizar commits sin autorización explícita
 - Commits atómicos y mensajes claros (`feat(...)`, `fix(...)`, `docs(...)`, `chore(...)`).
 - No editar migraciones ya aplicadas; crear la siguiente versión.
 - Si cambia el modelo: actualizar `specs/` y el DDL de referencia, y agregar migración.
 - Verificar siempre con `docker compose config` y `docker compose up -d --build`.
 - No commitear `.env`, `target/` ni volúmenes/datos locales.
+- No leer ni tocar `.env` bajo ninguna circunstancia. Preguntar en caso de requerir información sobre él.
 - Archivos UTF-8 **sin BOM**. En PowerShell 5.1 evitar `Set-Content -Encoding utf8`
   para código; usar `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`.
 - En PowerShell no usar `&&`, `head`, `tail` ni `grep`: usar `;`, `Select-Object`,
@@ -309,9 +320,10 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 ## 11. Roadmap sugerido
 
-1. Repositorios de las 26 tablas (las entidades JPA ya están creadas).
+1. Repositorios de las 26 tablas: **completado** (26 interfaces en `<feature>/repository`).
 2. `V3__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
 3. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
-4. Servicios y controladores del dominio (currículo, docencia, evaluación, informes).
+4. Servicios y controladores del dominio: **servicios completados** (26 clases);
+   controladores pendientes.
 5. Reglas de negocio de §9 y manejo global de errores.
 6. Tests de integración con Testcontainers.
