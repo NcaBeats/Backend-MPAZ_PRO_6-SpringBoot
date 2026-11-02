@@ -8,8 +8,9 @@ modelo, junto con los mappers que los convierten desde y hacia JPA.
 - Servicios existentes: `src/main/java/com/example/mpaz_pro_6springboot/<feature>/service/`.
 - Relaciones y reglas: `specs/1.relaciones_modelo_mpaz.md` y `AGENTS.md`.
 
-La capa DTO no modifica el esquema ni los servicios. Los controladores siguen
-pendientes; este documento define el contrato que deberán usar.
+La capa DTO no modifica el esquema ni los servicios. Este documento define el
+contrato que consumen los controladores REST (ver §9), que ya están
+implementados para las 26 entidades.
 
 ## 1. Estructura
 
@@ -340,7 +341,9 @@ Usuario creado = usuarioService.crear(usuario);
 ```
 
 Cuando se implemente autenticación, el hashing debe quedar en el servicio o en
-un `UserDetailsService`, no en el controlador.
+un `UserDetailsService`, no en el controlador. Hoy vive en
+`UsuarioController` (`BCryptPasswordEncoder` declarado en `SecurityConfig`)
+solo como paso intermedio.
 
 ## 7. Validación y errores
 
@@ -354,9 +357,14 @@ un `UserDetailsService`, no en el controlador.
   - usuario con rol `ESTUDIANTE` para informes;
   - unicidad de parejas en tablas puente;
   - borrados con hijos se traducen a `409`.
-- El manejo global con `@RestControllerAdvice` sigue pendiente. Cuando se
-  agregue, debe mapear `ReglaNegocioException` -> `400`,
-  `RecursoNoEncontradoException` -> `404` y `ConflictoException` -> `409`.
+- El manejo global vive en `common/exception/GlobalExceptionHandler`
+  (`@RestControllerAdvice`) y responde siempre con `ApiError`:
+  `ReglaNegocioException` -> `400`, `RecursoNoEncontradoException` -> `404`,
+  `ConflictoException` -> `409`, `DataIntegrityViolationException` -> `409`
+  (violaciones de FK/UNIQUE) y errores de parseo o validación -> `400`.
+- `FAIL_ON_NULL_FOR_PRIMITIVES` de Jackson 3 se desactiva en `application.yaml`:
+  los `boolean` primitivos de los request (`activo`, `habilitada`, `correcta`)
+  son opcionales y caen a `false` si el cliente no los envía.
 
 ## 8. Compilación
 
@@ -377,11 +385,50 @@ Si un mapper no aparece o MapStruct reporta propiedades sin mapear:
 2. Verificar que el tipo de retorno del resumen exista en `ResumenMapper`.
 3. Ejecutar `.\mvnw.cmd clean compile` para forzar la regeneración.
 
-## 9. Pendientes
+## 9. Controladores REST
 
-- Controladores REST y rutas `/api/...`.
-- `@RestControllerAdvice` con el mapeo de excepciones indicado en §7.
-- Autenticación y autorización por rol; hashing BCrypt de contraseñas.
-- Tests de integración con Testcontainers/PostgreSQL para validar DTOs, mappers
-  y reglas de negocio.
+Hay 26 controladores en `<feature>/controller`, uno por entidad, con rutas
+`/api/<recurso-en-plural>`. Recursos, siguiendo el esquema:
+
+| Feature | Rutas |
+|---|---|
+| identidad | `/api/usuarios`, `/api/roles`, `/api/cursos`, `/api/niveles`, `/api/secciones` |
+| curriculo | `/api/asignaturas`, `/api/unidades`, `/api/objetivos-aprendizaje`, `/api/objetivos-aprendizaje-unidad`, `/api/objetivos-aprendizaje-contenido`, `/api/contenidos`, `/api/recursos`, `/api/actividades`, `/api/preguntas`, `/api/alternativas`, `/api/alternativas-pregunta`, `/api/preguntas-actividad`, `/api/estados-autorizacion`, `/api/tipos-actividad`, `/api/tipos-recurso` |
+| docencia | `/api/asignaturas-curso`, `/api/usuarios-curso` |
+| evaluacion | `/api/intentos`, `/api/respuestas` |
+| informe | `/api/informes-pedagogicos`, `/api/detalles-informe-pedagogico` |
+
+Convenciones:
+
+- Cada controlador es `@Transactional` a nivel de clase y marca los GET con
+  `@Transactional(readOnly = true)`. Es necesario porque
+  `spring.jpa.open-in-view: false` y los mappers recorren relaciones `LAZY`.
+  Si se cambia la estrategia de carga, revisar esta decisión.
+- `POST` devuelve `201`, `DELETE` devuelve `204`, el resto `200`.
+- Los listados aceptan filtros opcionales por FK (`usuarioId`, `unidadId`,
+  `contenidoId`, `estadoId`, ...). Las tablas puente y los listados sin
+  `listar()` completo exigen al menos un filtro y responden `400` con
+  `ReglaNegocioException` si no se envía.
+- Los catálogos (`roles`, `niveles`, `secciones`, `asignaturas`,
+  `estados-autorizacion`, `tipos-actividad`, `tipos-recurso`) envían su nombre
+  o letra al servicio, que valida duplicados.
+- Estados que no pasan por el `PUT` genérico tienen ruta propia:
+  - `PUT /api/usuarios/{id}/activo?activo=`
+  - `PUT /api/actividades/{id}/habilitada?habilitada=`
+  - `PUT /api/alternativas/{id}/correcta?correcta=`
+  - `POST /api/intentos/{id}/cerrar`
+- `POST /api/usuarios` y `PUT /api/usuarios/{id}` toman `password` en texto
+  plano, lo hashean con BCrypt y lo envían como `passwordHash` al servicio;
+  `UsuarioResponse` nunca expone el hash.
+- Los errores usan `ApiError` (`timestamp`, `status`, `error`, `message`,
+  `path` y, en validación, `fields`). Ver §7.
+- Documentación interactiva: `/swagger-ui.html` y `/v3/api-docs`.
+
+## 10. Pendientes
+
+- Autenticación y autorización por rol; mover el hashing al servicio o a un
+  `UserDetailsService`.
+- Reglas de negocio transversales de §7 que aún no tienen endpoint propio.
+- Tests de integración con Testcontainers/PostgreSQL para validar controladores,
+  DTOs, mappers y reglas de negocio.
 - Datos seed (`V3__seed_*.sql`).

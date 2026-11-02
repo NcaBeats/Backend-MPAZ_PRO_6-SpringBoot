@@ -27,7 +27,12 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 - **Ya existe la capa `dto` + `mapper`**: 26 `Request`, 18 `UpdateRequest`,
   26 `Response`, 18 `Resumen` y 26 mappers MapStruct, más `ResumenMapper` y
   `EntityRefMapper` en `common/mapper`. Documentada en `specs/2_dtos.md`.
-- **Todavía no hay** controladores ni datos seed.
+- **Ya existe la capa `controller`**: 26 controladores REST en
+  `<feature>/controller` bajo `/api/...`, con `@Valid` y transacción a nivel de
+  clase (por `open-in-view: false`). Ver `specs/2_dtos.md` §9.
+- **Ya existe el manejo global de errores**: `common/exception/GlobalExceptionHandler`
+  (`@RestControllerAdvice`) + `ApiError` con `400`/`404`/`409` y detalle por campo.
+- **Todavía no hay** datos seed ni autenticación real.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 26 tablas
   - 34 claves foráneas
@@ -264,9 +269,13 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - Excepciones en `common/exception`: `ReglaNegocioException` (`400`),
   `RecursoNoEncontradoException` (`404`) y `ConflictoException` (`409`).
   Utilidades de validación en `common/util/Validaciones`.
-- Controladores bajo `/api/...`; aún no hay rutas implementadas.
-- Errores: cuando se agregue manejo global, usar `@RestControllerAdvice` con
-  `400` (validación), `404` (no existe), `409` (conflicto/FK).
+- Controladores bajo `/api/...` en `<feature>/controller`, uno por entidad.
+  Son `@Transactional` a nivel de clase y marcan los GET con
+  `@Transactional(readOnly = true)`: los mappers recorren relaciones `LAZY` y
+  `spring.jpa.open-in-view` está en `false`.
+- Errores: `GlobalExceptionHandler` (`@RestControllerAdvice`) responde siempre
+  con `ApiError`: `400` (validación/regla de negocio), `404` (no existe),
+  `409` (conflicto/FK/UNIQUE).
 
 ### 8.5. Seguridad
 
@@ -327,7 +336,8 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 2. Capa DTO + mappers MapStruct: **completado** (ver `specs/2_dtos.md`).
 3. `V3__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
 4. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
-5. Servicios y controladores del dominio: **servicios completados** (26 clases);
-   controladores pendientes.
-6. Reglas de negocio de §9 y manejo global de errores.
+5. Servicios y controladores del dominio: **completado** (26 servicios y
+   26 controladores REST).
+6. Reglas de negocio de §9 y manejo global de errores: **manejo global
+   completado** (`GlobalExceptionHandler`); quedan reglas transversales.
 7. Tests de integración con Testcontainers.
