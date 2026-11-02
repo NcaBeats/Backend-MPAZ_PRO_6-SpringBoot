@@ -24,7 +24,10 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
   `<feature>/repository`, con consultas derivadas para los accesos principales.
 - **Ya existe la capa `service`**: 26 clases `@Service` en `<feature>/service`, con
   transacciones y reglas de negocio; por ahora devuelven y reciben entidades.
-- **Todavía no hay** controladores, DTOs, mappers ni datos seed.
+- **Ya existe la capa `dto` + `mapper`**: 26 `Request`, 18 `UpdateRequest`,
+  26 `Response`, 18 `Resumen` y 26 mappers MapStruct, más `ResumenMapper` y
+  `EntityRefMapper` en `common/mapper`. Documentada en `specs/2_dtos.md`.
+- **Todavía no hay** controladores ni datos seed.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 26 tablas
   - 34 claves foráneas
@@ -321,9 +324,10 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 ## 11. Roadmap sugerido
 
 1. Repositorios de las 26 tablas: **completado** (26 interfaces en `<feature>/repository`).
-2. `V3__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
-3. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
-4. Servicios y controladores del dominio: **servicios completados** (26 clases);
+2. Capa DTO + mappers MapStruct: **completado** (ver `specs/2_dtos.md`).
+3. `V3__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
+4. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
+5. Servicios y controladores del dominio: **servicios completados** (26 clases);
    controladores pendientes.
-5. Reglas de negocio de §9 y manejo global de errores.
-6. Tests de integración con Testcontainers.
+6. Reglas de negocio de §9 y manejo global de errores.
+7. Tests de integración con Testcontainers.
