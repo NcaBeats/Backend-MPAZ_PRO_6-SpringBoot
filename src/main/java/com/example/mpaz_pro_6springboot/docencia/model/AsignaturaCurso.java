@@ -2,6 +2,7 @@ package com.example.mpaz_pro_6springboot.docencia.model;
 
 import com.example.mpaz_pro_6springboot.curriculo.model.Asignatura;
 import com.example.mpaz_pro_6springboot.identidad.model.Curso;
+import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,7 +40,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"curso", "asignatura"})
+@ToString(exclude = {"curso", "asignatura", "docente"})
 public class AsignaturaCurso {
 
     @Id
@@ -55,4 +56,8 @@ public class AsignaturaCurso {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "asignatura_id", nullable = false)
     private Asignatura asignatura;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "docente_id")
+    private Usuario docente;
 }

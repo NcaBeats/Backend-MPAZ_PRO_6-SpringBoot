@@ -38,7 +38,8 @@ docker compose up -d --build
 
 En el primer arranque Flyway aplica `V1__init.sql`,
 `V2__oa_unidad_contenido_informe.sql` y
-`V3__actividad_curso_y_nivel_asignatura.sql`, dejando 27 tablas. El contenedor
+`V3__actividad_curso_y_nivel_asignatura.sql` y
+`V4__asignatura_curso_docente.sql`, dejando 27 tablas. El contenedor
 `app` espera a que Postgres esté saludable
 (`depends_on: condition: service_healthy`).
 
@@ -77,11 +78,14 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - `src/main/resources/db/migration/V3__actividad_curso_y_nivel_asignatura.sql`:
   nivel obligatorio en asignatura y actividad publicada por curso
   (27 tablas en total, 37 FK, 19 `UNIQUE`).
-- Política: una migración aplicada no se edita; los cambios van en `V4__...`,
-  `V5__...`, etc.
+- `src/main/resources/db/migration/V4__asignatura_curso_docente.sql`:
+  asignación opcional del docente responsable en `asignatura_curso`
+  (27 tablas en total, 38 FK, 19 `UNIQUE`).
+- Política: una migración aplicada no se edita; los cambios van en `V5__...`,
+  `V6__...`, etc.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 
-### Reglas de modelo aplicadas en V2 y V3
+### Reglas de modelo aplicadas en V2, V3 y V4
 
 - **Un OA puede pertenecer a varias unidades** (currículum en espiral de Chile):
   relación N:M mediante `objetivo_aprendizaje_unidad`.
@@ -103,6 +107,9 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - **El intento se registra contra `actividad_curso`** (`intento.actividad_curso_id
   NOT NULL`), no contra la actividad. Así el límite y los resultados quedan
   acotados al curso.
+- **El docente a cargo se asigna por asignatura y curso** mediante
+  `asignatura_curso.docente_id`, opcional y con FK a `usuario`. Si se informa,
+  el servicio exige que su rol sea `DOCENTE`.
 
 ### Traducción Oracle → PostgreSQL
 
@@ -128,7 +135,8 @@ docker compose up -d --build
 
 `down -v` elimina el volumen `postgres_data`, por lo que Flyway vuelve a aplicar
 `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql` y
-`V3__actividad_curso_y_nivel_asignatura.sql` desde cero.
+`V3__actividad_curso_y_nivel_asignatura.sql` y
+`V4__asignatura_curso_docente.sql` desde cero.
 
 ## Estructura
 
@@ -146,7 +154,8 @@ src/main/resources/
 └── db/migration/
     ├── V1__init.sql
     ├── V2__oa_unidad_contenido_informe.sql
-    └── V3__actividad_curso_y_nivel_asignatura.sql
+    ├── V3__actividad_curso_y_nivel_asignatura.sql
+    └── V4__asignatura_curso_docente.sql
 compose.yaml
 Dockerfile
 ```

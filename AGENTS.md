@@ -35,7 +35,7 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 - **Todavía no hay** datos seed ni autenticación real.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 27 tablas
-  - 37 claves foráneas
+  - 38 claves foráneas
   - 19 restricciones `UNIQUE`
 - Reglas de negocio ya reflejadas en el esquema:
   - Un OA puede pertenecer a varias unidades (currículum en espiral) mediante
@@ -58,6 +58,7 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 | `src/main/resources/db/migration/V1__init.sql` | Esquema inicial en PostgreSQL (no se edita) |
 | `src/main/resources/db/migration/V2__oa_unidad_contenido_informe.sql` | OA multi-unidad, contenido por unidad e informe por unidad |
 | `src/main/resources/db/migration/V3__actividad_curso_y_nivel_asignatura.sql` | Nivel en asignatura y actividad por curso |
+| `src/main/resources/db/migration/V4__asignatura_curso_docente.sql` | Docente responsable opcional por asignatura y curso |
 | `specs/1.relaciones_modelo_mpaz.md` | Relaciones, cardinalidades y restricciones |
 | `README.md` | Puesta en marcha y variables de entorno |
 | `compose.yaml` / `Dockerfile` | Infraestructura local |
@@ -189,12 +190,13 @@ docker compose up -d --force-recreate
 
 ### 6.2. Migraciones
 
-- `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql` y
-  `V3__actividad_curso_y_nivel_asignatura.sql` son las migraciones vigentes.
+- `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql`,
+  `V3__actividad_curso_y_nivel_asignatura.sql` y
+  `V4__asignatura_curso_docente.sql` son las migraciones vigentes.
   `V1` y `V2` ya están aplicadas: **no se editan**. Tampoco se edita ninguna
   migración una vez aplicada en un entorno.
-- Todo cambio nuevo va en `V4__descripcion.sql`, `V5__...`, etc. (dialecto PostgreSQL).
-- Nombres: `V<n>__snake_case.sql` (por ejemplo `V4__seed_catalogos.sql`).
+- Todo cambio nuevo va en `V5__descripcion.sql`, `V6__...`, etc. (dialecto PostgreSQL).
+- Nombres: `V<n>__snake_case.sql` (por ejemplo `V5__seed_catalogos.sql`).
 - V2 es incremental y contiene lógica de datos: crea la tabla puente OA-unidad,
   migra la asignación 1:N existente, agrega columnas `NOT NULL`, sustituye FK
   simples por compuestas y crea el trigger de inmutabilidad. Si se parte de una
@@ -216,7 +218,7 @@ docker compose up -d --build
 ```
 
 `down -v` borra el volumen `postgres_data`; en el siguiente arranque Flyway aplica
-`V1`, `V2` y `V3` desde cero.
+`V1`, `V2`, `V3` y `V4` desde cero.
 
 ## 7. Docker
 
@@ -357,7 +359,7 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **`objetivo_aprendizaje.codigo`:** no tiene `UNIQUE`. Si los códigos deben ser
   únicos por asignatura, evaluar agregar `asignatura_id` y `UNIQUE (asignatura_id,
   codigo)` en una migración futura.
-- **Seed:** aún no existe. Si se agrega, crear `V4__seed_*.sql` en orden de FK.
+- **Seed:** aún no existe. Si se agrega, crear `V5__seed_*.sql` en orden de FK.
 
 ## 10. Flujo de trabajo
 
@@ -378,7 +380,7 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 1. Repositorios de las 27 tablas: **completado** (27 interfaces en `<feature>/repository`).
 2. Capa DTO + mappers MapStruct: **completado** (ver `specs/2_dtos.md`).
-3. `V4__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
+3. `V5__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
 4. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
 5. Servicios y controladores del dominio: **completado** (27 servicios y
    27 controladores REST).

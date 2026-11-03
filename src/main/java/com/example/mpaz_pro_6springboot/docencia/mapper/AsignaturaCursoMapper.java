@@ -29,5 +29,6 @@ public interface AsignaturaCursoMapper {
 
     @Mapping(source = "cursoId", target = "curso")
     @Mapping(source = "asignaturaId", target = "asignatura")
+    @Mapping(source = "docenteId", target = "docente")
     AsignaturaCurso toEntity(AsignaturaCursoRequest request);
 }

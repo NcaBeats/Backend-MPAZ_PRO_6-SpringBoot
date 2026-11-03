@@ -226,6 +226,8 @@ Decisiones específicas:
 | `UsuarioCurso` | `UsuarioCursoRequest` | — | `UsuarioCursoResponse` | `UsuarioCursoMapper` |
 | `ActividadCurso` | `ActividadCursoRequest` | `ActividadCursoUpdateRequest` | `ActividadCursoResponse` | `ActividadCursoMapper` |
 
+`AsignaturaCursoRequest` recibe `cursoId`, `asignaturaId` y `docenteId` opcional. `AsignaturaCursoResponse` incluye `curso`, `asignatura` y `docente` (`UsuarioResumen` opcional).
+
 `UsuarioCursoRequest` no distingue rol ni tipo de participación; esa regla se
 valida en servicio.
 
@@ -452,4 +454,4 @@ Convenciones:
 - Reglas de negocio transversales de §7 que aún no tienen endpoint propio.
 - Tests de integración con Testcontainers/PostgreSQL para validar controladores,
   DTOs, mappers y reglas de negocio.
-- Datos seed (`V4__seed_*.sql`).
+- Datos seed (`V5__seed_*.sql`).

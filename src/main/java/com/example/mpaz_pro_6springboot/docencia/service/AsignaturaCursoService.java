@@ -14,7 +14,9 @@ import com.example.mpaz_pro_6springboot.curriculo.repository.AsignaturaRepositor
 import com.example.mpaz_pro_6springboot.docencia.model.AsignaturaCurso;
 import com.example.mpaz_pro_6springboot.docencia.repository.AsignaturaCursoRepository;
 import com.example.mpaz_pro_6springboot.identidad.model.Curso;
+import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 import com.example.mpaz_pro_6springboot.identidad.repository.CursoRepository;
+import com.example.mpaz_pro_6springboot.identidad.repository.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,9 +28,12 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class AsignaturaCursoService {
 
+    private static final String ROL_DOCENTE = "DOCENTE";
+
     private final AsignaturaCursoRepository asignaturaCursoRepository;
     private final CursoRepository cursoRepository;
     private final AsignaturaRepository asignaturaRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public List<AsignaturaCurso> listar() {
         return asignaturaCursoRepository.findAll();
@@ -57,6 +62,7 @@ public class AsignaturaCursoService {
 
         Curso curso = resolverCurso(datos.getCurso());
         Asignatura asignatura = resolverAsignatura(datos.getAsignatura());
+        Usuario docente = resolverDocente(datos.getDocente());
 
         if (asignaturaCursoRepository.existsByCursoIdAndAsignaturaId(curso.getId(), asignatura.getId())) {
             throw new ConflictoException(
@@ -67,6 +73,7 @@ public class AsignaturaCursoService {
         datos.setId(null);
         datos.setCurso(curso);
         datos.setAsignatura(asignatura);
+        datos.setDocente(docente);
         return asignaturaCursoRepository.save(datos);
     }
 
@@ -101,5 +108,21 @@ public class AsignaturaCursoService {
         }
         return asignaturaRepository.findById(asignatura.getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignatura", asignatura.getId()));
+    }
+
+    private Usuario resolverDocente(Usuario docente) {
+        if (docente == null) {
+            return null;
+        }
+        if (docente.getId() == null) {
+            throw new ReglaNegocioException("El campo docente debe incluir un identificador");
+        }
+        Usuario usuario = usuarioRepository.findById(docente.getId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", docente.getId()));
+        if (usuario.getRol() == null || !ROL_DOCENTE.equalsIgnoreCase(usuario.getRol().getNombre())) {
+            throw new ReglaNegocioException(
+                    "El usuario asignado debe tener el rol DOCENTE");
+        }
+        return usuario;
     }
 }
