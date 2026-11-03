@@ -30,7 +30,9 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>La unidad se hereda del contenido: no se recibe ni se filtra por una
  * unidad propia de la actividad salvo a traves de {@code unidadId}, que el
- * servicio traduce a {@code contenido.unidad_id}.</p>
+ * servicio traduce a {@code contenido.unidad_id}. La configuracion por curso
+ * (fechas, habilitacion, visibilidad y limite de intentos) se administra en
+ * {@code /api/actividades-curso}.</p>
  */
 @RestController
 @RequestMapping("/api/actividades")
@@ -46,12 +48,9 @@ public class ActividadController {
     public List<ActividadResponse> listar(
             @RequestParam(required = false) Long contenidoId,
             @RequestParam(required = false) Long unidadId,
-            @RequestParam(required = false) Long estadoId,
-            @RequestParam(required = false) Boolean habilitadas) {
+            @RequestParam(required = false) Long estadoId) {
         List<Actividad> actividades;
-        if (contenidoId != null && Boolean.TRUE.equals(habilitadas)) {
-            actividades = actividadService.listarHabilitadasPorContenido(contenidoId);
-        } else if (contenidoId != null) {
+        if (contenidoId != null) {
             actividades = actividadService.listarPorContenido(contenidoId);
         } else if (unidadId != null) {
             actividades = actividadService.listarPorUnidad(unidadId);
@@ -82,13 +81,6 @@ public class ActividadController {
         Actividad actualizada = actividadService.actualizar(
                 id, actividadMapper.toEntity(request));
         return actividadMapper.toResponse(actualizada);
-    }
-
-    @PutMapping("/{id}/habilitada")
-    public ActividadResponse cambiarHabilitada(@PathVariable Long id,
-            @RequestParam boolean habilitada) {
-        return actividadMapper.toResponse(
-                actividadService.cambiarHabilitada(id, habilitada));
     }
 
     @DeleteMapping("/{id}")

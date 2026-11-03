@@ -22,6 +22,8 @@ import com.example.mpaz_pro_6springboot.curriculo.model.Recurso;
 import com.example.mpaz_pro_6springboot.curriculo.model.TipoActividad;
 import com.example.mpaz_pro_6springboot.curriculo.model.TipoRecurso;
 import com.example.mpaz_pro_6springboot.curriculo.model.Unidad;
+import com.example.mpaz_pro_6springboot.docencia.dto.response.ActividadCursoResumen;
+import com.example.mpaz_pro_6springboot.docencia.model.ActividadCurso;
 import com.example.mpaz_pro_6springboot.evaluacion.dto.response.IntentoResumen;
 import com.example.mpaz_pro_6springboot.evaluacion.model.Intento;
 import com.example.mpaz_pro_6springboot.identidad.dto.response.CursoResumen;
@@ -77,6 +79,8 @@ public interface ResumenMapper {
     RecursoResumen toResumen(Recurso recurso);
 
     ActividadResumen toResumen(Actividad actividad);
+
+    ActividadCursoResumen toResumen(ActividadCurso actividadCurso);
 
     PreguntaResumen toResumen(Pregunta pregunta);
 

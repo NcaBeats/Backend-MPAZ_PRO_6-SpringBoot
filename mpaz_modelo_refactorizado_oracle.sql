@@ -8,7 +8,12 @@
 --   * Un OA puede pertenecer a varias unidades (curriculum en espiral).
 --   * Un contenido pertenece a una única unidad, y esa unidad es inmutable.
 --   * El informe pedagógico se emite en el contexto de una unidad.
--- Implementación PostgreSQL: V1__init.sql + V2__oa_unidad_contenido_informe.sql.
+--   * Una asignatura pertenece a un nivel (misma disciplina por nivel).
+--   * La actividad es una plantilla; su configuración por curso
+--     (ventana, habilitación, visibilidad y límite de intentos) vive en
+--     ACTIVIDAD_CURSO, y el intento se registra contra esa asignación.
+-- Implementación PostgreSQL: V1__init.sql + V2__oa_unidad_contenido_informe.sql
+--                             + V3__actividad_curso_y_nivel_asignatura.sql.
 -- ============================================================
 
 -- ============================================================
@@ -20,12 +25,27 @@ CREATE TABLE ACTIVIDAD (
     instrucciones     CLOB NOT NULL,
     tipo_actividad_id NUMBER NOT NULL,
     contenido_id      NUMBER NOT NULL,
-    fecha_inicio      TIMESTAMP,
-    fecha_termino     TIMESTAMP,
-    habilitada        CHAR(1) NOT NULL,
-    max_intentos      NUMBER,
     estado_id         NUMBER NOT NULL,
     CONSTRAINT ACTIVIDAD_PK PRIMARY KEY (actividad_id)
+);
+
+CREATE TABLE ACTIVIDAD_CURSO (
+    actividad_curso_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    actividad_id       NUMBER NOT NULL,
+    curso_id           NUMBER NOT NULL,
+    fecha_inicio       TIMESTAMP,
+    fecha_fin          TIMESTAMP,
+    habilitada         CHAR(1) NOT NULL,
+    visible            CHAR(1) NOT NULL,
+    max_intentos       NUMBER,
+    CONSTRAINT ACTIVIDAD_CURSO_PK PRIMARY KEY (actividad_curso_id),
+    CONSTRAINT ACTIVIDAD_CURSO__UN UNIQUE (actividad_id, curso_id),
+    CONSTRAINT ACTIVIDAD_CURSO_FECHAS_CK CHECK (
+        fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_fin > fecha_inicio
+    ),
+    CONSTRAINT ACTIVIDAD_CURSO_INTENTOS_CK CHECK (
+        max_intentos IS NULL OR max_intentos > 0
+    )
 );
 
 CREATE TABLE ALTERNATIVA (
@@ -47,8 +67,9 @@ CREATE TABLE ALTERNATIVA_PREGUNTA (
 CREATE TABLE ASIGNATURA (
     asignatura_id NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
     nombre        VARCHAR2(50) NOT NULL,
+    nivel_id      NUMBER NOT NULL,
     CONSTRAINT ASIGNATURA_PK PRIMARY KEY (asignatura_id),
-    CONSTRAINT UNIQUE_ASIGNATURA_NOMBRE UNIQUE (nombre)
+    CONSTRAINT ASIGNATURA__UN UNIQUE (nivel_id, nombre)
 );
 
 CREATE TABLE ASIGNATURA_CURSO (
@@ -105,11 +126,11 @@ CREATE TABLE INFORME_PEDAGOGICO (
 );
 
 CREATE TABLE INTENTO (
-    intento_id   NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
-    fecha_inicio TIMESTAMP NOT NULL,
-    fecha_fin    TIMESTAMP,
-    usuario_id   NUMBER NOT NULL,
-    actividad_id NUMBER NOT NULL,
+    intento_id         NUMBER GENERATED ALWAYS AS IDENTITY NOT NULL,
+    fecha_inicio       TIMESTAMP NOT NULL,
+    fecha_fin          TIMESTAMP,
+    usuario_id         NUMBER NOT NULL,
+    actividad_curso_id NUMBER NOT NULL,
     CONSTRAINT INTENTO_PK PRIMARY KEY (intento_id)
 );
 
@@ -255,6 +276,15 @@ ALTER TABLE ACTIVIDAD
     ADD CONSTRAINT ACTIVIDAD_TIPO_ACTIVIDAD_FK
     FOREIGN KEY (tipo_actividad_id) REFERENCES TIPO_ACTIVIDAD (tipo_actividad_id);
 
+-- ACTIVIDAD_CURSO
+ALTER TABLE ACTIVIDAD_CURSO
+    ADD CONSTRAINT ACTIVIDAD_CURSO_ACTIVIDAD_FK
+    FOREIGN KEY (actividad_id) REFERENCES ACTIVIDAD (actividad_id);
+
+ALTER TABLE ACTIVIDAD_CURSO
+    ADD CONSTRAINT ACTIVIDAD_CURSO_CURSO_FK
+    FOREIGN KEY (curso_id) REFERENCES CURSO (curso_id);
+
 -- ALTERNATIVA
 ALTER TABLE ALTERNATIVA
     ADD CONSTRAINT ALTERNATIVA_RECURSO_FK
@@ -268,6 +298,11 @@ ALTER TABLE ALTERNATIVA_PREGUNTA
 ALTER TABLE ALTERNATIVA_PREGUNTA
     ADD CONSTRAINT ALT_PREG_PREGUNTA_FK
     FOREIGN KEY (pregunta_id) REFERENCES PREGUNTA (pregunta_id);
+
+-- ASIGNATURA
+ALTER TABLE ASIGNATURA
+    ADD CONSTRAINT ASIGNATURA_NIVEL_FK
+    FOREIGN KEY (nivel_id) REFERENCES NIVEL (nivel_id);
 
 -- ASIGNATURA_CURSO
 ALTER TABLE ASIGNATURA_CURSO
@@ -318,8 +353,9 @@ ALTER TABLE INFORME_PEDAGOGICO
 
 -- INTENTO
 ALTER TABLE INTENTO
-    ADD CONSTRAINT INTENTO_ACTIVIDAD_FK
-    FOREIGN KEY (actividad_id) REFERENCES ACTIVIDAD (actividad_id);
+    ADD CONSTRAINT INTENTO_ACTIVIDAD_CURSO_FK
+    FOREIGN KEY (actividad_curso_id)
+    REFERENCES ACTIVIDAD_CURSO (actividad_curso_id);
 
 ALTER TABLE INTENTO
     ADD CONSTRAINT INTENTO_USUARIO_FK

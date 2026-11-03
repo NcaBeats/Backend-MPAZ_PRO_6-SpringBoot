@@ -1,6 +1,5 @@
 package com.example.mpaz_pro_6springboot.curriculo.service;
 
-import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -24,7 +23,9 @@ import lombok.RequiredArgsConstructor;
  * Servicio de {@link Actividad}.
  *
  * <p>La unidad de la actividad se hereda de {@code contenido.unidad}; por eso
- * este servicio no recibe ni persiste una unidad propia.</p>
+ * este servicio no recibe ni persiste una unidad propia. Las fechas, la
+ * habilitacion y el limite de intentos son configuracion por curso y viven en
+ * {@code actividad_curso}.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -48,10 +49,6 @@ public class ActividadService {
         return actividadRepository.findAllByContenidoUnidadId(unidadId);
     }
 
-    public List<Actividad> listarHabilitadasPorContenido(Long contenidoId) {
-        return actividadRepository.findAllByContenidoIdAndHabilitadaTrue(contenidoId);
-    }
-
     public List<Actividad> listarPorEstado(Long estadoId) {
         return actividadRepository.findAllByEstadoId(estadoId);
     }
@@ -69,8 +66,6 @@ public class ActividadService {
         TipoActividad tipo = resolverTipoActividad(datos.getTipoActividad());
         Contenido contenido = resolverContenido(datos.getContenido());
         EstadoAutorizacion estado = resolverEstado(datos.getEstado());
-        validarFechas(datos.getFechaInicio(), datos.getFechaTermino());
-        validarMaxIntentos(datos.getMaxIntentos());
 
         datos.setId(null);
         datos.setInstrucciones(instrucciones);
@@ -80,10 +75,6 @@ public class ActividadService {
         return actividadRepository.save(datos);
     }
 
-    /**
-     * Actualiza los datos editables. El flag {@code habilitada} se cambia con
-     * {@link #cambiarHabilitada(Long, boolean)}.
-     */
     @Transactional
     public Actividad actualizar(Long id, Actividad datos) {
         Validaciones.requerido(datos, "actividad");
@@ -102,44 +93,12 @@ public class ActividadService {
         if (datos.getEstado() != null) {
             actividad.setEstado(resolverEstado(datos.getEstado()));
         }
-        if (datos.getFechaInicio() != null) {
-            actividad.setFechaInicio(datos.getFechaInicio());
-        }
-        if (datos.getFechaTermino() != null) {
-            actividad.setFechaTermino(datos.getFechaTermino());
-        }
-        if (datos.getMaxIntentos() != null) {
-            validarMaxIntentos(datos.getMaxIntentos());
-            actividad.setMaxIntentos(datos.getMaxIntentos());
-        }
-
-        validarFechas(actividad.getFechaInicio(), actividad.getFechaTermino());
-        return actividad;
-    }
-
-    @Transactional
-    public Actividad cambiarHabilitada(Long id, boolean habilitada) {
-        Actividad actividad = obtener(id);
-        actividad.setHabilitada(habilitada);
         return actividad;
     }
 
     @Transactional
     public void eliminar(Long id) {
         actividadRepository.delete(obtener(id));
-    }
-
-    private void validarFechas(Instant inicio, Instant termino) {
-        if (inicio != null && termino != null && termino.isBefore(inicio)) {
-            throw new ReglaNegocioException(
-                    "La fecha de termino no puede ser anterior a la fecha de inicio");
-        }
-    }
-
-    private void validarMaxIntentos(Integer maxIntentos) {
-        if (maxIntentos != null && maxIntentos < 0) {
-            throw new ReglaNegocioException("maxIntentos no puede ser negativo");
-        }
     }
 
     private TipoActividad resolverTipoActividad(TipoActividad tipo) {

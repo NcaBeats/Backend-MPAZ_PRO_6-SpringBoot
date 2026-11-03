@@ -36,9 +36,11 @@ docker compose up -d --build
 - Health: http://localhost:8080/actuator/health
 - PostgreSQL: `localhost:5432`, base/usuario/password `mpaz` (valores por defecto de `.env.example`)
 
-En el primer arranque Flyway aplica `V1__init.sql` y
-`V2__oa_unidad_contenido_informe.sql`, dejando 26 tablas. El contenedor `app`
-espera a que Postgres esté saludable (`depends_on: condition: service_healthy`).
+En el primer arranque Flyway aplica `V1__init.sql`,
+`V2__oa_unidad_contenido_informe.sql` y
+`V3__actividad_curso_y_nivel_asignatura.sql`, dejando 27 tablas. El contenedor
+`app` espera a que Postgres esté saludable
+(`depends_on: condition: service_healthy`).
 
 ## Desarrollo local (solo Postgres en Docker)
 
@@ -72,11 +74,14 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - `src/main/resources/db/migration/V2__oa_unidad_contenido_informe.sql`: modelo
   aprobado de OA multi-unidad, contenido por unidad e informe por unidad
   (26 tablas en total, 34 FK, 18 `UNIQUE`).
-- Política: una migración aplicada no se edita; los cambios van en `V3__...`,
-  `V4__...`, etc.
+- `src/main/resources/db/migration/V3__actividad_curso_y_nivel_asignatura.sql`:
+  nivel obligatorio en asignatura y actividad publicada por curso
+  (27 tablas en total, 37 FK, 19 `UNIQUE`).
+- Política: una migración aplicada no se edita; los cambios van en `V4__...`,
+  `V5__...`, etc.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 
-### Reglas de modelo aplicadas en V2
+### Reglas de modelo aplicadas en V2 y V3
 
 - **Un OA puede pertenecer a varias unidades** (currículum en espiral de Chile):
   relación N:M mediante `objetivo_aprendizaje_unidad`.
@@ -89,6 +94,15 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - **El informe pedagógico se emite por unidad** (`informe_pedagogico.unidad_id
   NOT NULL`). El detalle sigue siendo por OA; la coherencia OA/unidad se valida
   en la capa de servicio.
+- **La asignatura pertenece a un nivel** (`asignatura.nivel_id NOT NULL`), y su
+  nombre es único dentro del nivel: `UNIQUE (nivel_id, nombre)`. La disciplina se
+  repite por nivel como asignaturas distintas.
+- **La actividad es una plantilla**: la configuración por curso (ventana,
+  `habilitada`, `visible`, `max_intentos`) vive en `actividad_curso`, con
+  `UNIQUE (actividad_id, curso_id)`. `max_intentos` nulo significa sin límite.
+- **El intento se registra contra `actividad_curso`** (`intento.actividad_curso_id
+  NOT NULL`), no contra la actividad. Así el límite y los resultados quedan
+  acotados al curso.
 
 ### Traducción Oracle → PostgreSQL
 
@@ -113,7 +127,8 @@ docker compose up -d --build
 ```
 
 `down -v` elimina el volumen `postgres_data`, por lo que Flyway vuelve a aplicar
-`V1__init.sql` y `V2__oa_unidad_contenido_informe.sql` desde cero.
+`V1__init.sql`, `V2__oa_unidad_contenido_informe.sql` y
+`V3__actividad_curso_y_nivel_asignatura.sql` desde cero.
 
 ## Estructura
 
@@ -123,21 +138,22 @@ src/main/java/com/example/mpaz_pro_6springboot/
 ├── common/security/SecurityConfig.java
 ├── identidad/model/       # Usuario, Rol, Curso, Nivel, Seccion
 ├── curriculo/model/       # Asignatura, Unidad, OA, Contenido, Actividad, Pregunta, ...
-├── docencia/model/        # AsignaturaCurso, UsuarioCurso
+├── docencia/model/        # AsignaturaCurso, UsuarioCurso, ActividadCurso
 ├── evaluacion/model/      # Intento, Respuesta
 └── informe/model/         # InformePedagogico, DetalleInformePedagogico
 src/main/resources/
 ├── application.yaml
 └── db/migration/
     ├── V1__init.sql
-    └── V2__oa_unidad_contenido_informe.sql
+    ├── V2__oa_unidad_contenido_informe.sql
+    └── V3__actividad_curso_y_nivel_asignatura.sql
 compose.yaml
 Dockerfile
 ```
 
-La capa `model` ya contiene las 26 entidades JPA con sus relaciones. El modelo
-anterior basado en SQLite fue retirado; las capas de repositorio, servicio,
-controlador, mapper y DTO se construirán sobre estas entidades.
+La capa `model` contiene las 27 entidades JPA con sus relaciones. El modelo
+anterior basado en SQLite fue retirado; sobre estas entidades ya están
+construidas las capas de repositorio, DTO, mapper, servicio y controlador.
 
 ## Solución de problemas
 

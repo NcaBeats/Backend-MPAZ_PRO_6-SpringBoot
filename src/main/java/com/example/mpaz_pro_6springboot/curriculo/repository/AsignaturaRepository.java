@@ -12,9 +12,9 @@ import com.example.mpaz_pro_6springboot.curriculo.model.Asignatura;
  */
 public interface AsignaturaRepository extends JpaRepository<Asignatura, Long> {
 
-    Optional<Asignatura> findByNombre(String nombre);
+    Optional<Asignatura> findByNivelIdAndNombre(Long nivelId, String nombre);
 
-    boolean existsByNombre(String nombre);
+    boolean existsByNivelIdAndNombre(Long nivelId, String nombre);
 
-    List<Asignatura> findAllByOrderByNombreAsc();
+    List<Asignatura> findAllByNivelIdOrderByNombreAsc(Long nivelId);
 }

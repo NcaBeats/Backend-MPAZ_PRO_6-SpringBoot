@@ -9,6 +9,7 @@ import com.example.mpaz_pro_6springboot.curriculo.model.Asignatura;
 import java.util.List;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
@@ -30,10 +31,13 @@ public interface AsignaturaMapper {
 
     List<AsignaturaResponse> toResponseList(List<Asignatura> entities);
 
+    @Mapping(source = "nivelId", target = "nivel")
     Asignatura toEntity(AsignaturaRequest request);
 
+    @Mapping(source = "nivelId", target = "nivel")
     Asignatura toEntity(AsignaturaUpdateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "nivel", ignore = true)
     void updateEntity(AsignaturaUpdateRequest request, @MappingTarget Asignatura entity);
 }

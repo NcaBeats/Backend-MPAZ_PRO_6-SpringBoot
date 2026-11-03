@@ -17,7 +17,5 @@ public interface ActividadRepository extends JpaRepository<Actividad, Long> {
 
     List<Actividad> findAllByContenidoUnidadId(Long unidadId);
 
-    List<Actividad> findAllByContenidoIdAndHabilitadaTrue(Long contenidoId);
-
     List<Actividad> findAllByEstadoId(Long estadoId);
 }

@@ -28,6 +28,6 @@ public interface IntentoMapper {
     List<IntentoResponse> toResponseList(List<Intento> entities);
 
     @Mapping(source = "usuarioId", target = "usuario")
-    @Mapping(source = "actividadId", target = "actividad")
+    @Mapping(source = "actividadCursoId", target = "actividadCurso")
     Intento toEntity(IntentoRequest request);
 }

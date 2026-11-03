@@ -7,7 +7,7 @@ import java.time.Instant;
 /** DTO de creacion de Intento. Las referencias se envian como identificadores. */
 public record IntentoRequest(
         @NotNull @Positive Long usuarioId,
-        @NotNull @Positive Long actividadId,
+        @NotNull @Positive Long actividadCursoId,
         Instant fechaInicio,
         Instant fechaFin
 ) {

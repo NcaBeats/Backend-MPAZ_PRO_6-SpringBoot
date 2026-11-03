@@ -13,9 +13,13 @@ public interface IntentoRepository extends JpaRepository<Intento, Long> {
 
     List<Intento> findAllByUsuarioId(Long usuarioId);
 
-    List<Intento> findAllByActividadId(Long actividadId);
+    List<Intento> findAllByActividadCursoId(Long actividadCursoId);
 
-    List<Intento> findAllByUsuarioIdAndActividadId(Long usuarioId, Long actividadId);
+    List<Intento> findAllByUsuarioIdAndActividadCursoId(Long usuarioId, Long actividadCursoId);
 
-    long countByUsuarioIdAndActividadId(Long usuarioId, Long actividadId);
+    List<Intento> findAllByActividadCursoActividadId(Long actividadId);
+
+    List<Intento> findAllByUsuarioIdAndActividadCursoActividadId(Long usuarioId, Long actividadId);
+
+    long countByUsuarioIdAndActividadCursoId(Long usuarioId, Long actividadCursoId);
 }

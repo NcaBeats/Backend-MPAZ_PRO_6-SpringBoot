@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,8 +39,11 @@ public class AsignaturaController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public List<AsignaturaResponse> listar() {
-        return asignaturaMapper.toResponseList(asignaturaService.listar());
+    public List<AsignaturaResponse> listar(@RequestParam(required = false) Long nivelId) {
+        List<Asignatura> asignaturas = nivelId != null
+                ? asignaturaService.listarPorNivel(nivelId)
+                : asignaturaService.listar();
+        return asignaturaMapper.toResponseList(asignaturas);
     }
 
     @GetMapping("/{id}")
@@ -51,14 +55,15 @@ public class AsignaturaController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AsignaturaResponse crear(@Valid @RequestBody AsignaturaRequest request) {
-        Asignatura creada = asignaturaService.crear(request.nombre());
+        Asignatura creada = asignaturaService.crear(request.nombre(), request.nivelId());
         return asignaturaMapper.toResponse(creada);
     }
 
     @PutMapping("/{id}")
     public AsignaturaResponse actualizar(@PathVariable Long id,
             @Valid @RequestBody AsignaturaUpdateRequest request) {
-        Asignatura actualizada = asignaturaService.actualizar(id, request.nombre());
+        Asignatura actualizada = asignaturaService.actualizar(
+                id, request.nombre(), request.nivelId());
         return asignaturaMapper.toResponse(actualizada);
     }
 

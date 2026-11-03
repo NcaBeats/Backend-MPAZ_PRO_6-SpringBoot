@@ -73,7 +73,7 @@ public class RespuestaService {
             throw new ConflictoException("No se pueden registrar respuestas en un intento cerrado");
         }
 
-        Long actividadId = intento.getActividad().getId();
+        Long actividadId = intento.getActividadCurso().getActividad().getId();
         if (!preguntaActividadRepository.existsByActividadIdAndPreguntaId(
                 actividadId, pregunta.getId())) {
             throw new ReglaNegocioException(

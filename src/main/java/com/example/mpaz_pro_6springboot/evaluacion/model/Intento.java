@@ -2,7 +2,7 @@ package com.example.mpaz_pro_6springboot.evaluacion.model;
 
 import java.time.Instant;
 
-import com.example.mpaz_pro_6springboot.curriculo.model.Actividad;
+import com.example.mpaz_pro_6springboot.docencia.model.ActividadCurso;
 import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 
 import jakarta.persistence.Column;
@@ -24,7 +24,10 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * Intento de una actividad realizado por un usuario.
+ * Intento de una actividad asignada a un curso, realizado por un usuario.
+ *
+ * <p>Se registra contra {@code actividad_curso}: asi queda acotado al curso y
+ * a la configuracion (ventana y limite de intentos) vigente.</p>
  */
 @Entity
 @Table(name = "intento")
@@ -34,7 +37,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(exclude = {"usuario", "actividad"})
+@ToString(exclude = {"usuario", "actividadCurso"})
 public class Intento {
 
     @Id
@@ -54,6 +57,6 @@ public class Intento {
     private Usuario usuario;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "actividad_id", nullable = false)
-    private Actividad actividad;
+    @JoinColumn(name = "actividad_curso_id", nullable = false)
+    private ActividadCurso actividadCurso;
 }

@@ -11,6 +11,7 @@ import com.example.mpaz_pro_6springboot.curriculo.model.Recurso;
 import com.example.mpaz_pro_6springboot.curriculo.model.TipoActividad;
 import com.example.mpaz_pro_6springboot.curriculo.model.TipoRecurso;
 import com.example.mpaz_pro_6springboot.curriculo.model.Unidad;
+import com.example.mpaz_pro_6springboot.docencia.model.ActividadCurso;
 import com.example.mpaz_pro_6springboot.evaluacion.model.Intento;
 import com.example.mpaz_pro_6springboot.identidad.model.Curso;
 import com.example.mpaz_pro_6springboot.identidad.model.Nivel;
@@ -32,6 +33,10 @@ public final class EntityRefMapper {
 
     public Actividad actividadDesdeId(Long id) {
         return id == null ? null : Actividad.builder().id(id).build();
+    }
+
+    public ActividadCurso actividadCursoDesdeId(Long id) {
+        return id == null ? null : ActividadCurso.builder().id(id).build();
     }
 
     public Alternativa alternativaDesdeId(Long id) {

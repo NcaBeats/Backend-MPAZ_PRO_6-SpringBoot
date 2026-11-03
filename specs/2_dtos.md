@@ -1,6 +1,6 @@
 # Capa DTO y mappers MapStruct
 
-**Alcance:** contratos de entrada y salida de la API para las 26 entidades del
+**Alcance:** contratos de entrada y salida de la API para las 27 entidades del
 modelo, junto con los mappers que los convierten desde y hacia JPA.
 
 **Fuentes:**
@@ -10,7 +10,7 @@ modelo, junto con los mappers que los convierten desde y hacia JPA.
 
 La capa DTO no modifica el esquema ni los servicios. Este documento define el
 contrato que consumen los controladores REST (ver §9), que ya están
-implementados para las 26 entidades.
+implementados para las 27 entidades.
 
 ## 1. Estructura
 
@@ -36,13 +36,13 @@ common/
 | Evaluación | `evaluacion` |
 | Informe | `informe` |
 
-Se generaron **116 archivos Java**:
+Se generaron **121 archivos Java**:
 
-- 26 `XxxRequest` de creación.
-- 18 `XxxUpdateRequest` (solo entidades con operación de actualización).
-- 26 `XxxResponse`.
-- 18 `XxxResumen` usados como objetos anidados en respuestas.
-- 26 `XxxMapper`.
+- 27 `XxxRequest` de creación.
+- 19 `XxxUpdateRequest` (solo entidades con operación de actualización).
+- 27 `XxxResponse`.
+- 19 `XxxResumen` usados como objetos anidados en respuestas.
+- 27 `XxxMapper`.
 - 2 helpers compartidos (`ResumenMapper`, `EntityRefMapper`).
 
 ## 2. Convenciones
@@ -82,7 +82,8 @@ Se generaron **116 archivos Java**:
   el update genérico:
   - `Usuario.activo` -> `UsuarioService.cambiarActivo`.
   - `Alternativa.correcta` -> `AlternativaService.cambiarCorrecta`.
-  - `Actividad.habilitada` -> `ActividadService.cambiarHabilitada`.
+  - `ActividadCurso.habilitada` y `ActividadCurso.visible` ->
+    `ActividadCursoService.cambiarHabilitada` y `cambiarVisible`.
   - `Intento.fechaFin` -> `IntentoService.cerrar`.
   - `InformePedagogico.unidad` no se puede cambiar; `InformePedagogicoUpdateRequest`
     no incluye `unidadId`.
@@ -197,6 +198,9 @@ Campos relevantes:
 
 Decisiones específicas:
 
+- **Asignatura:** `AsignaturaRequest` recibe `nombre` y `nivelId`. El nombre es
+  único dentro del nivel (`UNIQUE (nivel_id, nombre)`); `AsignaturaResponse` y
+  `AsignaturaResumen` incluyen `NivelResumen`.
 - **OA multi-unidad:** `ObjetivoAprendizajeUnidadRequest` recibe
   `objetivoAprendizajeId` y `unidadId`. La pareja es única y el OA puede
   aparecer en varias unidades.
@@ -204,7 +208,9 @@ Decisiones específicas:
   `ContenidoUpdateRequest` acepta `unidadId` solo para que el servicio detecte
   un intento de cambio y responda con `400`; la unidad es inmutable.
 - **Actividad:** el request recibe `contenidoId`; la unidad se hereda del
-  contenido. `habilitada` solo se cambia con `ActividadService.cambiarHabilitada`.
+  contenido. `Actividad` es una plantilla: no tiene fechas, habilitación ni
+  límite de intentos. Esa configuración se administra en `ActividadCurso`
+  (`/api/actividades-curso`).
 - **Pregunta y Alternativa:** ambas referencian un `recursoId` obligatorio.
 - **Alternativa:** `correcta` se define al crear y se cambia con
   `AlternativaService.cambiarCorrecta`.
@@ -218,9 +224,17 @@ Decisiones específicas:
 |---|---|---|---|---|
 | `AsignaturaCurso` | `AsignaturaCursoRequest` | — | `AsignaturaCursoResponse` | `AsignaturaCursoMapper` |
 | `UsuarioCurso` | `UsuarioCursoRequest` | — | `UsuarioCursoResponse` | `UsuarioCursoMapper` |
+| `ActividadCurso` | `ActividadCursoRequest` | `ActividadCursoUpdateRequest` | `ActividadCursoResponse` | `ActividadCursoMapper` |
 
 `UsuarioCursoRequest` no distingue rol ni tipo de participación; esa regla se
 valida en servicio.
+
+`ActividadCursoRequest` recibe `actividadId`, `cursoId`, `fechaInicio`,
+`fechaFin`, `habilitada`, `visible` y `maxIntentos`. El servicio exige que el
+curso imparta la asignatura de la actividad (`asignatura_curso`), valida la
+ventana y el límite. `ActividadCursoUpdateRequest` solo permite cambiar
+`fechaInicio`, `fechaFin` y `maxIntentos`; `habilitada` y `visible` se cambian
+con los endpoints explícitos descritos en §9.
 
 ### 4.4. Evaluación
 
@@ -229,8 +243,10 @@ valida en servicio.
 | `Intento` | `IntentoRequest` | — | `IntentoResponse` | `IntentoMapper` |
 | `Respuesta` | `RespuestaRequest` | — | `RespuestaResponse` | `RespuestaMapper` |
 
-- `IntentoRequest` recibe `usuarioId`, `actividadId` y fechas opcionales. El
-  cierre usa `IntentoService.cerrar`; no hay update genérico.
+- `IntentoRequest` recibe `usuarioId`, `actividadCursoId` y fechas opcionales.
+  El servicio valida la inscripción del usuario en el curso, la habilitación,
+  la ventana y el límite de intentos de esa asignación. El cierre usa
+  `IntentoService.cerrar`; no hay update genérico.
 - `RespuestaRequest` recibe `intentoId`, `preguntaId` y `alternativaId`. La FK
   compuesta de `respuesta` y las validaciones de `RespuestaService` garantizan
   que la alternativa pertenezca a la pregunta y que la pregunta pertenezca a la
@@ -259,7 +275,7 @@ valida en servicio.
 | `SeccionResumen` | `id`, `letra` |
 | `CursoResumen` | `id`, `annio`, `nivel`, `seccion` |
 | `UsuarioResumen` | `id`, `nombreUsuario`, `nombreCompleto` |
-| `AsignaturaResumen` | `id`, `nombre` |
+| `AsignaturaResumen` | `id`, `nombre`, `nivel` |
 | `EstadoAutorizacionResumen` | `id`, `nombre` |
 | `TipoActividadResumen` | `id`, `nombre` |
 | `TipoRecursoResumen` | `id`, `nombre` |
@@ -267,7 +283,8 @@ valida en servicio.
 | `ObjetivoAprendizajeResumen` | `id`, `codigo`, `descripcion` |
 | `ContenidoResumen` | `id`, `descripcion` |
 | `RecursoResumen` | `id`, `nombre`, `tipoRecurso` |
-| `ActividadResumen` | `id`, `instrucciones`, `habilitada` |
+| `ActividadResumen` | `id`, `instrucciones` |
+| `ActividadCursoResumen` | `id`, `actividad`, `curso`, `fechaInicio`, `fechaFin`, `habilitada`, `visible` |
 | `PreguntaResumen` | `id`, `enunciado` |
 | `AlternativaResumen` | `id`, `enunciado`, `correcta` |
 | `IntentoResumen` | `id`, `fechaInicio`, `fechaFin` |
@@ -351,9 +368,12 @@ solo como paso intermedio.
 - La validación de Bean Validation produce `400`.
 - Las reglas de negocio siguen en los servicios:
   - unidad de contenido inmutable;
+  - asignatura ofrecida por un curso del mismo nivel;
   - OA ofrecido en la unidad del contenido o del informe;
   - una sola alternativa correcta por pregunta, si se adopta esa regla;
-  - límite de intentos y disponibilidad de la actividad;
+  - límite de intentos, disponibilidad y habilitación de la asignación
+    actividad-curso;
+  - inscripción del usuario en el curso de la actividad;
   - usuario con rol `ESTUDIANTE` para informes;
   - unicidad de parejas en tablas puente;
   - borrados con hijos se traducen a `409`.
@@ -363,8 +383,8 @@ solo como paso intermedio.
   `ConflictoException` -> `409`, `DataIntegrityViolationException` -> `409`
   (violaciones de FK/UNIQUE) y errores de parseo o validación -> `400`.
 - `FAIL_ON_NULL_FOR_PRIMITIVES` de Jackson 3 se desactiva en `application.yaml`:
-  los `boolean` primitivos de los request (`activo`, `habilitada`, `correcta`)
-  son opcionales y caen a `false` si el cliente no los envía.
+  los `boolean` primitivos de los request (`activo`, `habilitada`, `visible`,
+  `correcta`) son opcionales y caen a `false` si el cliente no los envía.
 
 ## 8. Compilación
 
@@ -387,14 +407,14 @@ Si un mapper no aparece o MapStruct reporta propiedades sin mapear:
 
 ## 9. Controladores REST
 
-Hay 26 controladores en `<feature>/controller`, uno por entidad, con rutas
+Hay 27 controladores en `<feature>/controller`, uno por entidad, con rutas
 `/api/<recurso-en-plural>`. Recursos, siguiendo el esquema:
 
 | Feature | Rutas |
 |---|---|
 | identidad | `/api/usuarios`, `/api/roles`, `/api/cursos`, `/api/niveles`, `/api/secciones` |
 | curriculo | `/api/asignaturas`, `/api/unidades`, `/api/objetivos-aprendizaje`, `/api/objetivos-aprendizaje-unidad`, `/api/objetivos-aprendizaje-contenido`, `/api/contenidos`, `/api/recursos`, `/api/actividades`, `/api/preguntas`, `/api/alternativas`, `/api/alternativas-pregunta`, `/api/preguntas-actividad`, `/api/estados-autorizacion`, `/api/tipos-actividad`, `/api/tipos-recurso` |
-| docencia | `/api/asignaturas-curso`, `/api/usuarios-curso` |
+| docencia | `/api/asignaturas-curso`, `/api/usuarios-curso`, `/api/actividades-curso` |
 | evaluacion | `/api/intentos`, `/api/respuestas` |
 | informe | `/api/informes-pedagogicos`, `/api/detalles-informe-pedagogico` |
 
@@ -414,7 +434,8 @@ Convenciones:
   o letra al servicio, que valida duplicados.
 - Estados que no pasan por el `PUT` genérico tienen ruta propia:
   - `PUT /api/usuarios/{id}/activo?activo=`
-  - `PUT /api/actividades/{id}/habilitada?habilitada=`
+  - `PUT /api/actividades-curso/{id}/habilitada?habilitada=`
+  - `PUT /api/actividades-curso/{id}/visible?visible=`
   - `PUT /api/alternativas/{id}/correcta?correcta=`
   - `POST /api/intentos/{id}/cerrar`
 - `POST /api/usuarios` y `PUT /api/usuarios/{id}` toman `password` en texto
@@ -431,4 +452,4 @@ Convenciones:
 - Reglas de negocio transversales de §7 que aún no tienen endpoint propio.
 - Tests de integración con Testcontainers/PostgreSQL para validar controladores,
   DTOs, mappers y reglas de negocio.
-- Datos seed (`V3__seed_*.sql`).
+- Datos seed (`V4__seed_*.sql`).

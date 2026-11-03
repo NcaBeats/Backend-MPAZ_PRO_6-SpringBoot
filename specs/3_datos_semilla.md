@@ -13,6 +13,7 @@
 
 
 2. Asignaturas
+- Todas las asignaturas pertenecen al nivel Sexto Básico (`asignatura.nivel_id`).
 - Lenguaje y Comunicación. EN_REVISION
 - Matemática. AUTORIZADO
 - Ciencias Naturales. BORRADOR
@@ -204,5 +205,3 @@ Demostrar que comprenden la multiplicación y la división de decimales por núm
 
 * MA06 OA 08
 Resolver problemas rutinarios y no rutinarios que involucren adiciones y sustracciones de fracciones propias, impropias, números mixtos o decimales hasta la milésima.
-
-

@@ -1,7 +1,5 @@
 package com.example.mpaz_pro_6springboot.curriculo.model;
 
-import java.time.Instant;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -21,7 +19,9 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * Actividad pedagogica. Hereda su unidad desde el contenido asociado.
+ * Actividad pedagogica. Es una plantilla reutilizable: hereda su unidad desde
+ * el contenido asociado y su configuracion por curso (ventana, habilitacion y
+ * limite de intentos) vive en {@code actividad_curso}.
  */
 @Entity
 @Table(name = "actividad")
@@ -50,22 +50,6 @@ public class Actividad {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "contenido_id", nullable = false)
     private Contenido contenido;
-
-    @Column(name = "fecha_inicio")
-    private Instant fechaInicio;
-
-    @Column(name = "fecha_termino")
-    private Instant fechaTermino;
-
-    @Column(name = "habilitada", nullable = false)
-    private boolean habilitada;
-
-    /**
-     * Nullable: la semantica de {@code null} (sin limite de intentos) se
-     * define en la capa de servicio.
-     */
-    @Column(name = "max_intentos")
-    private Integer maxIntentos;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estado_id", nullable = false)

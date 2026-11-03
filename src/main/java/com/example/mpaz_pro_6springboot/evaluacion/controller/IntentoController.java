@@ -41,10 +41,16 @@ public class IntentoController {
     @Transactional(readOnly = true)
     public List<IntentoResponse> listar(
             @RequestParam(required = false) Long usuarioId,
+            @RequestParam(required = false) Long actividadCursoId,
             @RequestParam(required = false) Long actividadId) {
         List<Intento> intentos;
-        if (usuarioId != null && actividadId != null) {
+        if (usuarioId != null && actividadCursoId != null) {
+            intentos = intentoService.listarPorUsuarioYActividadCurso(
+                    usuarioId, actividadCursoId);
+        } else if (usuarioId != null && actividadId != null) {
             intentos = intentoService.listarPorUsuarioYActividad(usuarioId, actividadId);
+        } else if (actividadCursoId != null) {
+            intentos = intentoService.listarPorActividadCurso(actividadCursoId);
         } else if (usuarioId != null) {
             intentos = intentoService.listarPorUsuario(usuarioId);
         } else if (actividadId != null) {

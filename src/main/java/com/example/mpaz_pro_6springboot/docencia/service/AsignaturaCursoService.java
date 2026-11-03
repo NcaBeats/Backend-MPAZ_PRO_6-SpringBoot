@@ -62,6 +62,7 @@ public class AsignaturaCursoService {
             throw new ConflictoException(
                     "La asignatura ya esta registrada en el curso indicado");
         }
+        validarNivel(curso, asignatura);
 
         datos.setId(null);
         datos.setCurso(curso);
@@ -72,6 +73,18 @@ public class AsignaturaCursoService {
     @Transactional
     public void eliminar(Long id) {
         asignaturaCursoRepository.delete(obtener(id));
+    }
+
+    /**
+     * Regla de negocio: un curso solo puede ofrecer asignaturas de su nivel.
+     * El esquema no lo expresa porque `curso.nivel_id` y `asignatura.nivel_id`
+     * son FKs independientes.
+     */
+    private void validarNivel(Curso curso, Asignatura asignatura) {
+        if (!curso.getNivel().getId().equals(asignatura.getNivel().getId())) {
+            throw new ReglaNegocioException(
+                    "La asignatura no pertenece al nivel del curso");
+        }
     }
 
     private Curso resolverCurso(Curso curso) {

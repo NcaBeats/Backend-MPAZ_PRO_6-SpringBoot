@@ -10,8 +10,9 @@ import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
-import com.example.mpaz_pro_6springboot.curriculo.model.Actividad;
-import com.example.mpaz_pro_6springboot.curriculo.repository.ActividadRepository;
+import com.example.mpaz_pro_6springboot.docencia.model.ActividadCurso;
+import com.example.mpaz_pro_6springboot.docencia.repository.ActividadCursoRepository;
+import com.example.mpaz_pro_6springboot.docencia.repository.UsuarioCursoRepository;
 import com.example.mpaz_pro_6springboot.evaluacion.model.Intento;
 import com.example.mpaz_pro_6springboot.evaluacion.repository.IntentoRepository;
 import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
@@ -22,8 +23,11 @@ import lombok.RequiredArgsConstructor;
 /**
  * Servicio de {@link Intento}.
  *
- * <p>Aplica las reglas de disponibilidad de la actividad y del limite de
- * intentos. {@code actividad.maxIntentos == null} significa sin limite.</p>
+ * <p>El intento se crea contra una asignacion {@code actividad_curso}. Se
+ * valida que la asignacion exista, que el alumno pertenezca al curso, que la
+ * actividad este habilitada y dentro de su ventana, y que no se supere el
+ * limite de intentos de esa asignacion. La visibilidad ({@code visible}) es
+ * una decision de presentacion del frontend.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -32,7 +36,8 @@ public class IntentoService {
 
     private final IntentoRepository intentoRepository;
     private final UsuarioRepository usuarioRepository;
-    private final ActividadRepository actividadRepository;
+    private final ActividadCursoRepository actividadCursoRepository;
+    private final UsuarioCursoRepository usuarioCursoRepository;
 
     public List<Intento> listar() {
         return intentoRepository.findAll();
@@ -43,11 +48,21 @@ public class IntentoService {
     }
 
     public List<Intento> listarPorActividad(Long actividadId) {
-        return intentoRepository.findAllByActividadId(actividadId);
+        return intentoRepository.findAllByActividadCursoActividadId(actividadId);
+    }
+
+    public List<Intento> listarPorActividadCurso(Long actividadCursoId) {
+        return intentoRepository.findAllByActividadCursoId(actividadCursoId);
     }
 
     public List<Intento> listarPorUsuarioYActividad(Long usuarioId, Long actividadId) {
-        return intentoRepository.findAllByUsuarioIdAndActividadId(usuarioId, actividadId);
+        return intentoRepository.findAllByUsuarioIdAndActividadCursoActividadId(
+                usuarioId, actividadId);
+    }
+
+    public List<Intento> listarPorUsuarioYActividadCurso(Long usuarioId, Long actividadCursoId) {
+        return intentoRepository.findAllByUsuarioIdAndActividadCursoId(
+                usuarioId, actividadCursoId);
     }
 
     public Intento obtener(Long id) {
@@ -55,8 +70,9 @@ public class IntentoService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Intento", id));
     }
 
-    public long contarPorUsuarioYActividad(Long usuarioId, Long actividadId) {
-        return intentoRepository.countByUsuarioIdAndActividadId(usuarioId, actividadId);
+    public long contarPorUsuarioYActividadCurso(Long usuarioId, Long actividadCursoId) {
+        return intentoRepository.countByUsuarioIdAndActividadCursoId(
+                usuarioId, actividadCursoId);
     }
 
     @Transactional
@@ -64,16 +80,17 @@ public class IntentoService {
         Validaciones.requerido(datos, "intento");
 
         Usuario usuario = resolverUsuario(datos.getUsuario());
-        Actividad actividad = resolverActividad(datos.getActividad());
+        ActividadCurso asignacion = resolverActividadCurso(datos.getActividadCurso());
 
         Instant momento = datos.getFechaInicio() != null ? datos.getFechaInicio() : Instant.now();
-        validarActividadDisponible(actividad, momento);
-        validarLimiteIntentos(usuario, actividad);
+        validarInscripcion(usuario, asignacion);
+        validarDisponible(asignacion, momento);
+        validarLimiteIntentos(usuario, asignacion);
         validarFechas(momento, datos.getFechaFin());
 
         datos.setId(null);
         datos.setUsuario(usuario);
-        datos.setActividad(actividad);
+        datos.setActividadCurso(asignacion);
         datos.setFechaInicio(momento);
         return intentoRepository.save(datos);
     }
@@ -96,25 +113,33 @@ public class IntentoService {
         intentoRepository.delete(obtener(id));
     }
 
-    private void validarActividadDisponible(Actividad actividad, Instant momento) {
-        if (!actividad.isHabilitada()) {
-            throw new ReglaNegocioException("La actividad no esta habilitada");
+    private void validarInscripcion(Usuario usuario, ActividadCurso asignacion) {
+        if (!usuarioCursoRepository.existsByUsuarioIdAndCursoId(
+                usuario.getId(), asignacion.getCurso().getId())) {
+            throw new ReglaNegocioException(
+                    "El usuario no esta asociado al curso de la actividad");
         }
-        if (actividad.getFechaInicio() != null && momento.isBefore(actividad.getFechaInicio())) {
+    }
+
+    private void validarDisponible(ActividadCurso asignacion, Instant momento) {
+        if (!asignacion.isHabilitada()) {
+            throw new ReglaNegocioException("La actividad no esta habilitada en el curso");
+        }
+        if (asignacion.getFechaInicio() != null && momento.isBefore(asignacion.getFechaInicio())) {
             throw new ReglaNegocioException("La actividad aun no comienza");
         }
-        if (actividad.getFechaTermino() != null && momento.isAfter(actividad.getFechaTermino())) {
+        if (asignacion.getFechaFin() != null && momento.isAfter(asignacion.getFechaFin())) {
             throw new ReglaNegocioException("La actividad ya termino");
         }
     }
 
-    private void validarLimiteIntentos(Usuario usuario, Actividad actividad) {
-        Integer maxIntentos = actividad.getMaxIntentos();
+    private void validarLimiteIntentos(Usuario usuario, ActividadCurso asignacion) {
+        Integer maxIntentos = asignacion.getMaxIntentos();
         if (maxIntentos == null) {
             return;
         }
-        long usados = intentoRepository.countByUsuarioIdAndActividadId(
-                usuario.getId(), actividad.getId());
+        long usados = intentoRepository.countByUsuarioIdAndActividadCursoId(
+                usuario.getId(), asignacion.getId());
         if (usados >= maxIntentos) {
             throw new ConflictoException(
                     "Se alcanzo el maximo de intentos permitidos (" + maxIntentos + ")");
@@ -135,11 +160,12 @@ public class IntentoService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", usuario.getId()));
     }
 
-    private Actividad resolverActividad(Actividad actividad) {
-        if (actividad == null || actividad.getId() == null) {
-            throw new ReglaNegocioException("El campo actividad es obligatorio");
+    private ActividadCurso resolverActividadCurso(ActividadCurso asignacion) {
+        if (asignacion == null || asignacion.getId() == null) {
+            throw new ReglaNegocioException("El campo actividadCurso es obligatorio");
         }
-        return actividadRepository.findById(actividad.getId())
-                .orElseThrow(() -> new RecursoNoEncontradoException("Actividad", actividad.getId()));
+        return actividadCursoRepository.findById(asignacion.getId())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "ActividadCurso", asignacion.getId()));
     }
 }
