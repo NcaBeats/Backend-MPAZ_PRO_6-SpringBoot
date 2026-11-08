@@ -7,6 +7,8 @@ import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -56,4 +58,15 @@ public class InformePedagogico {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "unidad_id", nullable = false)
     private Unidad unidad;
+
+    /**
+     * Instante maximo de los intentos incluidos en el informe. Queda fijo al
+     * crear el informe y no cambia con intentos posteriores.
+     */
+    @Column(name = "fecha_corte", nullable = false)
+    private Instant fechaCorte;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen", nullable = false, length = 20)
+    private OrigenInforme origen;
 }

@@ -123,7 +123,11 @@ CREATE TABLE INFORME_PEDAGOGICO (
     fecha                 TIMESTAMP NOT NULL,
     descripcion           CLOB,
     unidad_id             NUMBER NOT NULL,
-    CONSTRAINT INFORME_PEDAGOGICO_PK PRIMARY KEY (informe_pedagogico_id)
+    fecha_corte           TIMESTAMP DEFAULT LOCALTIMESTAMP NOT NULL,
+    origen                VARCHAR2(20) DEFAULT 'MANUAL' NOT NULL,
+    CONSTRAINT INFORME_PEDAGOGICO_PK PRIMARY KEY (informe_pedagogico_id),
+    CONSTRAINT INFORME_PEDAGOGICO_ORIGEN_CK
+        CHECK (origen IN ('AUTOMATICO', 'MANUAL'))
 );
 
 CREATE TABLE INTENTO (

@@ -32,6 +32,12 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
   clase (por `open-in-view: false`). Ver `specs/2_dtos.md` §9.
 - **Ya existe el manejo global de errores**: `common/exception/GlobalExceptionHandler`
   (`@RestControllerAdvice`) + `ApiError` con `400`/`404`/`409` y detalle por campo.
+- **Ya existe el informe preliminar por unidad**:
+  `GET /api/informes-pedagogicos/preliminar` calcula el desempeño por OA desde el
+  último intento cerrado de cada actividad, y
+  `POST /api/informes-pedagogicos/desde-resultados` persiste el informe con sus
+  conteos como snapshot (`fecha_corte` + `origen = AUTOMATICO`). Ver
+  `specs/4_informe_pedagogico_preliminar.md`.
 - **Todavía no hay** datos seed ni autenticación real.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 27 tablas
@@ -59,7 +65,9 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 | `src/main/resources/db/migration/V2__oa_unidad_contenido_informe.sql` | OA multi-unidad, contenido por unidad e informe por unidad |
 | `src/main/resources/db/migration/V3__actividad_curso_y_nivel_asignatura.sql` | Nivel en asignatura y actividad por curso |
 | `src/main/resources/db/migration/V4__asignatura_curso_docente.sql` | Docente responsable opcional por asignatura y curso |
+| `src/main/resources/db/migration/V5__informe_pedagogico_fecha_corte.sql` | Corte temporal y origen del informe pedagógico |
 | `specs/1.relaciones_modelo_mpaz.md` | Relaciones, cardinalidades y restricciones |
+| `specs/4_informe_pedagogico_preliminar.md` | Flujo de informe preliminar y snapshot por unidad |
 | `README.md` | Puesta en marcha y variables de entorno |
 | `compose.yaml` / `Dockerfile` | Infraestructura local |
 
@@ -191,12 +199,13 @@ docker compose up -d --force-recreate
 ### 6.2. Migraciones
 
 - `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql`,
-  `V3__actividad_curso_y_nivel_asignatura.sql` y
-  `V4__asignatura_curso_docente.sql` son las migraciones vigentes.
+  `V3__actividad_curso_y_nivel_asignatura.sql`,
+  `V4__asignatura_curso_docente.sql` y
+  `V5__informe_pedagogico_fecha_corte.sql` son las migraciones vigentes.
   `V1` y `V2` ya están aplicadas: **no se editan**. Tampoco se edita ninguna
   migración una vez aplicada en un entorno.
-- Todo cambio nuevo va en `V5__descripcion.sql`, `V6__...`, etc. (dialecto PostgreSQL).
-- Nombres: `V<n>__snake_case.sql` (por ejemplo `V5__seed_catalogos.sql`).
+- Todo cambio nuevo va en `V6__descripcion.sql`, `V7__...`, etc. (dialecto PostgreSQL).
+- Nombres: `V<n>__snake_case.sql` (por ejemplo `V6__seed_catalogos.sql`).
 - V2 es incremental y contiene lógica de datos: crea la tabla puente OA-unidad,
   migra la asignación 1:N existente, agrega columnas `NOT NULL`, sustituye FK
   simples por compuestas y crea el trigger de inmutabilidad. Si se parte de una
@@ -206,6 +215,9 @@ docker compose up -d --force-recreate
   columnas de configuración de la plantilla y cambia `intento` a
   `actividad_curso_id`. El backfill de intentos aborta si no puede derivar una
   asignación única por alumno y actividad.
+- V5 agrega `informe_pedagogico.fecha_corte` y `informe_pedagogico.origen`. Los
+  informes existentes heredan su `fecha` como corte. El flujo de informe
+  preliminar se documenta en `specs/4_informe_pedagogico_preliminar.md`.
 - No usar `PRAGMA`, `.conf` de `executeInTransaction` ni sintaxis SQLite.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 - Para cambios destructivos o de datos, documentar el `up` y el impacto en `specs/`.
@@ -337,6 +349,11 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **Informe pedagógico:** `unidad_id` es obligatorio. Validar en servicio que cada OA
   del detalle pertenezca a esa unidad (el detalle no guarda `unidad_id`) y que
   `usuario_id` tenga rol de estudiante (el esquema no lo restringe).
+- **Informe pedagógico como snapshot:** `fecha_corte` fija el instante máximo de
+  los intentos incluidos y `origen` distingue `AUTOMATICO` de `MANUAL`. Los
+  conteos de `detalle_informe_pedagogico` se persisten y no se recalculan; los
+  intentos posteriores no modifican el informe. Ver
+  `specs/4_informe_pedagogico_preliminar.md`.
 - **`usuario_curso`:** no distingue rol ni tipo de participación; validar en servicio.
 - **Alternativas correctas:** el esquema permite varias `correcta = true` por pregunta;
   si la regla es de selección única, validarlo en servicio.
@@ -359,7 +376,7 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **`objetivo_aprendizaje.codigo`:** no tiene `UNIQUE`. Si los códigos deben ser
   únicos por asignatura, evaluar agregar `asignatura_id` y `UNIQUE (asignatura_id,
   codigo)` en una migración futura.
-- **Seed:** aún no existe. Si se agrega, crear `V5__seed_*.sql` en orden de FK.
+- **Seed:** aún no existe. Si se agrega, crear `V6__seed_*.sql` en orden de FK.
 
 ## 10. Flujo de trabajo
 
@@ -380,10 +397,12 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 1. Repositorios de las 27 tablas: **completado** (27 interfaces en `<feature>/repository`).
 2. Capa DTO + mappers MapStruct: **completado** (ver `specs/2_dtos.md`).
-3. `V5__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
+3. `V6__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
 4. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
 5. Servicios y controladores del dominio: **completado** (27 servicios y
    27 controladores REST).
-6. Reglas de negocio de §9 y manejo global de errores: **manejo global
+6. Informe preliminar por unidad y snapshot: **completado** (ver
+   `specs/4_informe_pedagogico_preliminar.md`).
+7. Reglas de negocio de §9 y manejo global de errores: **manejo global
    completado** (`GlobalExceptionHandler`); quedan reglas transversales.
-7. Tests de integración con Testcontainers.
+8. Tests de integración con Testcontainers.

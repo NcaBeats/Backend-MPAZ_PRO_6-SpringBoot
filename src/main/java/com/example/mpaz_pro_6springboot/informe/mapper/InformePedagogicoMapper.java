@@ -40,5 +40,7 @@ public interface InformePedagogicoMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "usuario", ignore = true)
     @Mapping(target = "unidad", ignore = true)
+    @Mapping(target = "fechaCorte", ignore = true)
+    @Mapping(target = "origen", ignore = true)
     void updateEntity(InformePedagogicoUpdateRequest request, @MappingTarget InformePedagogico entity);
 }

@@ -14,6 +14,7 @@ import com.example.mpaz_pro_6springboot.curriculo.repository.UnidadRepository;
 import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 import com.example.mpaz_pro_6springboot.identidad.repository.UsuarioRepository;
 import com.example.mpaz_pro_6springboot.informe.model.InformePedagogico;
+import com.example.mpaz_pro_6springboot.informe.model.OrigenInforme;
 import com.example.mpaz_pro_6springboot.informe.repository.InformePedagogicoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,23 @@ public class InformePedagogicoService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("InformePedagogico", id));
     }
 
+    /**
+     * Resuelve un usuario y valida que pueda ser sujeto de un informe
+     * pedagogico. Se expone para que el flujo de informe preliminar reutilice
+     * la misma regla.
+     */
+    public Usuario resolverEstudiante(Long usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", usuarioId));
+        validarEstudiante(usuario);
+        return usuario;
+    }
+
+    public Unidad resolverUnidad(Long unidadId) {
+        return unidadRepository.findById(unidadId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Unidad", unidadId));
+    }
+
     @Transactional
     public InformePedagogico crear(InformePedagogico datos) {
         Validaciones.requerido(datos, "informePedagogico");
@@ -65,10 +83,17 @@ public class InformePedagogicoService {
         validarEstudiante(usuario);
         Unidad unidad = resolverUnidad(datos.getUnidad());
 
+        Instant fecha = datos.getFecha() != null ? datos.getFecha() : Instant.now();
         datos.setId(null);
         datos.setUsuario(usuario);
         datos.setUnidad(unidad);
-        datos.setFecha(datos.getFecha() != null ? datos.getFecha() : Instant.now());
+        datos.setFecha(fecha);
+        if (datos.getFechaCorte() == null) {
+            datos.setFechaCorte(fecha);
+        }
+        if (datos.getOrigen() == null) {
+            datos.setOrigen(OrigenInforme.MANUAL);
+        }
         return informePedagogicoRepository.save(datos);
     }
 

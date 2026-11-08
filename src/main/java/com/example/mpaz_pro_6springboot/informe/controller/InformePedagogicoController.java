@@ -1,7 +1,9 @@
 package com.example.mpaz_pro_6springboot.informe.controller;
 
+import java.time.Instant;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,12 +17,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.mpaz_pro_6springboot.informe.dto.request.GenerarInformeRequest;
 import com.example.mpaz_pro_6springboot.informe.dto.request.InformePedagogicoRequest;
 import com.example.mpaz_pro_6springboot.informe.dto.request.InformePedagogicoUpdateRequest;
+import com.example.mpaz_pro_6springboot.informe.dto.response.InformePedagogicoDetalladoResponse;
 import com.example.mpaz_pro_6springboot.informe.dto.response.InformePedagogicoResponse;
+import com.example.mpaz_pro_6springboot.informe.dto.response.InformePreliminarResponse;
 import com.example.mpaz_pro_6springboot.informe.mapper.InformePedagogicoMapper;
 import com.example.mpaz_pro_6springboot.informe.model.InformePedagogico;
 import com.example.mpaz_pro_6springboot.informe.service.InformePedagogicoService;
+import com.example.mpaz_pro_6springboot.informe.service.InformePreliminarService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +44,7 @@ import lombok.RequiredArgsConstructor;
 public class InformePedagogicoController {
 
     private final InformePedagogicoService informePedagogicoService;
+    private final InformePreliminarService informePreliminarService;
     private final InformePedagogicoMapper informePedagogicoMapper;
 
     @GetMapping
@@ -56,6 +63,31 @@ public class InformePedagogicoController {
             informes = informePedagogicoService.listar();
         }
         return informePedagogicoMapper.toResponseList(informes);
+    }
+
+    /**
+     * Consolidado efimero del desempeno del estudiante en la unidad, calculado
+     * desde el ultimo intento cerrado de cada actividad.
+     */
+    @GetMapping("/preliminar")
+    @Transactional(readOnly = true)
+    public InformePreliminarResponse previsualizar(
+            @RequestParam Long usuarioId,
+            @RequestParam Long unidadId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant fechaCorte) {
+        return informePreliminarService.previsualizar(usuarioId, unidadId, fechaCorte);
+    }
+
+    /**
+     * Crea el informe pedagogico a partir de los resultados preliminares. Los
+     * conteos quedan persistidos como snapshot y no se recalculan despues.
+     */
+    @PostMapping("/desde-resultados")
+    @ResponseStatus(HttpStatus.CREATED)
+    public InformePedagogicoDetalladoResponse generarDesdeResultados(
+            @Valid @RequestBody GenerarInformeRequest request) {
+        return informePreliminarService.generarDesdeResultados(request);
     }
 
     @GetMapping("/{id}")
