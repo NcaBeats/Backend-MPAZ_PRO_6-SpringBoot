@@ -37,9 +37,13 @@ docker compose up -d --build
 - PostgreSQL: `localhost:5432`, base/usuario/password `mpaz` (valores por defecto de `.env.example`)
 
 En el primer arranque Flyway aplica `V1__init.sql`,
-`V2__oa_unidad_contenido_informe.sql` y
-`V3__actividad_curso_y_nivel_asignatura.sql` y
-`V4__asignatura_curso_docente.sql`, dejando 27 tablas. El contenedor
+`V2__oa_unidad_contenido_informe.sql`,
+`V3__actividad_curso_y_nivel_asignatura.sql`,
+`V4__asignatura_curso_docente.sql`,
+`V5__informe_pedagogico_fecha_corte.sql`,
+`V6__seed_demo.sql` y
+`V7__seed_contenido_largo.sql`, dejando 27 tablas, los datos de demostración y
+los contenidos completos. El contenedor
 `app` espera a que Postgres esté saludable
 (`depends_on: condition: service_healthy`).
 
@@ -54,6 +58,81 @@ docker compose up -d db
 La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties]`.
 `DB_HOST` debe ser `localhost` en este modo (en compose se sobreescribe a `db`).
 
+## Autenticación JWT
+
+El backend es stateless: `POST /api/auth/login` devuelve un Bearer token que debe
+enviarse en `Authorization: Bearer <token>`. El seed de demo (`V6__seed_demo.sql`)
+crea estos usuarios con la contraseña `mpaz123`:
+
+| Usuario | Rol |
+|---|---|
+| `utp` | UTP |
+| `docente`, `docente2`, `docente3`, `docente4` | DOCENTE |
+| `alumno`, `estudiante2`, `estudiante3`, `estudiante4` | ESTUDIANTE |
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"utp","password":"mpaz123"}'
+```
+
+## Conexión de la app Android
+
+La app define la URL del backend al compilar mediante `MPAZ_BASE_URL`
+(`gradle.properties` o `-PMPAZ_BASE_URL=...`):
+
+| Entorno | URL | Requisito |
+|---|---|---|
+| USB | `http://127.0.0.1:8080/` | `adb reverse tcp:8080 tcp:8080` |
+| Emulador | `http://10.0.2.2:8080/` | Backend en el mismo PC |
+| Wi-Fi | `http://IP_DEL_PC:8080/` | Mismo Wi-Fi y puerto 8080 abierto |
+
+### USB
+
+```bash
+docker compose up -d --build
+curl http://localhost:8080/actuator/health
+adb devices
+adb reverse tcp:8080 tcp:8080
+adb reverse --list
+```
+
+Con el túnel activo, el APK compilado con
+`MPAZ_BASE_URL=http://127.0.0.1:8080/` conecta al backend del PC sin usar la IP
+LAN. Si se desconecta el teléfono o se reinicia ADB, hay que repetir
+`adb reverse`.
+
+La guía completa para terminal, Android Studio, IntelliJ, emulador y Wi-Fi está
+en el `README.md` del repositorio mobile
+(`MPAZ_PRO_6/README.md`).
+
+## Autorización de material pedagógico
+
+Las escrituras de material (`unidades`, `contenidos`, `actividades` y `recursos`)
+se validan en el servicio con `MaterialAccessPolicy`:
+
+| Rol | Alcance de escritura |
+|---|---|
+| `UTP` | Todas las asignaturas |
+| `DOCENTE` | Solo asignaturas con una fila en `asignatura_curso` para su usuario |
+| `ESTUDIANTE` | Sin escritura de material |
+
+Si un docente intenta crear, actualizar o eliminar material de una asignatura
+que no tiene a cargo, la API responde `403 Forbidden`. La app móvil aplica el
+mismo filtro al mostrar unidades y actividades en “Crear contenido”.
+
+## Informes pedagógicos
+
+- `GET /api/informes-pedagogicos/preliminar?usuarioId=&unidadId=&fechaCorte=`
+  calcula el consolidado por OA usando el último intento cerrado de cada
+  actividad.
+- `POST /api/informes-pedagogicos/desde-resultados` persiste el informe y sus
+  detalles como snapshot (`fecha_corte` y `origen`).
+- `DELETE /api/informes-pedagogicos/{id}` elimina primero
+  `detalle_informe_pedagogico` y luego la cabecera. No existe cascada en el
+  esquema; el servicio hace el borrado ordenado y responde `204`. Después del
+  borrado, `GET /api/informes-pedagogicos/{id}` responde `404`.
+
 ## Variables de entorno
 
 | Variable | Default | Uso |
@@ -65,6 +144,7 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 | `DB_HOST` | `localhost` | Host de la BD (`db` dentro de compose) |
 | `SERVER_PORT` | `8080` | Puerto interno de Spring Boot |
 | `APP_PORT` | `8080` | Puerto del host para la app en compose |
+| `MPAZ_JWT_SECRET` | secreto de demo | Firma HS256 de los JWT |
 
 `.env` está en `.gitignore`; solo se versiona `.env.example`.
 
@@ -81,11 +161,19 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - `src/main/resources/db/migration/V4__asignatura_curso_docente.sql`:
   asignación opcional del docente responsable en `asignatura_curso`
   (27 tablas en total, 38 FK, 19 `UNIQUE`).
-- Política: una migración aplicada no se edita; los cambios van en `V5__...`,
-  `V6__...`, etc.
+- `src/main/resources/db/migration/V5__informe_pedagogico_fecha_corte.sql`:
+  agrega `fecha_corte` y `origen` al informe pedagógico. Los informes existentes
+  heredan su `fecha` como corte.
+- `src/main/resources/db/migration/V6__seed_demo.sql`: roles, usuarios de demo
+  (`mpaz123`), catálogos, cursos, unidades, contenidos, actividades, preguntas,
+  alternativas, un intento y un informe de ejemplo.
+- `src/main/resources/db/migration/V7__seed_contenido_largo.sql`: reemplaza las
+  descripciones resumidas por los Markdown completos del seed mobile.
+- Política: una migración aplicada no se edita; los cambios nuevos van en
+  `V8__...`, `V9__...`, etc.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 
-### Reglas de modelo aplicadas en V2, V3 y V4
+### Reglas de modelo y datos aplicadas desde V2
 
 - **Un OA puede pertenecer a varias unidades** (currículum en espiral de Chile):
   relación N:M mediante `objetivo_aprendizaje_unidad`.
@@ -104,6 +192,9 @@ La app lee `.env` mediante `spring.config.import: optional:file:.env[.properties
 - **La actividad es una plantilla**: la configuración por curso (ventana,
   `habilitada`, `visible`, `max_intentos`) vive en `actividad_curso`, con
   `UNIQUE (actividad_id, curso_id)`. `max_intentos` nulo significa sin límite.
+- **Reutilizar una actividad en otro contenido**: se actualiza
+  `actividad.contenido_id` con `PUT /api/actividades/{id}`; la unidad se hereda
+  del contenido destino. La app usa este flujo al elegir “Asociar Creada”.
 - **El intento se registra contra `actividad_curso`** (`intento.actividad_curso_id
   NOT NULL`), no contra la actividad. Así el límite y los resultados quedan
   acotados al curso.
@@ -134,16 +225,31 @@ docker compose up -d --build
 ```
 
 `down -v` elimina el volumen `postgres_data`, por lo que Flyway vuelve a aplicar
-`V1__init.sql`, `V2__oa_unidad_contenido_informe.sql` y
-`V3__actividad_curso_y_nivel_asignatura.sql` y
-`V4__asignatura_curso_docente.sql` desde cero.
+`V1__init.sql` hasta `V7__seed_contenido_largo.sql` desde cero, incluyendo los
+datos de demostración y los contenidos largos.
+
+## Pruebas
+
+```powershell
+.\mvnw.cmd test
+```
+
+En Linux/macOS:
+
+```bash
+bash ./mvnw test
+```
+
+La suite usa PostgreSQL embebido (Zonky), no requiere Docker y valida Flyway,
+seed, JWT y el contrato mobile. Actualmente son **9 tests**: 5 de contrato, 3 de
+JWT y 1 de contraseñas del seed.
 
 ## Estructura
 
 ```
 src/main/java/com/example/mpaz_pro_6springboot/
 ├── MpazPro6SpringBootApplication.java
-├── common/security/SecurityConfig.java
+├── common/security/       # SecurityConfig, JWT, MaterialAccessPolicy, ReportAccessPolicy
 ├── identidad/model/       # Usuario, Rol, Curso, Nivel, Seccion
 ├── curriculo/model/       # Asignatura, Unidad, OA, Contenido, Actividad, Pregunta, ...
 ├── docencia/model/        # AsignaturaCurso, UsuarioCurso, ActividadCurso
@@ -155,7 +261,10 @@ src/main/resources/
     ├── V1__init.sql
     ├── V2__oa_unidad_contenido_informe.sql
     ├── V3__actividad_curso_y_nivel_asignatura.sql
-    └── V4__asignatura_curso_docente.sql
+    ├── V4__asignatura_curso_docente.sql
+    ├── V5__informe_pedagogico_fecha_corte.sql
+    ├── V6__seed_demo.sql
+    └── V7__seed_contenido_largo.sql
 compose.yaml
 Dockerfile
 ```
@@ -172,3 +281,5 @@ construidas las capas de repositorio, DTO, mapper, servicio y controlador.
 | La app no conecta a la BD | Verificar que `db` esté healthy: `docker compose ps` |
 | Flyway falla | Revisar logs con `docker compose logs app`; si la base quedó a medias, `docker compose down -v` |
 | Cambios de `.env` no se aplican | Reiniciar los contenedores: `docker compose up -d --force-recreate` |
+| `permission denied` al usar Docker | Agregar el usuario al grupo `docker` o ejecutar el comando con `sudo` |
+| Docente recibe `403` al crear material | Verificar que su usuario esté asignado a la asignatura en `asignatura_curso` |

@@ -5,10 +5,12 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 ## 1. Estado actual
 
 - Proyecto en refactor completo sobre un modelo de datos nuevo (27 tablas).
-- Rama de trabajo: `feature/refactor`.
-- Solo existe el bootstrap de Spring Boot y una configuración temporal de seguridad:
-  - `src/main/java/com/example/mpaz_pro_6springboot/MpazPro6SpringBootApplication.java`
-  - `src/main/java/com/example/mpaz_pro_6springboot/common/security/SecurityConfig.java` (`permitAll` temporal)
+- Rama de trabajo: `feature/refactor-jwt` (local, sin merge a `main`).
+- **Autenticacion implementada**: JWT HS256 stateless (`/api/auth/login`, `/api/auth/me`, `/api/auth/logout`), `SecurityConfig` por rol y ownership basico en servicios.
+- **Seed implementado** en `V6__seed_demo.sql` y contenidos completos en
+  `V7__seed_contenido_largo.sql`: roles, usuarios, catalogos, cursos, unidades,
+  contenidos, actividades, preguntas, alternativas, un intento y un informe de ejemplo.
+- **Tests implementados**: `JwtServiceTest`, `SeedPasswordTest` y `MobileContractIntegrationTest` (PostgreSQL embebido, sin Docker).
 - **Ya existen las 27 entidades JPA** de la capa `model`, organizadas por feature:
   - `identidad/model`: `Usuario`, `Rol`, `Curso`, `Nivel`, `Seccion`.
   - `curriculo/model`: `Asignatura`, `Unidad`, `ObjetivoAprendizaje`,
@@ -38,7 +40,8 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
   `POST /api/informes-pedagogicos/desde-resultados` persiste el informe con sus
   conteos como snapshot (`fecha_corte` + `origen = AUTOMATICO`). Ver
   `specs/4_informe_pedagogico_preliminar.md`.
-- **Todavía no hay** datos seed ni autenticación real.
+- **Ya existe** autenticacion JWT y datos seed; el modo local del mobile puede
+  sincronizar catalogo, intentos, respuestas e informes contra estos endpoints.
 - El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
   - 27 tablas
   - 38 claves foráneas
@@ -130,7 +133,9 @@ docker compose exec db psql -U mpaz -d mpaz -c "SELECT version, description, suc
 .\mvnw.cmd test
 ```
 
-No hay tests todavía. Si se agregan, usar **Testcontainers con PostgreSQL** (ver §8.6).
+Hay tests unitarios de JWT/seed y un test de contrato con PostgreSQL embebido
+(`MobileContractIntegrationTest`) que no requiere Docker. Para tests con
+Testcontainers se necesita el daemon de Docker.
 
 ## 5. Variables de entorno
 
@@ -145,6 +150,7 @@ Solo se versiona `.env.example`; `.env` está en `.gitignore`.
 | `DB_HOST` | `localhost` | Host de la BD (`db` en compose) |
 | `SERVER_PORT` | `8080` | Puerto interno de Spring Boot |
 | `APP_PORT` | `8080` | Puerto del host para la app en compose |
+| `MPAZ_JWT_SECRET` | secreto de demo | Firma HS256 de los JWT |
 
 No agregues `SPRING_*` duplicados al `.env`; usa las variables de arriba.
 Los cambios de `.env` requieren recrear contenedores:
@@ -200,12 +206,13 @@ docker compose up -d --force-recreate
 
 - `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql`,
   `V3__actividad_curso_y_nivel_asignatura.sql`,
-  `V4__asignatura_curso_docente.sql` y
-  `V5__informe_pedagogico_fecha_corte.sql` son las migraciones vigentes.
-  `V1` y `V2` ya están aplicadas: **no se editan**. Tampoco se edita ninguna
-  migración una vez aplicada en un entorno.
-- Todo cambio nuevo va en `V6__descripcion.sql`, `V7__...`, etc. (dialecto PostgreSQL).
-- Nombres: `V<n>__snake_case.sql` (por ejemplo `V6__seed_catalogos.sql`).
+  `V4__asignatura_curso_docente.sql`,
+  `V5__informe_pedagogico_fecha_corte.sql`,
+  `V6__seed_demo.sql` y `V7__seed_contenido_largo.sql` son las migraciones
+  vigentes. Todas están aplicadas en el entorno actual: **no se editan**. No se
+  edita ninguna migración una vez aplicada en un entorno.
+- Todo cambio nuevo va en `V8__descripcion.sql`, `V9__...`, etc. (dialecto PostgreSQL).
+- Nombres: `V<n>__snake_case.sql` (por ejemplo `V8__ajuste_modelo.sql`).
 - V2 es incremental y contiene lógica de datos: crea la tabla puente OA-unidad,
   migra la asignación 1:N existente, agrega columnas `NOT NULL`, sustituye FK
   simples por compuestas y crea el trigger de inmutabilidad. Si se parte de una
@@ -218,6 +225,11 @@ docker compose up -d --force-recreate
 - V5 agrega `informe_pedagogico.fecha_corte` y `informe_pedagogico.origen`. Los
   informes existentes heredan su `fecha` como corte. El flujo de informe
   preliminar se documenta en `specs/4_informe_pedagogico_preliminar.md`.
+- V6 siembra roles, usuarios (`mpaz123`), catálogos, cursos, unidades,
+  contenidos, actividades, preguntas, alternativas, un intento y un informe.
+- V7 reemplaza las descripciones resumidas por los Markdown completos del seed
+  mobile. Ambas migraciones de seed respetan el orden de FK y reajustan
+  secuencias.
 - No usar `PRAGMA`, `.conf` de `executeInTransaction` ni sintaxis SQLite.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 - Para cambios destructivos o de datos, documentar el `up` y el impacto en `specs/`.
@@ -230,7 +242,7 @@ docker compose up -d --build
 ```
 
 `down -v` borra el volumen `postgres_data`; en el siguiente arranque Flyway aplica
-`V1`, `V2`, `V3` y `V4` desde cero.
+`V1` a `V7` desde cero, incluidos los datos de demo y los contenidos largos.
 
 ## 7. Docker
 
@@ -323,18 +335,27 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 ### 8.5. Seguridad
 
-- `SecurityConfig` actual deja todo abierto (`permitAll`) solo para bootstrap.
-- Al implementar autenticación: reemplazar por reglas reales, usar
-  `BCryptPasswordEncoder` para `usuario.password_hash` y no dejar rutas abiertas.
-- `spring-boot-starter-security` y `spring-security-crypto` ya están en el `pom.xml`.
+- `SecurityConfig` usa JWT stateless (Bearer) y reglas por rol.
+- `POST /api/auth/login` es publico; el resto exige token salvo health/Swagger.
+- Los catalogos se leen autenticados; las escrituras administrativas son `UTP`;
+  el material pedagogico es `UTP`/`DOCENTE`; intentos y respuestas son `ESTUDIANTE`.
+- El ownership (estudiante solo sus datos, docente solo sus cursos) se valida en
+  los servicios con `SecurityUtils`.
+- `MaterialAccessPolicy` restringe la escritura de unidades, contenidos,
+  actividades y recursos: UTP puede todo; DOCENTE solo asignaturas con fila en
+  `asignatura_curso`; el resto recibe `403`.
+- `ReportAccessPolicy` restringe la lectura/emisión de informes: UTP todo,
+  estudiante solo sus datos y docente solo estudiantes de sus cursos.
+- El hash de `usuario.password_hash` es BCrypt; el seed usa `mpaz123`.
 
 ### 8.6. Tests
 
 - No usar SQLite ni H2 para validar el esquema: el DDL es PostgreSQL.
-- Recomendado: Testcontainers (`spring-boot-testcontainers`,
-  `org.testcontainers:postgresql`, `org.testcontainers:junit-jupiter`) con
-  `@ServiceConnection` y `postgres:17-alpine`.
-- Los tests requieren Docker corriendo.
+- `MobileContractIntegrationTest` usa PostgreSQL embebido (Zonky) y valida
+  Flyway + seed + JWT + contrato mobile sin Docker.
+- Para Testcontainers se necesitan `spring-boot-testcontainers`,
+  `org.testcontainers:postgresql` y `org.testcontainers:junit-jupiter` con
+  `@ServiceConnection` y `postgres:17-alpine`; requieren Docker corriendo.
 - `.\mvnw.cmd test` debe seguir funcionando sin servicios externos manuales.
 
 ## 9. Reglas de negocio y huecos conocidos
@@ -358,6 +379,9 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **Alternativas correctas:** el esquema permite varias `correcta = true` por pregunta;
   si la regla es de selección única, validarlo en servicio.
 - **Borrados:** sin cascada; si un padre tiene hijos, la FK falla. Traducir a `409`.
+- **Borrado de informes:** `DELETE /api/informes-pedagogicos/{id}` elimina primero
+  los detalles y luego la cabecera dentro de una transacción. No reintroduzcas un
+  borrado directo de la cabecera: la FK de `detalle_informe_pedagogico` lo impide.
 - **Asignatura por nivel:** una asignatura pertenece a un nivel y el nombre es
   único dentro de él. Un curso solo puede ofrecer asignaturas de su mismo nivel;
   validarlo en servicio (`asignatura_curso` no tiene FK compuesta contra nivel).
@@ -376,7 +400,11 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **`objetivo_aprendizaje.codigo`:** no tiene `UNIQUE`. Si los códigos deben ser
   únicos por asignatura, evaluar agregar `asignatura_id` y `UNIQUE (asignatura_id,
   codigo)` en una migración futura.
-- **Seed:** aún no existe. Si se agrega, crear `V6__seed_*.sql` en orden de FK.
+- **Seed:** `V6__seed_demo.sql` crea roles, usuarios (`mpaz123`), catalogos,
+  cursos, unidades, contenidos, actividades, preguntas, alternativas, un intento
+  y un informe de ejemplo. `V7__seed_contenido_largo.sql` reemplaza las
+  descripciones resumen por los Markdown completos del seed mobile. Respetar el
+  orden de FK y reajustar secuencias.
 
 ## 10. Flujo de trabajo
 
@@ -395,14 +423,13 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 
 ## 11. Roadmap sugerido
 
-1. Repositorios de las 27 tablas: **completado** (27 interfaces en `<feature>/repository`).
-2. Capa DTO + mappers MapStruct: **completado** (ver `specs/2_dtos.md`).
-3. `V6__seed_*.sql` con catálogos y datos de demo (ids explícitos permitidos).
-4. Autenticación y autorización por rol (login, BCrypt, JWT/sesión).
-5. Servicios y controladores del dominio: **completado** (27 servicios y
-   27 controladores REST).
-6. Informe preliminar por unidad y snapshot: **completado** (ver
-   `specs/4_informe_pedagogico_preliminar.md`).
-7. Reglas de negocio de §9 y manejo global de errores: **manejo global
-   completado** (`GlobalExceptionHandler`); quedan reglas transversales.
-8. Tests de integración con Testcontainers.
+1. Repositorios de las 27 tablas: **completado**.
+2. Capa DTO + mappers MapStruct: **completado**.
+3. `V6__seed_demo.sql` con catálogos y datos de demo: **completado**.
+4. Autenticación y autorización por rol (login, BCrypt, JWT): **completado**.
+5. Servicios y controladores del dominio: **completado**.
+6. Informe preliminar por unidad y snapshot: **completado**.
+7. Reglas de negocio de §9 y manejo global de errores: **parcial** (ownership
+   de estudiante/docente y material implementado; quedan reglas transversales).
+8. Tests de integración: **completado** para el contrato mobile con PostgreSQL
+   embebido; pendiente la suite Testcontainers si se habilita Docker.
