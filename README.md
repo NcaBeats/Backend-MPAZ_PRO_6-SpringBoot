@@ -78,33 +78,25 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 ## Conexión de la app Android
 
-La app define la URL del backend al compilar mediante `MPAZ_BASE_URL`
-(`gradle.properties` o `-PMPAZ_BASE_URL=...`):
+La guía paso a paso para terminal, Android Studio, IntelliJ, USB, Wi-Fi y
+emulador está en el `README.md` del repositorio mobile
+(`MPAZ_PRO_6/README.md`).
 
-| Entorno | URL | Requisito |
+Resumen de URLs:
+
+| Entorno | URL de la app | Requisito |
 |---|---|---|
 | USB | `http://127.0.0.1:8080/` | `adb reverse tcp:8080 tcp:8080` |
 | Emulador | `http://10.0.2.2:8080/` | Backend en el mismo PC |
 | Wi-Fi | `http://IP_DEL_PC:8080/` | Mismo Wi-Fi y puerto 8080 abierto |
 
-### USB
+En el teléfono, `127.0.0.1` es el propio teléfono. Para USB se crea el túnel
+`adb reverse`; para Wi-Fi se compila con la IP LAN del PC. Si el APK se compila
+con `127.0.0.1`, no conectará por Wi-Fi hasta recompilarlo.
 
-```bash
-docker compose up -d --build
-curl http://localhost:8080/actuator/health
-adb devices
-adb reverse tcp:8080 tcp:8080
-adb reverse --list
-```
-
-Con el túnel activo, el APK compilado con
-`MPAZ_BASE_URL=http://127.0.0.1:8080/` conecta al backend del PC sin usar la IP
-LAN. Si se desconecta el teléfono o se reinicia ADB, hay que repetir
-`adb reverse`.
-
-La guía completa para terminal, Android Studio, IntelliJ, emulador y Wi-Fi está
-en el `README.md` del repositorio mobile
-(`MPAZ_PRO_6/README.md`).
+En Android 17, una conexión Wi-Fi directa a la IP LAN requiere el permiso
+runtime `ACCESS_LOCAL_NETWORK`. La app lo solicita al abrirse cuando detecta una
+IP local; USB con `adb reverse` no lo necesita.
 
 ## Autorización de material pedagógico
 
@@ -120,6 +112,9 @@ se validan en el servicio con `MaterialAccessPolicy`:
 Si un docente intenta crear, actualizar o eliminar material de una asignatura
 que no tiene a cargo, la API responde `403 Forbidden`. La app móvil aplica el
 mismo filtro al mostrar unidades y actividades en “Crear contenido”.
+
+Un usuario UTP no puede desactivar su propia cuenta: la API responde `400` y la
+app deshabilita el switch de esa fila.
 
 ## Informes pedagógicos
 

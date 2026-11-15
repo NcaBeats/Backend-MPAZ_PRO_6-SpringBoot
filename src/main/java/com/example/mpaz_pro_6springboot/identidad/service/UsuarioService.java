@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.identidad.model.Rol;
 import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
@@ -127,6 +128,13 @@ public class UsuarioService {
     @Transactional
     public Usuario cambiarActivo(Long id, boolean activo) {
         Usuario usuario = obtener(id);
+        boolean esPropiaCuenta = SecurityUtils.currentUsuario()
+                .map(actual -> id.equals(actual.getId()))
+                .orElse(false);
+        if (!activo && esPropiaCuenta) {
+            throw new ReglaNegocioException(
+                    "No puedes desactivar tu propia cuenta");
+        }
         usuario.setActivo(activo);
         return usuario;
     }
