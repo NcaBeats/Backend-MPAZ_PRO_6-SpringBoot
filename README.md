@@ -113,6 +113,9 @@ Si un docente intenta crear, actualizar o eliminar material de una asignatura
 que no tiene a cargo, la API responde `403 Forbidden`. La app móvil aplica el
 mismo filtro al mostrar unidades y actividades en “Crear contenido”.
 
+Un usuario UTP no puede desactivar su propia cuenta: la API responde `400` y la
+app deshabilita el switch de esa fila.
+
 ## Informes pedagógicos
 
 - `GET /api/informes-pedagogicos/preliminar?usuarioId=&unidadId=&fechaCorte=`

@@ -346,6 +346,8 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
   `asignatura_curso`; el resto recibe `403`.
 - `ReportAccessPolicy` restringe la lectura/emisión de informes: UTP todo,
   estudiante solo sus datos y docente solo estudiantes de sus cursos.
+- Un usuario UTP no puede desactivar su propia cuenta; `UsuarioService` responde
+  `400` y la pantalla de Usuarios deshabilita el switch propio.
 - El hash de `usuario.password_hash` es BCrypt; el seed usa `mpaz123`.
 
 ### 8.6. Tests
