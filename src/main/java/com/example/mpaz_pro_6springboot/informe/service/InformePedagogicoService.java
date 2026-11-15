@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.ReportAccessPolicy;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Unidad;
 import com.example.mpaz_pro_6springboot.curriculo.repository.UnidadRepository;
@@ -15,6 +17,7 @@ import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
 import com.example.mpaz_pro_6springboot.identidad.repository.UsuarioRepository;
 import com.example.mpaz_pro_6springboot.informe.model.InformePedagogico;
 import com.example.mpaz_pro_6springboot.informe.model.OrigenInforme;
+import com.example.mpaz_pro_6springboot.informe.repository.DetalleInformePedagogicoRepository;
 import com.example.mpaz_pro_6springboot.informe.repository.InformePedagogicoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -34,28 +37,46 @@ public class InformePedagogicoService {
     private static final String ROL_ESTUDIANTE = "ESTUDIANTE";
 
     private final InformePedagogicoRepository informePedagogicoRepository;
+    private final DetalleInformePedagogicoRepository detalleInformePedagogicoRepository;
     private final UsuarioRepository usuarioRepository;
     private final UnidadRepository unidadRepository;
+    private final ReportAccessPolicy reportAccessPolicy;
 
     public List<InformePedagogico> listar() {
-        return informePedagogicoRepository.findAll();
+        if (SecurityUtils.isEstudiante()) {
+            return informePedagogicoRepository.findAllByUsuarioId(
+                    SecurityUtils.requireUsuario().getId());
+        }
+        List<InformePedagogico> informes = informePedagogicoRepository.findAll();
+        return filtrarSegunAcceso(informes);
     }
 
     public List<InformePedagogico> listarPorUsuario(Long usuarioId) {
+        SecurityUtils.requireEstudiantePropietario(usuarioId, "informes");
+        reportAccessPolicy.requirePuedeVerEstudiante(usuarioId, "informes");
         return informePedagogicoRepository.findAllByUsuarioId(usuarioId);
     }
 
     public List<InformePedagogico> listarPorUnidad(Long unidadId) {
-        return informePedagogicoRepository.findAllByUnidadId(unidadId);
+        List<InformePedagogico> informes =
+                informePedagogicoRepository.findAllByUnidadId(unidadId);
+        return filtrarSegunAcceso(informes);
     }
 
     public List<InformePedagogico> listarPorUsuarioYUnidad(Long usuarioId, Long unidadId) {
+        SecurityUtils.requireEstudiantePropietario(usuarioId, "informes");
+        reportAccessPolicy.requirePuedeVerEstudiante(usuarioId, "informes");
         return informePedagogicoRepository.findAllByUsuarioIdAndUnidadId(usuarioId, unidadId);
     }
 
     public InformePedagogico obtener(Long id) {
-        return informePedagogicoRepository.findById(id)
+        InformePedagogico informe = informePedagogicoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("InformePedagogico", id));
+        SecurityUtils.requireEstudiantePropietario(
+                informe.getUsuario().getId(), "informes");
+        reportAccessPolicy.requirePuedeVerEstudiante(
+                informe.getUsuario().getId(), "informes");
+        return informe;
     }
 
     /**
@@ -121,7 +142,13 @@ public class InformePedagogicoService {
 
     @Transactional
     public void eliminar(Long id) {
-        informePedagogicoRepository.delete(obtener(id));
+        InformePedagogico informe = obtener(id);
+        // El esquema no tiene ON DELETE CASCADE: primero se eliminan los
+        // detalles y luego la cabecera.
+        detalleInformePedagogicoRepository.deleteAll(
+                detalleInformePedagogicoRepository
+                        .findAllByInformePedagogicoId(informe.getId()));
+        informePedagogicoRepository.delete(informe);
     }
 
     private void validarEstudiante(Usuario usuario) {
@@ -130,6 +157,32 @@ public class InformePedagogicoService {
             throw new ReglaNegocioException(
                     "El informe pedagogico solo puede emitirse para usuarios con rol ESTUDIANTE");
         }
+    }
+
+    private List<InformePedagogico> filtrarSiEsEstudiante(List<InformePedagogico> informes) {
+        if (!SecurityUtils.isEstudiante()) {
+            return informes;
+        }
+        Long usuarioId = SecurityUtils.requireUsuario().getId();
+        return informes.stream()
+                .filter(informe -> usuarioId.equals(informe.getUsuario().getId()))
+                .toList();
+    }
+
+    private List<InformePedagogico> filtrarSegunAcceso(List<InformePedagogico> informes) {
+        if (SecurityUtils.isUtp()) {
+            return informes;
+        }
+        Long usuarioId = SecurityUtils.requireUsuario().getId();
+        if (SecurityUtils.isEstudiante()) {
+            return informes.stream()
+                    .filter(informe -> usuarioId.equals(informe.getUsuario().getId()))
+                    .toList();
+        }
+        return informes.stream()
+                .filter(informe -> reportAccessPolicy.puedeVerEstudiante(
+                        informe.getUsuario().getId()))
+                .toList();
     }
 
     private Usuario resolverUsuario(Usuario usuario) {

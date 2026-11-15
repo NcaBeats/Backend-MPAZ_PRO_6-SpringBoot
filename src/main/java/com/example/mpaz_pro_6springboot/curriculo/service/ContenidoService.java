@@ -2,11 +2,15 @@ package com.example.mpaz_pro_6springboot.curriculo.service;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.MaterialAccessPolicy;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.model.EstadoAutorizacion;
@@ -30,29 +34,40 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ContenidoService {
 
+    /** Id del estado AUTORIZADO en el catalogo sembrado. */
+    private static final Long ESTADO_AUTORIZADO = 3L;
+
     private final ContenidoRepository contenidoRepository;
     private final UnidadRepository unidadRepository;
     private final EstadoAutorizacionRepository estadoAutorizacionRepository;
+    private final MaterialAccessPolicy materialAccessPolicy;
 
     public List<Contenido> listar() {
-        return contenidoRepository.findAll();
+        return filtrarParaEstudiante(contenidoRepository.findAll());
     }
 
     public List<Contenido> listarPorUnidad(Long unidadId) {
-        return contenidoRepository.findAllByUnidadId(unidadId);
+        return filtrarParaEstudiante(contenidoRepository.findAllByUnidadId(unidadId));
     }
 
     public List<Contenido> listarPorEstado(Long estadoId) {
-        return contenidoRepository.findAllByEstadoId(estadoId);
+        return filtrarParaEstudiante(contenidoRepository.findAllByEstadoId(estadoId));
     }
 
     public List<Contenido> listarPorUnidadYEstado(Long unidadId, Long estadoId) {
-        return contenidoRepository.findAllByUnidadIdAndEstadoId(unidadId, estadoId);
+        return filtrarParaEstudiante(
+                contenidoRepository.findAllByUnidadIdAndEstadoId(unidadId, estadoId));
     }
 
     public Contenido obtener(Long id) {
-        return contenidoRepository.findById(id)
+        Contenido contenido = contenidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Contenido", id));
+        if (!esVisibleParaEstudiante(contenido)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "El contenido no esta disponible para estudiantes");
+        }
+        return contenido;
     }
 
     @Transactional
@@ -60,6 +75,7 @@ public class ContenidoService {
         Validaciones.requerido(datos, "contenido");
 
         Unidad unidad = resolverUnidad(datos.getUnidad());
+        materialAccessPolicy.requirePuedeGestionarUnidad(unidad);
         EstadoAutorizacion estado = resolverEstado(datos.getEstado());
 
         return contenidoRepository.save(Contenido.builder()
@@ -73,6 +89,7 @@ public class ContenidoService {
     public Contenido actualizar(Long id, Contenido datos) {
         Validaciones.requerido(datos, "contenido");
         Contenido contenido = obtener(id);
+        materialAccessPolicy.requirePuedeGestionarContenido(contenido);
 
         if (datos.getUnidad() != null && datos.getUnidad().getId() != null
                 && !datos.getUnidad().getId().equals(contenido.getUnidad().getId())) {
@@ -90,7 +107,9 @@ public class ContenidoService {
 
     @Transactional
     public void eliminar(Long id) {
-        contenidoRepository.delete(obtener(id));
+        Contenido contenido = obtener(id);
+        materialAccessPolicy.requirePuedeGestionarContenido(contenido);
+        contenidoRepository.delete(contenido);
     }
 
     private Unidad resolverUnidad(Unidad unidad) {
@@ -108,5 +127,24 @@ public class ContenidoService {
         return estadoAutorizacionRepository.findById(estado.getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "EstadoAutorizacion", estado.getId()));
+    }
+
+    private List<Contenido> filtrarParaEstudiante(List<Contenido> contenidos) {
+        if (!SecurityUtils.isEstudiante()) {
+            return contenidos;
+        }
+        return contenidos.stream()
+                .filter(this::esVisibleParaEstudiante)
+                .toList();
+    }
+
+    private boolean esVisibleParaEstudiante(Contenido contenido) {
+        if (!SecurityUtils.isEstudiante()) {
+            return true;
+        }
+        if (contenido.getUnidad() == null || contenido.getUnidad().getEstado() == null) {
+            return false;
+        }
+        return ESTADO_AUTORIZADO.equals(contenido.getUnidad().getEstado().getId());
     }
 }

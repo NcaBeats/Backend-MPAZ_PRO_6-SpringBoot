@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.mpaz_pro_6springboot.docencia.dto.request.AsignaturaCursoRequest;
+import com.example.mpaz_pro_6springboot.docencia.dto.request.AsignaturaCursoUpdateRequest;
 import com.example.mpaz_pro_6springboot.docencia.dto.response.AsignaturaCursoResponse;
 import com.example.mpaz_pro_6springboot.docencia.mapper.AsignaturaCursoMapper;
 import com.example.mpaz_pro_6springboot.docencia.model.AsignaturaCurso;
@@ -39,12 +41,15 @@ public class AsignaturaCursoController {
     @Transactional(readOnly = true)
     public List<AsignaturaCursoResponse> listar(
             @RequestParam(required = false) Long cursoId,
-            @RequestParam(required = false) Long asignaturaId) {
+            @RequestParam(required = false) Long asignaturaId,
+            @RequestParam(required = false) Long docenteId) {
         List<AsignaturaCurso> relaciones;
         if (cursoId != null) {
             relaciones = asignaturaCursoService.listarPorCurso(cursoId);
         } else if (asignaturaId != null) {
             relaciones = asignaturaCursoService.listarPorAsignatura(asignaturaId);
+        } else if (docenteId != null) {
+            relaciones = asignaturaCursoService.listarPorDocente(docenteId);
         } else {
             relaciones = asignaturaCursoService.listar();
         }
@@ -64,6 +69,15 @@ public class AsignaturaCursoController {
         AsignaturaCurso creada = asignaturaCursoService.crear(
                 asignaturaCursoMapper.toEntity(request));
         return asignaturaCursoMapper.toResponse(creada);
+    }
+
+    @PutMapping("/{id}")
+    public AsignaturaCursoResponse actualizarDocente(
+            @PathVariable Long id,
+            @Valid @RequestBody AsignaturaCursoUpdateRequest request) {
+        AsignaturaCurso actualizada = asignaturaCursoService.actualizarDocente(
+                id, request.docenteId());
+        return asignaturaCursoMapper.toResponse(actualizada);
     }
 
     @DeleteMapping("/{id}")

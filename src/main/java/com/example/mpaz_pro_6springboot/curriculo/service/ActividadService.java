@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.MaterialAccessPolicy;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.model.Contenido;
@@ -36,6 +37,7 @@ public class ActividadService {
     private final TipoActividadRepository tipoActividadRepository;
     private final ContenidoRepository contenidoRepository;
     private final EstadoAutorizacionRepository estadoAutorizacionRepository;
+    private final MaterialAccessPolicy materialAccessPolicy;
 
     public List<Actividad> listar() {
         return actividadRepository.findAll();
@@ -65,6 +67,7 @@ public class ActividadService {
         String instrucciones = Validaciones.textoObligatorio(datos.getInstrucciones(), "instrucciones");
         TipoActividad tipo = resolverTipoActividad(datos.getTipoActividad());
         Contenido contenido = resolverContenido(datos.getContenido());
+        materialAccessPolicy.requirePuedeGestionarContenido(contenido);
         EstadoAutorizacion estado = resolverEstado(datos.getEstado());
 
         datos.setId(null);
@@ -79,6 +82,7 @@ public class ActividadService {
     public Actividad actualizar(Long id, Actividad datos) {
         Validaciones.requerido(datos, "actividad");
         Actividad actividad = obtener(id);
+        materialAccessPolicy.requirePuedeGestionarActividad(actividad);
 
         if (datos.getInstrucciones() != null) {
             actividad.setInstrucciones(
@@ -88,7 +92,9 @@ public class ActividadService {
             actividad.setTipoActividad(resolverTipoActividad(datos.getTipoActividad()));
         }
         if (datos.getContenido() != null) {
-            actividad.setContenido(resolverContenido(datos.getContenido()));
+            Contenido nuevoContenido = resolverContenido(datos.getContenido());
+            materialAccessPolicy.requirePuedeGestionarContenido(nuevoContenido);
+            actividad.setContenido(nuevoContenido);
         }
         if (datos.getEstado() != null) {
             actividad.setEstado(resolverEstado(datos.getEstado()));

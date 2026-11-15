@@ -16,4 +16,6 @@ public interface UsuarioCursoRepository extends JpaRepository<UsuarioCurso, Long
     List<UsuarioCurso> findAllByCursoId(Long cursoId);
 
     boolean existsByUsuarioIdAndCursoId(Long usuarioId, Long cursoId);
+
+    java.util.Optional<UsuarioCurso> findByUsuarioIdAndCursoId(Long usuarioId, Long cursoId);
 }

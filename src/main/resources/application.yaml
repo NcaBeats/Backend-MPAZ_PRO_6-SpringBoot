@@ -25,14 +25,27 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# Autenticacion JWT. El secreto debe sobrescribirse en un entorno real.
+mpaz:
+  auth:
+    jwt:
+      secret: "${MPAZ_JWT_SECRET:mpaz-pro-6-demo-jwt-secret-change-me-0123456789abcdef}"
+      expiration-seconds: 3600
+
 server:
   port: ${SERVER_PORT:8080}
+  error:
+    # La app Android usa el mensaje; nunca exponer stack traces al cliente.
+    include-message: always
+    include-stacktrace: never
 
 logging:
   level:

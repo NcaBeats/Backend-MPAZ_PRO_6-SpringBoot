@@ -34,6 +34,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mpaz}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mpaz}
       SERVER_PORT: 8080
+      MPAZ_JWT_SECRET: ${MPAZ_JWT_SECRET:-mpaz-pro-6-demo-jwt-secret-change-me-0123456789abcdef}
     ports:
       - "${APP_PORT:-8080}:8080"
 

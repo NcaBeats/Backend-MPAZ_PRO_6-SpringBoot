@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.ReportAccessPolicy;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.repository.ObjetivoAprendizajeRepository;
@@ -35,19 +36,33 @@ public class DetalleInformePedagogicoService {
     private final InformePedagogicoRepository informePedagogicoRepository;
     private final ObjetivoAprendizajeRepository objetivoAprendizajeRepository;
     private final ObjetivoAprendizajeUnidadRepository objetivoAprendizajeUnidadRepository;
+    private final ReportAccessPolicy reportAccessPolicy;
 
     public List<DetalleInformePedagogico> listarPorInforme(Long informePedagogicoId) {
+        InformePedagogico informe = informePedagogicoRepository.findById(informePedagogicoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "InformePedagogico", informePedagogicoId));
+        reportAccessPolicy.requirePuedeVerEstudiante(
+                informe.getUsuario().getId(), "detalles de informe");
         return detalleRepository.findAllByInformePedagogicoId(informePedagogicoId);
     }
 
     public List<DetalleInformePedagogico> listarPorObjetivo(Long objetivoAprendizajeId) {
-        return detalleRepository.findAllByObjetivoAprendizajeId(objetivoAprendizajeId);
+        return detalleRepository.findAllByObjetivoAprendizajeId(objetivoAprendizajeId)
+                .stream()
+                .filter(detalle -> reportAccessPolicy.puedeVerEstudiante(
+                        detalle.getInformePedagogico().getUsuario().getId()))
+                .toList();
     }
 
     public DetalleInformePedagogico obtener(Long id) {
-        return detalleRepository.findById(id)
+        DetalleInformePedagogico detalle = detalleRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "DetalleInformePedagogico", id));
+        reportAccessPolicy.requirePuedeVerEstudiante(
+                detalle.getInformePedagogico().getUsuario().getId(),
+                "detalles de informe");
+        return detalle;
     }
 
     @Transactional

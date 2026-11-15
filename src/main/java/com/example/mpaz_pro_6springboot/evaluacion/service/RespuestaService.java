@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Alternativa;
 import com.example.mpaz_pro_6springboot.curriculo.model.Pregunta;
@@ -41,24 +42,31 @@ public class RespuestaService {
     private final AlternativaPreguntaRepository alternativaPreguntaRepository;
 
     public List<Respuesta> listar() {
-        return respuestaRepository.findAll();
+        List<Respuesta> respuestas = respuestaRepository.findAll();
+        return filtrarSiEsEstudiante(respuestas);
     }
 
     public List<Respuesta> listarPorIntento(Long intentoId) {
+        validarIntentoPropio(intentoId);
         return respuestaRepository.findAllByIntentoId(intentoId);
     }
 
     public List<Respuesta> listarPorPregunta(Long preguntaId) {
-        return respuestaRepository.findAllByPreguntaId(preguntaId);
+        List<Respuesta> respuestas = respuestaRepository.findAllByPreguntaId(preguntaId);
+        return filtrarSiEsEstudiante(respuestas);
     }
 
     public List<Respuesta> listarPorIntentoYPregunta(Long intentoId, Long preguntaId) {
+        validarIntentoPropio(intentoId);
         return respuestaRepository.findAllByIntentoIdAndPreguntaId(intentoId, preguntaId);
     }
 
     public Respuesta obtener(Long id) {
-        return respuestaRepository.findById(id)
+        Respuesta respuesta = respuestaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Respuesta", id));
+        SecurityUtils.requireEstudiantePropietario(
+                respuesta.getIntento().getUsuario().getId(), "respuestas");
+        return respuesta;
     }
 
     @Transactional
@@ -66,6 +74,8 @@ public class RespuestaService {
         Validaciones.requerido(datos, "respuesta");
 
         Intento intento = resolverIntento(datos.getIntento());
+        SecurityUtils.requireEstudiantePropietario(
+                intento.getUsuario().getId(), "respuestas");
         Pregunta pregunta = resolverPregunta(datos.getPregunta());
         Alternativa alternativa = resolverAlternativa(datos.getAlternativa());
 
@@ -107,6 +117,24 @@ public class RespuestaService {
         }
         return intentoRepository.findById(intento.getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Intento", intento.getId()));
+    }
+
+    private void validarIntentoPropio(Long intentoId) {
+        Intento intento = intentoRepository.findById(intentoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Intento", intentoId));
+        SecurityUtils.requireEstudiantePropietario(
+                intento.getUsuario().getId(), "respuestas");
+    }
+
+    private List<Respuesta> filtrarSiEsEstudiante(List<Respuesta> respuestas) {
+        if (!SecurityUtils.isEstudiante()) {
+            return respuestas;
+        }
+        Long usuarioId = SecurityUtils.requireUsuario().getId();
+        return respuestas.stream()
+                .filter(respuesta -> usuarioId.equals(
+                        respuesta.getIntento().getUsuario().getId()))
+                .toList();
     }
 
     private Pregunta resolverPregunta(Pregunta pregunta) {

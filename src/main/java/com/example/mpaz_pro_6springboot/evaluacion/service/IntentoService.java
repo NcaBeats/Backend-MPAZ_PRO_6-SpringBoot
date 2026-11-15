@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.docencia.model.ActividadCurso;
 import com.example.mpaz_pro_6springboot.docencia.repository.ActividadCursoRepository;
@@ -34,40 +35,56 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class IntentoService {
 
+    /** Id del estado AUTORIZADO en el catalogo sembrado. */
+    private static final Long ESTADO_AUTORIZADO = 3L;
+
     private final IntentoRepository intentoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ActividadCursoRepository actividadCursoRepository;
     private final UsuarioCursoRepository usuarioCursoRepository;
 
     public List<Intento> listar() {
+        if (SecurityUtils.isEstudiante()) {
+            return intentoRepository.findAllByUsuarioId(
+                    SecurityUtils.requireUsuario().getId());
+        }
         return intentoRepository.findAll();
     }
 
     public List<Intento> listarPorUsuario(Long usuarioId) {
+        SecurityUtils.requireEstudiantePropietario(usuarioId, "intentos");
         return intentoRepository.findAllByUsuarioId(usuarioId);
     }
 
     public List<Intento> listarPorActividad(Long actividadId) {
-        return intentoRepository.findAllByActividadCursoActividadId(actividadId);
+        List<Intento> intentos =
+                intentoRepository.findAllByActividadCursoActividadId(actividadId);
+        return filtrarSiEsEstudiante(intentos);
     }
 
     public List<Intento> listarPorActividadCurso(Long actividadCursoId) {
-        return intentoRepository.findAllByActividadCursoId(actividadCursoId);
+        List<Intento> intentos = intentoRepository.findAllByActividadCursoId(actividadCursoId);
+        return filtrarSiEsEstudiante(intentos);
     }
 
     public List<Intento> listarPorUsuarioYActividad(Long usuarioId, Long actividadId) {
+        SecurityUtils.requireEstudiantePropietario(usuarioId, "intentos");
         return intentoRepository.findAllByUsuarioIdAndActividadCursoActividadId(
                 usuarioId, actividadId);
     }
 
     public List<Intento> listarPorUsuarioYActividadCurso(Long usuarioId, Long actividadCursoId) {
+        SecurityUtils.requireEstudiantePropietario(usuarioId, "intentos");
         return intentoRepository.findAllByUsuarioIdAndActividadCursoId(
                 usuarioId, actividadCursoId);
     }
 
     public Intento obtener(Long id) {
-        return intentoRepository.findById(id)
+        Intento intento = intentoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Intento", id));
+        SecurityUtils.requireEstudiantePropietario(
+                intento.getUsuario().getId(), "intentos");
+        return intento;
     }
 
     public long contarPorUsuarioYActividadCurso(Long usuarioId, Long actividadCursoId) {
@@ -79,6 +96,9 @@ public class IntentoService {
     public Intento crear(Intento datos) {
         Validaciones.requerido(datos, "intento");
 
+        if (SecurityUtils.isEstudiante()) {
+            datos.setUsuario(SecurityUtils.requireUsuario());
+        }
         Usuario usuario = resolverUsuario(datos.getUsuario());
         ActividadCurso asignacion = resolverActividadCurso(datos.getActividadCurso());
 
@@ -121,9 +141,30 @@ public class IntentoService {
         }
     }
 
+    private List<Intento> filtrarSiEsEstudiante(List<Intento> intentos) {
+        if (!SecurityUtils.isEstudiante()) {
+            return intentos;
+        }
+        Long usuarioId = SecurityUtils.requireUsuario().getId();
+        return intentos.stream()
+                .filter(intento -> usuarioId.equals(intento.getUsuario().getId()))
+                .toList();
+    }
+
     private void validarDisponible(ActividadCurso asignacion, Instant momento) {
         if (!asignacion.isHabilitada()) {
             throw new ReglaNegocioException("La actividad no esta habilitada en el curso");
+        }
+        if (SecurityUtils.isEstudiante()) {
+            var unidad = asignacion.getActividad() != null
+                    && asignacion.getActividad().getContenido() != null
+                    ? asignacion.getActividad().getContenido().getUnidad()
+                    : null;
+            if (unidad == null || unidad.getEstado() == null
+                    || !ESTADO_AUTORIZADO.equals(unidad.getEstado().getId())) {
+                throw new ReglaNegocioException(
+                        "La actividad no esta disponible para estudiantes");
+            }
         }
         if (asignacion.getFechaInicio() != null && momento.isBefore(asignacion.getFechaInicio())) {
             throw new ReglaNegocioException("La actividad aun no comienza");

@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.MaterialAccessPolicy;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Contenido;
 import com.example.mpaz_pro_6springboot.curriculo.model.Recurso;
@@ -28,6 +29,7 @@ public class RecursoService {
     private final RecursoRepository recursoRepository;
     private final ContenidoRepository contenidoRepository;
     private final TipoRecursoRepository tipoRecursoRepository;
+    private final MaterialAccessPolicy materialAccessPolicy;
 
     public List<Recurso> listar() {
         return recursoRepository.findAll();
@@ -56,6 +58,7 @@ public class RecursoService {
         Validaciones.requerido(datos, "recurso");
 
         Contenido contenido = resolverContenido(datos.getContenido());
+        materialAccessPolicy.requirePuedeGestionarContenido(contenido);
         TipoRecurso tipo = resolverTipoRecurso(datos.getTipoRecurso());
 
         datos.setId(null);
@@ -71,6 +74,7 @@ public class RecursoService {
     public Recurso actualizar(Long id, Recurso datos) {
         Validaciones.requerido(datos, "recurso");
         Recurso recurso = obtener(id);
+        materialAccessPolicy.requirePuedeGestionarRecurso(recurso);
 
         if (datos.getNombre() != null) {
             recurso.setNombre(Validaciones.textoObligatorio(datos.getNombre(), "nombre"));
@@ -82,7 +86,9 @@ public class RecursoService {
             recurso.setDescripcion(Validaciones.textoOpcional(datos.getDescripcion()));
         }
         if (datos.getContenido() != null) {
-            recurso.setContenido(resolverContenido(datos.getContenido()));
+            Contenido nuevoContenido = resolverContenido(datos.getContenido());
+            materialAccessPolicy.requirePuedeGestionarContenido(nuevoContenido);
+            recurso.setContenido(nuevoContenido);
         }
         if (datos.getTipoRecurso() != null) {
             recurso.setTipoRecurso(resolverTipoRecurso(datos.getTipoRecurso()));
@@ -92,7 +98,9 @@ public class RecursoService {
 
     @Transactional
     public void eliminar(Long id) {
-        recursoRepository.delete(obtener(id));
+        Recurso recurso = obtener(id);
+        materialAccessPolicy.requirePuedeGestionarRecurso(recurso);
+        recursoRepository.delete(recurso);
     }
 
     private Contenido resolverContenido(Contenido contenido) {

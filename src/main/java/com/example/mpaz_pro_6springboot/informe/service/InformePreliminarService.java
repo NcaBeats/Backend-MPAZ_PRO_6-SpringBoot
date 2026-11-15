@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
 import com.example.mpaz_pro_6springboot.common.mapper.ResumenMapper;
+import com.example.mpaz_pro_6springboot.common.security.ReportAccessPolicy;
 import com.example.mpaz_pro_6springboot.curriculo.model.ObjetivoAprendizaje;
 import com.example.mpaz_pro_6springboot.curriculo.model.ObjetivoAprendizajeContenido;
 import com.example.mpaz_pro_6springboot.curriculo.model.PreguntaActividad;
@@ -60,6 +61,7 @@ public class InformePreliminarService {
     private final ResumenMapper resumenMapper;
     private final InformePedagogicoMapper informePedagogicoMapper;
     private final DetalleInformePedagogicoMapper detalleInformePedagogicoMapper;
+    private final ReportAccessPolicy reportAccessPolicy;
 
     /**
      * Devuelve el consolidado sin persistirlo. El {@code fechaCorte} de la
@@ -69,6 +71,7 @@ public class InformePreliminarService {
      */
     public InformePreliminarResponse previsualizar(
             Long usuarioId, Long unidadId, Instant fechaCorte) {
+        reportAccessPolicy.requirePuedeVerEstudiante(usuarioId, "informes");
         Instant corte = normalizarFechaCorte(fechaCorte);
         return aRespuesta(calcular(usuarioId, unidadId, corte));
     }
@@ -80,6 +83,7 @@ public class InformePreliminarService {
     @Transactional
     public InformePedagogicoDetalladoResponse generarDesdeResultados(
             GenerarInformeRequest request) {
+        reportAccessPolicy.requirePuedeVerEstudiante(request.usuarioId(), "informes");
         Instant corte = normalizarFechaCorte(request.fechaCorte());
         ResultadoCalculo resultado = calcular(request.usuarioId(), request.unidadId(), corte);
 

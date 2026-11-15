@@ -15,5 +15,11 @@ public interface AsignaturaCursoRepository extends JpaRepository<AsignaturaCurso
 
     List<AsignaturaCurso> findAllByAsignaturaId(Long asignaturaId);
 
+    List<AsignaturaCurso> findAllByDocenteId(Long docenteId);
+
+    boolean existsByCursoIdAndDocenteId(Long cursoId, Long docenteId);
+
+    long countByDocenteIdAndCursoId(Long docenteId, Long cursoId);
+
     boolean existsByCursoIdAndAsignaturaId(Long cursoId, Long asignaturaId);
 }

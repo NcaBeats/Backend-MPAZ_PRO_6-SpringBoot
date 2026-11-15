@@ -3,12 +3,15 @@ package com.example.mpaz_pro_6springboot.docencia.service;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.mpaz_pro_6springboot.common.exception.ConflictoException;
 import com.example.mpaz_pro_6springboot.common.exception.RecursoNoEncontradoException;
 import com.example.mpaz_pro_6springboot.common.exception.ReglaNegocioException;
+import com.example.mpaz_pro_6springboot.common.security.SecurityUtils;
 import com.example.mpaz_pro_6springboot.common.util.Validaciones;
 import com.example.mpaz_pro_6springboot.curriculo.model.Actividad;
 import com.example.mpaz_pro_6springboot.curriculo.repository.ActividadRepository;
@@ -32,26 +35,35 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ActividadCursoService {
 
+    /** Id del estado AUTORIZADO en el catalogo sembrado. */
+    private static final Long ESTADO_AUTORIZADO = 3L;
+
     private final ActividadCursoRepository actividadCursoRepository;
     private final ActividadRepository actividadRepository;
     private final CursoRepository cursoRepository;
     private final AsignaturaCursoRepository asignaturaCursoRepository;
 
     public List<ActividadCurso> listar() {
-        return actividadCursoRepository.findAll();
+        return filtrarParaEstudiante(actividadCursoRepository.findAll());
     }
 
     public List<ActividadCurso> listarPorCurso(Long cursoId) {
-        return actividadCursoRepository.findAllByCursoId(cursoId);
+        return filtrarParaEstudiante(actividadCursoRepository.findAllByCursoId(cursoId));
     }
 
     public List<ActividadCurso> listarPorActividad(Long actividadId) {
-        return actividadCursoRepository.findAllByActividadId(actividadId);
+        return filtrarParaEstudiante(actividadCursoRepository.findAllByActividadId(actividadId));
     }
 
     public ActividadCurso obtener(Long id) {
-        return actividadCursoRepository.findById(id)
+        ActividadCurso asignacion = actividadCursoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("ActividadCurso", id));
+        if (!esVisibleParaEstudiante(asignacion)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "La actividad no esta disponible para estudiantes");
+        }
+        return asignacion;
     }
 
     @Transactional
@@ -163,5 +175,30 @@ public class ActividadCursoService {
         }
         return cursoRepository.findById(curso.getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Curso", curso.getId()));
+    }
+
+    private List<ActividadCurso> filtrarParaEstudiante(List<ActividadCurso> asignaciones) {
+        if (!SecurityUtils.isEstudiante()) {
+            return asignaciones;
+        }
+        return asignaciones.stream()
+                .filter(this::esVisibleParaEstudiante)
+                .toList();
+    }
+
+    private boolean esVisibleParaEstudiante(ActividadCurso asignacion) {
+        if (!SecurityUtils.isEstudiante()) {
+            return true;
+        }
+        if (!asignacion.isHabilitada() || !asignacion.isVisible()) {
+            return false;
+        }
+        if (asignacion.getActividad() == null
+                || asignacion.getActividad().getContenido() == null
+                || asignacion.getActividad().getContenido().getUnidad() == null) {
+            return false;
+        }
+        var estado = asignacion.getActividad().getContenido().getUnidad().getEstado();
+        return estado != null && ESTADO_AUTORIZADO.equals(estado.getId());
     }
 }
