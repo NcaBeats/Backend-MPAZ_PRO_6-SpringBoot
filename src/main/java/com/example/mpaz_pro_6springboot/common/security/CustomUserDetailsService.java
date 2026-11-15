@@ -1,6 +1,7 @@
 package com.example.mpaz_pro_6springboot.common.security;
 
-import com.example.mpaz_pro_6springboot.identidad.usuario.repository.UsuarioRepository;
+import com.example.mpaz_pro_6springboot.identidad.model.Usuario;
+import com.example.mpaz_pro_6springboot.identidad.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -17,8 +18,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var usuario = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+        Usuario usuario = usuarioRepository.findByNombreUsuario(username)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Usuario no encontrado: " + username));
         return new CustomUserDetails(usuario);
     }
 }

@@ -1,0 +1,20 @@
+# Build de Maven
+target/
+
+# Control de versiones e IDE
+.git/
+.idea/
+.vscode/
+*.iml
+
+# Secretos y datos locales
+.env
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Documentacion / fuente del modelo (no se necesita en la imagen)
+*.md
+mpaz_modelo_refactorizado_oracle.sql

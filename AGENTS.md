@@ -1,47 +1,435 @@
-# AGENTS.md — MPAZ PRO 6° (Spring Boot)
+# AGENTS.md — MPAZ PRO 6° (Spring Boot + PostgreSQL)
 
-## Source of truth
-- Authoritative model: `especificaciones/mpaz_pro_modelo_definitivo.md` (12 decisions, composite FKs, CHECKs, partial index, seed, section-8 rules, PostgreSQL annex). The older `1-modelado.md` and `mpaz_pro_v4_lean.md` drafts were removed; they remain only in git history. HTTP contract: `especificaciones/2-Endpoints.md`.
-- DB schema is owned by Flyway: `src/main/resources/db/migration/V1__esquema.sql` (PostgreSQL). `spring.jpa.hibernate.ddl-auto=validate` — never `update`.
-- Demo data lives in Java: `common/seed/DataInitializer.java` (runs once on startup, idempotent). There is no seed migration. Never edit an applied migration; add `V2__...`.
+Guía operativa para futuras sesiones. Léela antes de tocar código, migraciones o Docker.
 
-## Run / verify
-- PostgreSQL local: `docker compose up -d` (image `postgres:17-alpine`, volume `mpaz-postgres-data`). Stop with `docker compose stop`; reset with `docker compose down -v`.
-- App: `./mvnw spring-boot:run` (Linux/macOS) or `.\mvnw.cmd spring-boot:run` (Windows PowerShell). On first start Flyway applies `V1__esquema.sql` and `DataInitializer` loads the demo data. There is no SQLite file.
-- Reset the data: stop the app, run `docker compose down -v`, run `docker compose up -d`, start the app again.
-- Compile: `./mvnw -q clean compile -DskipTests`. Tests: `./mvnw test` (42 tests, Testcontainers PostgreSQL 17, Docker must be running).
-- Port 8080 busy: Linux `ss -ltnp | grep :8080` + `kill <pid>`; Windows `netstat -ano | Select-String ':8080'` + `taskkill /PID <pid> /F`.
-- Devtools restarts on `target/classes` changes, not on `src` edits. A killed run surfaces as Maven `BUILD FAILURE / exit code 1` — check the boot log tail before assuming a real error.
-- If Docker is unavailable, the committed Testcontainers suite cannot run. Do not replace it with H2; a local PostgreSQL can be used only for temporary verification. Docker is required for the real test run.
+## 1. Estado actual
 
-## Env (single `.env`, see `.env.example`)
-- Vars: `POSTGRES_DB` (default `mpaz`), `POSTGRES_USER` (`mpaz`), `POSTGRES_PASSWORD` (`mpaz`), `POSTGRES_HOST` (`localhost`), `POSTGRES_PORT` (`5432`), `SERVER_PORT` (`8080`). No SQLite vars.
-- `application.yaml` uses `${VAR:default}`. Spring does NOT load `.env` by itself — `spring.config.import: optional:file:.env[.properties]` bridges it. Vars apply at startup only; restart to pick up changes. `.env` is gitignored.
-- `mpaz.seed.enabled` (default `true`) is a fixed behavior flag in `application.yaml`, not an env var: set it to `false` to start with an empty database.
+- Proyecto en refactor completo sobre un modelo de datos nuevo (27 tablas).
+- Rama de trabajo: `feature/refactor-jwt` (local, sin merge a `main`).
+- **Autenticacion implementada**: JWT HS256 stateless (`/api/auth/login`, `/api/auth/me`, `/api/auth/logout`), `SecurityConfig` por rol y ownership basico en servicios.
+- **Seed implementado** en `V6__seed_demo.sql` y contenidos completos en
+  `V7__seed_contenido_largo.sql`: roles, usuarios, catalogos, cursos, unidades,
+  contenidos, actividades, preguntas, alternativas, un intento y un informe de ejemplo.
+- **Tests implementados**: `JwtServiceTest`, `SeedPasswordTest` y `MobileContractIntegrationTest` (PostgreSQL embebido, sin Docker).
+- **Ya existen las 27 entidades JPA** de la capa `model`, organizadas por feature:
+  - `identidad/model`: `Usuario`, `Rol`, `Curso`, `Nivel`, `Seccion`.
+  - `curriculo/model`: `Asignatura`, `Unidad`, `ObjetivoAprendizaje`,
+    `ObjetivoAprendizajeUnidad`, `Contenido`, `ObjetivoAprendizajeContenido`,
+    `Recurso`, `Actividad`, `Pregunta`, `Alternativa`, `AlternativaPregunta`,
+    `PreguntaActividad`, `EstadoAutorizacion`, `TipoActividad`, `TipoRecurso`.
+  - `docencia/model`: `AsignaturaCurso`, `UsuarioCurso`, `ActividadCurso`.
+  - `evaluacion/model`: `Intento`, `Respuesta`.
+  - `informe/model`: `InformePedagogico`, `DetalleInformePedagogico`.
+- Las entidades usan solo el lado propietario de las relaciones (`@ManyToOne`),
+  sin colecciones bidireccionales, para evitar ciclos y cargas accidentales.
+- **Ya existe la capa `repository`**: 27 interfaces `JpaRepository<Entidad, Long>` en
+  `<feature>/repository`, con consultas derivadas para los accesos principales.
+- **Ya existe la capa `service`**: 27 clases `@Service` en `<feature>/service`, con
+  transacciones y reglas de negocio; por ahora devuelven y reciben entidades.
+- **Ya existe la capa `dto` + `mapper`**: 27 `Request`, 19 `UpdateRequest`,
+  27 `Response`, 19 `Resumen` y 27 mappers MapStruct, más `ResumenMapper` y
+  `EntityRefMapper` en `common/mapper`. Documentada en `specs/2_dtos.md`.
+- **Ya existe la capa `controller`**: 27 controladores REST en
+  `<feature>/controller` bajo `/api/...`, con `@Valid` y transacción a nivel de
+  clase (por `open-in-view: false`). Ver `specs/2_dtos.md` §9.
+- **Ya existe el manejo global de errores**: `common/exception/GlobalExceptionHandler`
+  (`@RestControllerAdvice`) + `ApiError` con `400`/`404`/`409` y detalle por campo.
+- **Ya existe el informe preliminar por unidad**:
+  `GET /api/informes-pedagogicos/preliminar` calcula el desempeño por OA desde el
+  último intento cerrado de cada actividad, y
+  `POST /api/informes-pedagogicos/desde-resultados` persiste el informe con sus
+  conteos como snapshot (`fecha_corte` + `origen = AUTOMATICO`). Ver
+  `specs/4_informe_pedagogico_preliminar.md`.
+- **Ya existe** autenticacion JWT y datos seed; el modo local del mobile puede
+  sincronizar catalogo, intentos, respuestas e informes contra estos endpoints.
+- El esquema se aplica con Flyway y ya fue validado contra PostgreSQL 17:
+  - 27 tablas
+  - 38 claves foráneas
+  - 19 restricciones `UNIQUE`
+- Reglas de negocio ya reflejadas en el esquema:
+  - Un OA puede pertenecer a varias unidades (currículum en espiral) mediante
+    `objetivo_aprendizaje_unidad`.
+  - Un contenido pertenece a una única unidad (`contenido.unidad_id`) y esa
+    unidad es inmutable (trigger).
+  - El informe pedagógico se emite en el contexto de una unidad
+    (`informe_pedagogico.unidad_id`).
+  - Una asignatura pertenece a un nivel (`asignatura.nivel_id`) y su nombre es
+    único dentro de ese nivel.
+  - La actividad es una plantilla; `actividad_curso` guarda su configuración por
+    curso y el intento se registra contra esa asignación.
+- El modelo anterior (SQLite, 17 tablas, enums, asignaciones) fue descartado. No lo reintroduzcas.
 
-## Encoding (build breaker)
-- Files MUST be UTF-8 **without BOM**. `javac` fails on BOM (`illegal character: '\ufeff'` — seen in `DetalleInformeOa.java`), and a BOM in `.env` breaks the first key. When writing files, always use UTF-8 no-BOM; avoid accented chars in `.env*`/scripts.
-- PowerShell 5.1 `Set-Content -Encoding utf8` and `Get-Content`/`Set-Content` round-trips write BOM and can mangle UTF-8: use `[System.IO.File]::WriteAllText(path, text, New-Object System.Text.UTF8Encoding($false))`.
+## 2. Fuentes de verdad
 
-## PostgreSQL specifics (verified in tree)
-- JDBC URL: `jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mpaz}`. PostgreSQL enforces FKs always; there is no per-connection `PRAGMA foreign_keys`.
-- IDs: `bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY` (the seed does not set ids; they come out as 1..N). Booleans are real `boolean`; instants are `timestamptz` (Hibernate maps `Instant` to `TIMESTAMP_UTC`); `varchar(n)` is enforced.
-- The 7 composite FKs are declared inline inside `CREATE TABLE`; PostgreSQL also supports `ALTER TABLE ... ADD CONSTRAINT` for future migrations. They require `UNIQUE (id, unidad_id)` on `objetivo_aprendizaje` and `actividad`, plus `UNIQUE (pregunta_id, id)` on `alternativa`; all are declared in `V1__esquema.sql`.
-- Partial index `ux_actividad_prueba_final_por_unidad ... WHERE tipo = 'PRUEBA_FINAL'` is supported.
-- `ddl-auto: validate` works with the explicit PostgreSQL types. Flyway also uses `baseline-on-migrate: true`.
-- Hikari uses its default pool; do not set `maximum-pool-size: 1` (that was SQLite-specific).
-- Tests: `PostgresIntegrationTest` starts one static `postgres:17-alpine` Testcontainer via `@ServiceConnection`; Spring contexts share it. A Docker daemon is required.
+| Fuente | Uso |
+|---|---|
+| `mpaz_modelo_refactorizado_oracle.sql` | DDL de referencia del modelo (Oracle 21c) |
+| `src/main/resources/db/migration/V1__init.sql` | Esquema inicial en PostgreSQL (no se edita) |
+| `src/main/resources/db/migration/V2__oa_unidad_contenido_informe.sql` | OA multi-unidad, contenido por unidad e informe por unidad |
+| `src/main/resources/db/migration/V3__actividad_curso_y_nivel_asignatura.sql` | Nivel en asignatura y actividad por curso |
+| `src/main/resources/db/migration/V4__asignatura_curso_docente.sql` | Docente responsable opcional por asignatura y curso |
+| `src/main/resources/db/migration/V5__informe_pedagogico_fecha_corte.sql` | Corte temporal y origen del informe pedagógico |
+| `specs/1.relaciones_modelo_mpaz.md` | Relaciones, cardinalidades y restricciones |
+| `specs/4_informe_pedagogico_preliminar.md` | Flujo de informe preliminar y snapshot por unidad |
+| `README.md` | Puesta en marcha y variables de entorno |
+| `compose.yaml` / `Dockerfile` | Infraestructura local |
 
-## Code conventions (verified in tree)
-- Feature packages: `common | identidad | curriculo | docencia | evaluacion | informe`, each with `model / repository / dto/{request,response} / mapper` (+ `service` where implemented). Rules for the next phase are in spec section 8.
-- Entities: no `@Data`; Lombok `@Getter @Setter @Builder @AllArgsConstructor @NoArgsConstructor(PROTECTED)`, `@EqualsAndHashCode(onlyExplicitlyIncluded=true)`, `@ToString(exclude={...})` on lazy relations. Enums always `@Enumerated(STRING)`. Composite PKs via `@EmbeddedId` + `@Embeddable` (`AsignacionOaId`, `AsignacionActividadId`).
-- DTOs are `record`s with Bean Validation; Update DTOs all-optional + `nullValuePropertyMappingStrategy = IGNORE`.
-- Mappers: MapStruct `componentModel="spring"`, `unmappedTargetPolicy=IGNORE`; never resolve relations in mappers — Service uses `getReferenceById`. Annotation processor order in `pom.xml` (Lombok → mapstruct-processor → lombok-mapstruct-binding) matters; if impls are missing, run `./mvnw compile`.
-- Repositories (17, all audited): single-result queries return `Optional`, collections return `List` (never `Optional<List>`), existence `boolean`, counts `long`. `findById` already returns `Optional`. Use derived queries for "first/last" (`findFirst...OrderBy...Desc`).
-- Seed (`DataInitializer`): fake data only, BCrypt hashes generated at startup, idempotent (`usuarioRepository.count() > 0` skips it). It inserts through repositories because it represents an already-consistent state (completed attempts + frozen report snapshot). `detalle_informe_oa` snapshot must match the "last completed attempt per activity" recalculation, and `es_correcta` must match the chosen alternative.
-- Reports security: `common/security/InformeAccessPolicy` scopes students to their own reports; report writes require `DOCENTE`/`UTP`; `/api/informes-pedagogicos/**` is authenticated. `InformePedagogicoResponse` includes student/unit/subject/teacher names; `DetalleInformeOaResponse` includes OA code/description/eje. `InformePedagogicoService.generar` re-fetches the saved report with the repository `@EntityGraph`; `UnidadRepository.findById` fetches `asignatura` to avoid lazy-loading in the mapper.
-- Access control: auth is HTTP Basic stateless (no JWT). `common/security/SecurityConfig` holds the route matrix: public = login/health/Swagger; catalog writes = `UTP`; `/api/asignaciones/**` writes = `DOCENTE`/`UTP`; intento/response writes = `ESTUDIANTE`; report writes = `DOCENTE`/`UTP`; `anyRequest().authenticated()`. Ownership is enforced in Services via `InformeAccessPolicy` and `EvaluacionAccessPolicy` (a student only sees their own reports, attempts and answers). When adding a controller, it is authenticated by default; declare any broader rule explicitly.
-- Pending spec rule 5: student-facing catalog reads are not yet filtered by course/state, and `AlternativaResponse.esCorrecta` / `PreguntaResponse.criterioRespuesta` are still exposed to students.
+Regla de autoridad: **lo que corre es el conjunto de migraciones Flyway**. Si el DDL
+Oracle y las migraciones difieren, las migraciones mandan para el código, pero la
+diferencia debe corregirse en ambos lados y documentarse en `specs/`.
 
-## Stack
-Java 25 · Spring Boot 4.1.1 · PostgreSQL 17 (Docker Compose) · Testcontainers 2.0.5 · Flyway · MapStruct 1.6.3 · Lombok · springdoc-openapi 3.1.0 (`/swagger-ui.html`) · Maven Wrapper.
+## 3. Stack
+
+- Java 25
+- Spring Boot 4.1.1
+- Spring Data JPA / WebMVC / Validation / Security
+- PostgreSQL 17
+- Flyway (con `flyway-database-postgresql`)
+- MapStruct 1.6.3
+- Lombok
+- springdoc-openapi 3.1.0 (`/swagger-ui.html`)
+- Maven Wrapper 3.9.16
+
+## 4. Comandos (Windows / PowerShell)
+
+### Docker
+
+```powershell
+copy .env.example .env
+docker compose up -d --build          # app + postgres
+docker compose up -d db               # solo postgres
+docker compose ps
+docker compose logs -f app
+docker compose down                   # conserva el volumen
+docker compose down -v                # borra la BD y reinicia desde cero
+docker compose config                 # valida el compose
+docker compose build app              # solo la imagen de la app
+```
+
+Si Docker no responde, abrir Docker Desktop (o iniciar el servicio `com.docker.service`).
+
+### Desarrollo local
+
+```powershell
+docker compose up -d db
+.\mvnw.cmd spring-boot:run
+```
+
+La app lee `.env` con `spring.config.import: optional:file:.env[.properties]`.
+En local `DB_HOST=localhost`; dentro de compose se sobreescribe a `db`.
+
+### Base de datos
+
+```powershell
+docker compose exec db psql -U mpaz -d mpaz
+docker compose exec db psql -U mpaz -d mpaz -c "\dt"
+docker compose exec db psql -U mpaz -d mpaz -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+```
+
+### Build y tests
+
+```powershell
+.\mvnw.cmd clean package -DskipTests
+.\mvnw.cmd test
+```
+
+Hay tests unitarios de JWT/seed y un test de contrato con PostgreSQL embebido
+(`MobileContractIntegrationTest`) que no requiere Docker. Para tests con
+Testcontainers se necesita el daemon de Docker.
+
+## 5. Variables de entorno
+
+Solo se versiona `.env.example`; `.env` está en `.gitignore`.
+
+| Variable | Default | Uso |
+|---|---|---|
+| `POSTGRES_DB` | `mpaz` | Nombre de la base |
+| `POSTGRES_USER` | `mpaz` | Usuario |
+| `POSTGRES_PASSWORD` | `mpaz` | Password |
+| `POSTGRES_PORT` | `5432` | Puerto del host para Postgres |
+| `DB_HOST` | `localhost` | Host de la BD (`db` en compose) |
+| `SERVER_PORT` | `8080` | Puerto interno de Spring Boot |
+| `APP_PORT` | `8080` | Puerto del host para la app en compose |
+| `MPAZ_JWT_SECRET` | secreto de demo | Firma HS256 de los JWT |
+
+No agregues `SPRING_*` duplicados al `.env`; usa las variables de arriba.
+Los cambios de `.env` requieren recrear contenedores:
+
+```powershell
+docker compose up -d --force-recreate
+```
+
+## 6. Base de datos y Flyway
+
+### 6.1. Esquema
+
+- Esquema `public`; 27 tablas + `flyway_schema_history`.
+- IDs: `BIGINT GENERATED BY DEFAULT AS IDENTITY` (se permite insertar ids explícitos en seeds).
+- Tipos: `BIGINT` (ids/FK), `INTEGER` (años, conteos, intentos), `TEXT`, `VARCHAR(n)`,
+  `BOOLEAN`, `TIMESTAMPTZ`.
+- Todas las columnas FK son `NOT NULL`.
+- No hay reglas `ON DELETE`/`ON UPDATE`: PostgreSQL aplica `NO ACTION` (sin cascada).
+- Los catálogos reemplazan a los enums: `rol`, `estado_autorizacion`, `tipo_actividad`,
+  `tipo_recurso`, `nivel`, `seccion`. **No crees enums Java duplicando estos catálogos.**
+- `respuesta` tiene FK compuesta `(pregunta_id, alternativa_id)` →
+  `alternativa_pregunta (pregunta_id, alternativa_id)`.
+- `actividad.contenido_id`, `pregunta.recurso_id` y `alternativa.recurso_id` son
+  `NOT NULL`: al sembrar datos hay que crear contenidos/recursos primero.
+- **`asignatura.nivel_id` es `NOT NULL`** y su `UNIQUE` es `(nivel_id, nombre)`:
+  una misma disciplina puede repetirse en distintos niveles. La unidad hereda el
+  nivel a través de su asignatura; no agregues `nivel_id` a `unidad`.
+- **`actividad` es una plantilla**: no tiene fechas, `habilitada` ni
+  `max_intentos`. Esa configuración vive en `actividad_curso`
+  (`UNIQUE (actividad_id, curso_id)`), con `max_intentos` nullable (nulo = sin
+  límite) y `fecha_fin > fecha_inicio` cuando ambas existen.
+- **`intento.actividad_curso_id` es `NOT NULL`** y ya no existe
+  `intento.actividad_id`: el intento se acota al curso y a la configuración de la
+  asignación. No reintroduzcas la FK directa a `actividad`.
+- **OA ↔ unidad es N:M** vía `objetivo_aprendizaje_unidad`
+  (`UNIQUE (objetivo_aprendizaje_id, unidad_id)`). `objetivo_aprendizaje` ya no
+  tiene `unidad_id`. No vuelvas a asumir 1:N.
+- **`contenido.unidad_id` es `NOT NULL` e inmutable.** Un trigger
+  `trg_contenido_unidad_inmutable` rechaza cualquier `UPDATE OF unidad_id`
+  (`SQLSTATE 23514`). Para mover un contenido hay que crear uno nuevo.
+- **La unidad de una actividad se hereda del contenido**:
+  `actividad.contenido_id → contenido.unidad_id`. No agregues `actividad.unidad_id`.
+- **`objetivo_aprendizaje_contenido` guarda `unidad_id`** y usa FK compuestas:
+  - `(contenido_id, unidad_id)` → `contenido (contenido_id, unidad_id)`
+  - `(objetivo_aprendizaje_id, unidad_id)` →
+    `objetivo_aprendizaje_unidad (objetivo_aprendizaje_id, unidad_id)`
+
+  Por tanto, un contenido solo puede vincularse a un OA ofrecido en su misma unidad.
+- **`informe_pedagogico.unidad_id` es `NOT NULL`**. El detalle sigue siendo por OA;
+  la coherencia OA/unidad se valida en servicio.
+
+### 6.2. Migraciones
+
+- `V1__init.sql`, `V2__oa_unidad_contenido_informe.sql`,
+  `V3__actividad_curso_y_nivel_asignatura.sql`,
+  `V4__asignatura_curso_docente.sql`,
+  `V5__informe_pedagogico_fecha_corte.sql`,
+  `V6__seed_demo.sql` y `V7__seed_contenido_largo.sql` son las migraciones
+  vigentes. Todas están aplicadas en el entorno actual: **no se editan**. No se
+  edita ninguna migración una vez aplicada en un entorno.
+- Todo cambio nuevo va en `V8__descripcion.sql`, `V9__...`, etc. (dialecto PostgreSQL).
+- Nombres: `V<n>__snake_case.sql` (por ejemplo `V8__ajuste_modelo.sql`).
+- V2 es incremental y contiene lógica de datos: crea la tabla puente OA-unidad,
+  migra la asignación 1:N existente, agrega columnas `NOT NULL`, sustituye FK
+  simples por compuestas y crea el trigger de inmutabilidad. Si se parte de una
+  base con datos, revisar las validaciones `DO $$` de V2 antes de aplicarla.
+- V3 agrega `asignatura.nivel_id` (aborta si ya hay asignaturas sin nivel),
+  crea `actividad_curso`, copia la configuración desde `actividad`, elimina las
+  columnas de configuración de la plantilla y cambia `intento` a
+  `actividad_curso_id`. El backfill de intentos aborta si no puede derivar una
+  asignación única por alumno y actividad.
+- V5 agrega `informe_pedagogico.fecha_corte` y `informe_pedagogico.origen`. Los
+  informes existentes heredan su `fecha` como corte. El flujo de informe
+  preliminar se documenta en `specs/4_informe_pedagogico_preliminar.md`.
+- V6 siembra roles, usuarios (`mpaz123`), catálogos, cursos, unidades,
+  contenidos, actividades, preguntas, alternativas, un intento y un informe.
+- V7 reemplaza las descripciones resumidas por los Markdown completos del seed
+  mobile. Ambas migraciones de seed respetan el orden de FK y reajustan
+  secuencias.
+- No usar `PRAGMA`, `.conf` de `executeInTransaction` ni sintaxis SQLite.
+- `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
+- Para cambios destructivos o de datos, documentar el `up` y el impacto en `specs/`.
+
+### 6.3. Reset
+
+```powershell
+docker compose down -v
+docker compose up -d --build
+```
+
+`down -v` borra el volumen `postgres_data`; en el siguiente arranque Flyway aplica
+`V1` a `V7` desde cero, incluidos los datos de demo y los contenidos largos.
+
+## 7. Docker
+
+- `compose.yaml`:
+  - `db`: `postgres:17-alpine`, volumen `postgres_data`, healthcheck `pg_isready`.
+  - `app`: build local, espera `db` healthy, publica `${APP_PORT}:8080`.
+- `Dockerfile`: multi-stage `maven:3.9-eclipse-temurin-25` → `eclipse-temurin:25-jre`,
+  usuario no-root `spring`, `java -jar app.jar`.
+- `.dockerignore` excluye `target/`, `.git/`, `.env`, docs y datos locales.
+- La app no debe arrancar antes de que Postgres esté healthy (`depends_on`).
+- Puertos configurables: `POSTGRES_PORT` (host) y `APP_PORT` (host).
+
+## 8. Convenciones de código
+
+Paquete base: `com.example.mpaz_pro_6springboot`.
+
+### 8.1. Paquetes por feature
+
+```
+common/        (config, security, errores, util)
+identidad/     (usuario, rol, curso, nivel, seccion)
+curriculo/     (asignatura, unidad, OA, OA-unidad, contenido, recurso, actividad, pregunta, alternativa)
+docencia/      (asignatura_curso, usuario_curso, actividad_curso)
+evaluacion/    (intento, respuesta)
+informe/       (informe_pedagogico, detalle_informe_pedagogico)
+```
+
+Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/`,
+`service/`, `controller/`.
+
+### 8.2. Entidades
+
+- Sin `@Data`. Usar `@Getter/@Setter`, `@Builder`, `@AllArgsConstructor`,
+  `@NoArgsConstructor(access = PROTECTED)`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)`,
+  `@ToString(exclude = {...})` en relaciones lazy.
+- ID: `@Id @GeneratedValue(strategy = GenerationType.IDENTITY)` con `Long`.
+- **Este modelo no tiene PK compuestas**: no usar `@EmbeddedId`. Las tablas puente
+  (`objetivo_aprendizaje_unidad`, `objetivo_aprendizaje_contenido`, etc.) tienen PK
+  propia y una restricción `UNIQUE` sobre la pareja.
+- Relaciones: `@ManyToOne(fetch = FetchType.LAZY)` + `@JoinColumn(name = "...")`.
+  En servicios, resolver con `getReferenceById(...)`.
+- OA ↔ unidad: modelar como `@ManyToMany` con `@JoinTable(name =
+  "objetivo_aprendizaje_unidad", ...)`, no como `@ManyToOne` desde el OA.
+- `Contenido.unidad`: `@ManyToOne(optional = false, fetch = LAZY)`. No exponer un
+  setter de unidad para actualizaciones: la columna es inmutable en la BD.
+- `Asignatura.nivel`: `@ManyToOne(optional = false, fetch = LAZY)` y `UNIQUE`
+  `(nivel_id, nombre)`. La unidad hereda el nivel desde su asignatura.
+- `ActividadCurso`: `@ManyToOne` obligatorio a `Actividad` y a `Curso`;
+  `UNIQUE (actividad_id, curso_id)`. Los flags `habilitada`/`visible` y
+  `max_intentos` son configuración de la asignación, no de la plantilla.
+- `Intento.actividadCurso`: `@ManyToOne(optional = false, fetch = LAZY)` contra
+  `actividad_curso`. No agregar `Intento.actividad`.
+- `ObjetivoAprendizajeContenido`: entidad con PK propia y claves `contenido` +
+  `unidad`/`objetivo` + `unidad`. Al insertar, usar la unidad del contenido; la FK
+  compuesta rechaza combinaciones incoherentes.
+- `InformePedagogico.unidad`: `@ManyToOne(optional = false)`. Validar en servicio
+  que cada OA del detalle esté ofrecido en esa unidad.
+- Tipos Java: `Instant` para `timestamptz`, `boolean`/`Boolean` para `boolean`,
+  `String` para `text`/`varchar`, `Integer` para `integer`, `Long` para `bigint`.
+- Hibernate mapea camelCase a snake_case por defecto. Si un nombre no coincide,
+  declarar `@Table(name = "...")` / `@Column(name = "...")` explícitamente.
+- No crear `enum` para `rol`, `estado_autorizacion`, `tipo_actividad`, `tipo_recurso`,
+  `nivel` o `seccion`: son tablas.
+
+### 8.3. DTOs y mappers
+
+- DTOs `record` con Bean Validation.
+- Update DTOs: todos los campos opcionales; MapStruct
+  `nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE`.
+- MapStruct: `componentModel = "spring"`, `unmappedTargetPolicy = ReportingPolicy.IGNORE`.
+- Orden de annotation processors en `pom.xml`: Lombok → `mapstruct-processor` →
+  `lombok-mapstruct-binding`. Si faltan implementaciones, `.\mvnw.cmd compile`.
+
+### 8.4. Servicios y controladores
+
+- Escrituras con `@Transactional`; lecturas con `@Transactional(readOnly = true)`.
+- Servicios concretos en `<feature>/service`, sin interfaz. La anotación de lectura
+  va a nivel de clase y las escrituras se marcan con `@Transactional`.
+- Reglas de negocio en servicio, no en controladores ni mappers.
+- Excepciones en `common/exception`: `ReglaNegocioException` (`400`),
+  `RecursoNoEncontradoException` (`404`) y `ConflictoException` (`409`).
+  Utilidades de validación en `common/util/Validaciones`.
+- Controladores bajo `/api/...` en `<feature>/controller`, uno por entidad.
+  Son `@Transactional` a nivel de clase y marcan los GET con
+  `@Transactional(readOnly = true)`: los mappers recorren relaciones `LAZY` y
+  `spring.jpa.open-in-view` está en `false`.
+- Errores: `GlobalExceptionHandler` (`@RestControllerAdvice`) responde siempre
+  con `ApiError`: `400` (validación/regla de negocio), `404` (no existe),
+  `409` (conflicto/FK/UNIQUE).
+
+### 8.5. Seguridad
+
+- `SecurityConfig` usa JWT stateless (Bearer) y reglas por rol.
+- `POST /api/auth/login` es publico; el resto exige token salvo health/Swagger.
+- Los catalogos se leen autenticados; las escrituras administrativas son `UTP`;
+  el material pedagogico es `UTP`/`DOCENTE`; intentos y respuestas son `ESTUDIANTE`.
+- El ownership (estudiante solo sus datos, docente solo sus cursos) se valida en
+  los servicios con `SecurityUtils`.
+- `MaterialAccessPolicy` restringe la escritura de unidades, contenidos,
+  actividades y recursos: UTP puede todo; DOCENTE solo asignaturas con fila en
+  `asignatura_curso`; el resto recibe `403`.
+- `ReportAccessPolicy` restringe la lectura/emisión de informes: UTP todo,
+  estudiante solo sus datos y docente solo estudiantes de sus cursos.
+- El hash de `usuario.password_hash` es BCrypt; el seed usa `mpaz123`.
+
+### 8.6. Tests
+
+- No usar SQLite ni H2 para validar el esquema: el DDL es PostgreSQL.
+- `MobileContractIntegrationTest` usa PostgreSQL embebido (Zonky) y valida
+  Flyway + seed + JWT + contrato mobile sin Docker.
+- Para Testcontainers se necesitan `spring-boot-testcontainers`,
+  `org.testcontainers:postgresql` y `org.testcontainers:junit-jupiter` con
+  `@ServiceConnection` y `postgres:17-alpine`; requieren Docker corriendo.
+- `.\mvnw.cmd test` debe seguir funcionando sin servicios externos manuales.
+
+## 9. Reglas de negocio y huecos conocidos
+
+- **Unidad de la actividad:** se hereda de `contenido.unidad_id` (NOT NULL e
+  inmutable). No hay `actividad.unidad_id`; no lo agregues sin una decisión de modelo.
+- **Unidad del contenido:** no se puede cambiar (trigger). Para reubicar un contenido,
+  crear uno nuevo en la unidad destino y migrar los datos asociados.
+- **OA multi-unidad:** un OA puede estar en varias unidades. Al vincularlo a un
+  contenido, usar la unidad del contenido; la FK compuesta exige que el OA esté
+  ofrecido en esa unidad. No asumir que el OA tiene una única unidad.
+- **Informe pedagógico:** `unidad_id` es obligatorio. Validar en servicio que cada OA
+  del detalle pertenezca a esa unidad (el detalle no guarda `unidad_id`) y que
+  `usuario_id` tenga rol de estudiante (el esquema no lo restringe).
+- **Informe pedagógico como snapshot:** `fecha_corte` fija el instante máximo de
+  los intentos incluidos y `origen` distingue `AUTOMATICO` de `MANUAL`. Los
+  conteos de `detalle_informe_pedagogico` se persisten y no se recalculan; los
+  intentos posteriores no modifican el informe. Ver
+  `specs/4_informe_pedagogico_preliminar.md`.
+- **`usuario_curso`:** no distingue rol ni tipo de participación; validar en servicio.
+- **Alternativas correctas:** el esquema permite varias `correcta = true` por pregunta;
+  si la regla es de selección única, validarlo en servicio.
+- **Borrados:** sin cascada; si un padre tiene hijos, la FK falla. Traducir a `409`.
+- **Borrado de informes:** `DELETE /api/informes-pedagogicos/{id}` elimina primero
+  los detalles y luego la cabecera dentro de una transacción. No reintroduzcas un
+  borrado directo de la cabecera: la FK de `detalle_informe_pedagogico` lo impide.
+- **Asignatura por nivel:** una asignatura pertenece a un nivel y el nombre es
+  único dentro de él. Un curso solo puede ofrecer asignaturas de su mismo nivel;
+  validarlo en servicio (`asignatura_curso` no tiene FK compuesta contra nivel).
+- **Actividad por curso:** la plantilla `actividad` no tiene fechas, `habilitada`
+  ni `max_intentos`. La configuración vive en `actividad_curso` y `max_intentos`
+  es nullable (nulo = sin límite). El backend valida `habilitada`, la ventana y
+  el límite; `visible` es una decisión de presentación del frontend.
+- **Asignación actividad-curso:** el curso debe impartir la asignatura de la
+  actividad. El esquema no puede expresarlo porque la asignatura se obtiene por
+  `actividad → contenido → unidad → asignatura`; validarlo en servicio contra
+  `asignatura_curso`.
+- **Inscripción al intento:** el usuario debe pertenecer al curso de la
+  `actividad_curso` (`usuario_curso`). El esquema no lo restringe; validarlo en
+  `IntentoService`. Las fechas del intento miden su duración, no la ventana.
+- **Catálogos:** deben existir antes de crear usuarios, unidades, contenidos, etc.
+- **`objetivo_aprendizaje.codigo`:** no tiene `UNIQUE`. Si los códigos deben ser
+  únicos por asignatura, evaluar agregar `asignatura_id` y `UNIQUE (asignatura_id,
+  codigo)` en una migración futura.
+- **Seed:** `V6__seed_demo.sql` crea roles, usuarios (`mpaz123`), catalogos,
+  cursos, unidades, contenidos, actividades, preguntas, alternativas, un intento
+  y un informe de ejemplo. `V7__seed_contenido_largo.sql` reemplaza las
+  descripciones resumen por los Markdown completos del seed mobile. Respetar el
+  orden de FK y reajustar secuencias.
+
+## 10. Flujo de trabajo
+
+- Nunca realizar commits sin autorización explícita
+- Nunca salir del repositorio, si se requiere información externa consultar con el usuario
+- Commits atómicos y mensajes claros (`feat(...)`, `fix(...)`, `docs(...)`, `chore(...)`).
+- No editar migraciones ya aplicadas; crear la siguiente versión.
+- Si cambia el modelo: actualizar `specs/` y el DDL de referencia, y agregar migración.
+- Verificar siempre con `docker compose config` y `docker compose up -d --build`.
+- No commitear `.env`, `target/` ni volúmenes/datos locales.
+- No leer ni tocar `.env` bajo ninguna circunstancia. Preguntar en caso de requerir información sobre él.
+- Archivos UTF-8 **sin BOM**. En PowerShell 5.1 evitar `Set-Content -Encoding utf8`
+  para código; usar `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`.
+- En PowerShell no usar `&&`, `head`, `tail` ni `grep`: usar `;`, `Select-Object`,
+  `Select-String`.
+
+## 11. Roadmap sugerido
+
+1. Repositorios de las 27 tablas: **completado**.
+2. Capa DTO + mappers MapStruct: **completado**.
+3. `V6__seed_demo.sql` con catálogos y datos de demo: **completado**.
+4. Autenticación y autorización por rol (login, BCrypt, JWT): **completado**.
+5. Servicios y controladores del dominio: **completado**.
+6. Informe preliminar por unidad y snapshot: **completado**.
+7. Reglas de negocio de §9 y manejo global de errores: **parcial** (ownership
+   de estudiante/docente y material implementado; quedan reglas transversales).
+8. Tests de integración: **completado** para el contrato mobile con PostgreSQL
+   embebido; pendiente la suite Testcontainers si se habilita Docker.

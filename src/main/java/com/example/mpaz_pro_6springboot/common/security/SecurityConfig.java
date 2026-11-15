@@ -1,78 +1,207 @@
 package com.example.mpaz_pro_6springboot.common.security;
 
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Seguridad del backend: JWT stateless + reglas por rol.
+ *
+ * <p>Las lecturas de catalogo quedan disponibles para cualquier usuario
+ * autenticado; las escrituras se limitan por rol. Las reglas de ownership
+ * (por ejemplo, que un estudiante solo vea sus intentos) se validan en los
+ * servicios, no aqui.</p>
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    /**
-     * Catalogo curricular: lo consulta cualquier usuario autenticado, pero solo
-     * la UTP lo crea, edita o elimina (incluida la autorizacion de unidades).
-     */
-    private static final String[] CATALOGO = {
-            "/api/asignaturas", "/api/asignaturas/**",
-            "/api/cursos", "/api/cursos/**",
-            "/api/unidades", "/api/unidades/**",
-            "/api/objetivos-aprendizaje", "/api/objetivos-aprendizaje/**",
-            "/api/contenidos", "/api/contenidos/**",
-            "/api/recursos-contenido", "/api/recursos-contenido/**",
-            "/api/actividades", "/api/actividades/**",
-            "/api/preguntas", "/api/preguntas/**",
-            "/api/alternativas", "/api/alternativas/**"
-    };
+    private final CustomUserDetailsService userDetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // Basic Auth se valida en cada solicitud: no se guarda estado en sesion.
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Actuator
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        // Swagger/OpenAPI
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
-                        // Errores: el dispatch a /error no debe quedar bloqueado.
+                        .requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml"
+                        ).permitAll()
                         .requestMatchers("/error").permitAll()
-                        // Autenticacion: el filtro Basic valida las credenciales del login.
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        // El registro y la gestion de usuarios los realiza unicamente la UTP.
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("UTP")
                         .requestMatchers("/api/auth/me").authenticated()
-                        .requestMatchers("/api/usuarios", "/api/usuarios/**").hasRole("UTP")
-                        // Catalogo: escritura reservada a UTP.
-                        .requestMatchers(HttpMethod.POST, CATALOGO).hasRole("UTP")
-                        .requestMatchers(HttpMethod.PUT, CATALOGO).hasRole("UTP")
-                        .requestMatchers(HttpMethod.DELETE, CATALOGO).hasRole("UTP")
-                        // Docencia: el docente (o la UTP) gestiona asignaciones, OA y actividades.
-                        .requestMatchers(HttpMethod.POST, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
-                        .requestMatchers(HttpMethod.PUT, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
-                        .requestMatchers(HttpMethod.DELETE, "/api/asignaciones", "/api/asignaciones/**").hasAnyRole("DOCENTE", "UTP")
-                        // Evaluacion: el estudiante es el unico que inicia, completa y responde.
-                        .requestMatchers(HttpMethod.POST, "/api/estudiantes/*/actividades/*/intentos").hasRole("ESTUDIANTE")
-                        .requestMatchers(HttpMethod.PATCH, "/api/intentos/*/completar").hasRole("ESTUDIANTE")
-                        .requestMatchers(HttpMethod.POST, "/api/intentos/*/respuestas").hasRole("ESTUDIANTE")
-                        // Informes: lectura autenticada (el Service limita al dueno);
-                        // generacion y validacion reservadas a DOCENTE/UTP.
-                        .requestMatchers(HttpMethod.POST, "/api/informes-pedagogicos").hasAnyRole("DOCENTE", "UTP")
-                        .requestMatchers(HttpMethod.PATCH, "/api/informes-pedagogicos/*/validacion").hasAnyRole("DOCENTE", "UTP")
-                        .requestMatchers("/api/informes-pedagogicos", "/api/informes-pedagogicos/**").authenticated()
-                        // El resto de rutas requiere autenticacion (nunca publico por defecto).
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+
+                        // El listado de usuarios es administrativo.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/usuarios", "/api/usuarios/**"
+                        ).hasRole("UTP")
+
+                        // El consolidado preliminar es una herramienta docente.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/informes-pedagogicos/preliminar"
+                        ).hasAnyRole("UTP", "DOCENTE")
+
+                        // Escrituras administrativas de identidad y catalogos.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/usuarios", "/api/usuarios/**",
+                                "/api/roles", "/api/roles/**",
+                                "/api/niveles", "/api/niveles/**",
+                                "/api/secciones", "/api/secciones/**",
+                                "/api/cursos", "/api/cursos/**",
+                                "/api/asignaturas", "/api/asignaturas/**",
+                                "/api/estados-autorizacion", "/api/estados-autorizacion/**",
+                                "/api/tipos-actividad", "/api/tipos-actividad/**",
+                                "/api/tipos-recurso", "/api/tipos-recurso/**",
+                                "/api/asignaturas-curso", "/api/asignaturas-curso/**",
+                                "/api/usuarios-curso", "/api/usuarios-curso/**"
+                        ).hasRole("UTP")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/usuarios", "/api/usuarios/**",
+                                "/api/roles", "/api/roles/**",
+                                "/api/niveles", "/api/niveles/**",
+                                "/api/secciones", "/api/secciones/**",
+                                "/api/cursos", "/api/cursos/**",
+                                "/api/asignaturas", "/api/asignaturas/**",
+                                "/api/estados-autorizacion", "/api/estados-autorizacion/**",
+                                "/api/tipos-actividad", "/api/tipos-actividad/**",
+                                "/api/tipos-recurso", "/api/tipos-recurso/**",
+                                "/api/asignaturas-curso", "/api/asignaturas-curso/**",
+                                "/api/usuarios-curso", "/api/usuarios-curso/**"
+                        ).hasRole("UTP")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/usuarios", "/api/usuarios/**",
+                                "/api/roles", "/api/roles/**",
+                                "/api/niveles", "/api/niveles/**",
+                                "/api/secciones", "/api/secciones/**",
+                                "/api/cursos", "/api/cursos/**",
+                                "/api/asignaturas", "/api/asignaturas/**",
+                                "/api/estados-autorizacion", "/api/estados-autorizacion/**",
+                                "/api/tipos-actividad", "/api/tipos-actividad/**",
+                                "/api/tipos-recurso", "/api/tipos-recurso/**",
+                                "/api/asignaturas-curso", "/api/asignaturas-curso/**",
+                                "/api/usuarios-curso", "/api/usuarios-curso/**"
+                        ).hasRole("UTP")
+
+                        // Escrituras de material pedagogico.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/unidades", "/api/unidades/**",
+                                "/api/objetivos-aprendizaje", "/api/objetivos-aprendizaje/**",
+                                "/api/objetivos-aprendizaje-unidad", "/api/objetivos-aprendizaje-unidad/**",
+                                "/api/objetivos-aprendizaje-contenido", "/api/objetivos-aprendizaje-contenido/**",
+                                "/api/contenidos", "/api/contenidos/**",
+                                "/api/recursos", "/api/recursos/**",
+                                "/api/actividades", "/api/actividades/**",
+                                "/api/actividades-curso", "/api/actividades-curso/**",
+                                "/api/preguntas", "/api/preguntas/**",
+                                "/api/alternativas", "/api/alternativas/**",
+                                "/api/alternativas-pregunta", "/api/alternativas-pregunta/**",
+                                "/api/preguntas-actividad", "/api/preguntas-actividad/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/unidades", "/api/unidades/**",
+                                "/api/objetivos-aprendizaje", "/api/objetivos-aprendizaje/**",
+                                "/api/objetivos-aprendizaje-unidad", "/api/objetivos-aprendizaje-unidad/**",
+                                "/api/objetivos-aprendizaje-contenido", "/api/objetivos-aprendizaje-contenido/**",
+                                "/api/contenidos", "/api/contenidos/**",
+                                "/api/recursos", "/api/recursos/**",
+                                "/api/actividades", "/api/actividades/**",
+                                "/api/actividades-curso", "/api/actividades-curso/**",
+                                "/api/preguntas", "/api/preguntas/**",
+                                "/api/alternativas", "/api/alternativas/**",
+                                "/api/alternativas-pregunta", "/api/alternativas-pregunta/**",
+                                "/api/preguntas-actividad", "/api/preguntas-actividad/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/unidades", "/api/unidades/**",
+                                "/api/objetivos-aprendizaje", "/api/objetivos-aprendizaje/**",
+                                "/api/objetivos-aprendizaje-unidad", "/api/objetivos-aprendizaje-unidad/**",
+                                "/api/objetivos-aprendizaje-contenido", "/api/objetivos-aprendizaje-contenido/**",
+                                "/api/contenidos", "/api/contenidos/**",
+                                "/api/recursos", "/api/recursos/**",
+                                "/api/actividades", "/api/actividades/**",
+                                "/api/actividades-curso", "/api/actividades-curso/**",
+                                "/api/preguntas", "/api/preguntas/**",
+                                "/api/alternativas", "/api/alternativas/**",
+                                "/api/alternativas-pregunta", "/api/alternativas-pregunta/**",
+                                "/api/preguntas-actividad", "/api/preguntas-actividad/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+
+                        // Escrituras de informes pedagogicos.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/informes-pedagogicos", "/api/informes-pedagogicos/**",
+                                "/api/detalles-informe-pedagogico", "/api/detalles-informe-pedagogico/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/informes-pedagogicos", "/api/informes-pedagogicos/**",
+                                "/api/detalles-informe-pedagogico", "/api/detalles-informe-pedagogico/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/informes-pedagogicos", "/api/informes-pedagogicos/**",
+                                "/api/detalles-informe-pedagogico", "/api/detalles-informe-pedagogico/**"
+                        ).hasAnyRole("UTP", "DOCENTE")
+
+                        // Flujo de evaluacion del estudiante.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/intentos", "/api/intentos/**",
+                                "/api/respuestas", "/api/respuestas/**"
+                        ).hasRole("ESTUDIANTE")
+
                         .anyRequest().authenticated()
                 )
-                .httpBasic(Customizer.withDefaults());
+                .authenticationProvider(authenticationProvider())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                )
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration
+    ) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

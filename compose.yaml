@@ -1,6 +1,8 @@
 services:
-  postgres:
+  db:
     image: postgres:17-alpine
+    container_name: mpaz-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mpaz}
       POSTGRES_USER: ${POSTGRES_USER:-mpaz}
@@ -8,12 +10,33 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - mpaz-postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mpaz} -d ${POSTGRES_DB:-mpaz}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mpaz-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-mpaz}
+      POSTGRES_USER: ${POSTGRES_USER:-mpaz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mpaz}
+      SERVER_PORT: 8080
+      MPAZ_JWT_SECRET: ${MPAZ_JWT_SECRET:-mpaz-pro-6-demo-jwt-secret-change-me-0123456789abcdef}
+    ports:
+      - "${APP_PORT:-8080}:8080"
 
 volumes:
-  mpaz-postgres-data:
+  postgres_data:
