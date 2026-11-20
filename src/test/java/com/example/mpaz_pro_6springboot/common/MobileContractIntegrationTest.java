@@ -109,7 +109,7 @@ class MobileContractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"usuarioId":6,"actividadCursoId":3,"fechaInicio":"2026-11-14T10:00:00Z"}
+                                {"usuarioId":6,"actividadCursoId":9,"fechaInicio":"2026-11-14T10:00:00Z"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
@@ -122,11 +122,11 @@ class MobileContractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"intentoId":%d,"preguntaId":1,"alternativaId":1}
+                                {"intentoId":%d,"preguntaId":13,"alternativaId":50}
                                 """.formatted(intentoId.longValue())))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.pregunta.id").value(1))
-                .andExpect(jsonPath("$.alternativa.id").value(1));
+                .andExpect(jsonPath("$.pregunta.id").value(13))
+                .andExpect(jsonPath("$.alternativa.id").value(50));
 
         mockMvc.perform(post("/api/intentos/{id}/cerrar", intentoId.longValue())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -407,7 +407,7 @@ class MobileContractIntegrationTest {
                         .param("unidadId", "2")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].id").value(5))
                 .andReturn();
 
         String descripcion = JsonPath.read(

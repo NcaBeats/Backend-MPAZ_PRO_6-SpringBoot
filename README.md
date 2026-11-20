@@ -41,9 +41,11 @@ En el primer arranque Flyway aplica `V1__init.sql`,
 `V3__actividad_curso_y_nivel_asignatura.sql`,
 `V4__asignatura_curso_docente.sql`,
 `V5__informe_pedagogico_fecha_corte.sql`,
-`V6__seed_demo.sql` y
-`V7__seed_contenido_largo.sql`, dejando 27 tablas, los datos de demostración y
-los contenidos completos. El contenedor
+`V6__seed_demo.sql`,
+`V7__seed_contenido_largo.sql` y
+`V8__alinear_contenido_actividades_pruebas_finales.sql`, dejando 27 tablas, los
+datos de demostración, los contenidos completos y la alineación con el seed del
+mobile. El contenedor
 `app` espera a que Postgres esté saludable
 (`depends_on: condition: service_healthy`).
 
@@ -164,8 +166,13 @@ app deshabilita el switch de esa fila.
   alternativas, un intento y un informe de ejemplo.
 - `src/main/resources/db/migration/V7__seed_contenido_largo.sql`: reemplaza las
   descripciones resumidas por los Markdown completos del seed mobile.
+- `src/main/resources/db/migration/V8__alinear_contenido_actividades_pruebas_finales.sql`:
+  alinea contenidos, actividades y pruebas finales con el seed final de la app
+  mobile (6 contenidos, 12 actividades con 4 `PRUEBA_FINAL`, 48 preguntas,
+  192 alternativas). Es destructiva sobre el dominio pedagógico/evaluativo y no
+  toca usuarios, cursos, unidades, OAs ni informes.
 - Política: una migración aplicada no se edita; los cambios nuevos van en
-  `V8__...`, `V9__...`, etc.
+  `V9__...`, `V10__...`, etc.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 
 ### Reglas de modelo y datos aplicadas desde V2
@@ -220,8 +227,9 @@ docker compose up -d --build
 ```
 
 `down -v` elimina el volumen `postgres_data`, por lo que Flyway vuelve a aplicar
-`V1__init.sql` hasta `V7__seed_contenido_largo.sql` desde cero, incluyendo los
-datos de demostración y los contenidos largos.
+`V1__init.sql` hasta `V8__alinear_contenido_actividades_pruebas_finales.sql`
+desde cero, incluyendo los datos de demostración, los contenidos largos y la
+alineación con el seed del mobile.
 
 ## Pruebas
 
@@ -259,7 +267,8 @@ src/main/resources/
     ├── V4__asignatura_curso_docente.sql
     ├── V5__informe_pedagogico_fecha_corte.sql
     ├── V6__seed_demo.sql
-    └── V7__seed_contenido_largo.sql
+    ├── V7__seed_contenido_largo.sql
+    └── V8__alinear_contenido_actividades_pruebas_finales.sql
 compose.yaml
 Dockerfile
 ```

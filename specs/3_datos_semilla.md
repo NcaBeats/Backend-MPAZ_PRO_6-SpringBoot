@@ -205,3 +205,56 @@ Demostrar que comprenden la multiplicación y la división de decimales por núm
 
 * MA06 OA 08
 Resolver problemas rutinarios y no rutinarios que involucren adiciones y sustracciones de fracciones propias, impropias, números mixtos o decimales hasta la milésima.
+
+5. Contenidos, actividades y pruebas finales (V8)
+
+La migración `V8__alinear_contenido_actividades_pruebas_finales.sql` reemplaza el
+seed pedagógico por el estado final de la app móvil `MPAZ_PRO_6` (Room v9). Los
+ids de contenido y actividad coinciden con los del móvil.
+
+Contenidos (todos en estado PUBLICADO):
+
+| ID | Unidad | Asignatura | Contenido |
+|---:|---:|---|---|
+| 1 | 1 | Lenguaje y Comunicación | Estrategias para comprender lo que leemos |
+| 2 | 1 | Lenguaje y Comunicación | Comprendemos y analizamos textos narrativos |
+| 3 | 3 | Ciencias Naturales | La fotosíntesis: cómo las plantas producen su alimento |
+| 4 | 3 | Ciencias Naturales | Cadenas y redes alimentarias: cómo se relacionan los seres vivos |
+| 5 | 2 | Matemática | Factores, múltiplos y números primos |
+| 6 | 4 | Historia, Geografía y Ciencias Sociales | Antecedentes de la Independencia de América y Chile |
+
+Actividades (todas PUBLICADO y publicadas en 6A y 6B con `max_intentos = 3`):
+
+| ID | Tipo | Contenido | Preguntas |
+|---:|---|---:|---:|
+| 1 | ACTIVIDAD | 1 | 1-3 |
+| 2 | ACTIVIDAD | 2 | 4-6 |
+| 3 | ACTIVIDAD | 3 | 7-9 |
+| 4 | ACTIVIDAD | 4 | 10-12 |
+| 5 | ACTIVIDAD | 5 | 13-15 |
+| 6 | ACTIVIDAD | 5 | 16-18 |
+| 7 | PRUEBA_FINAL | 5 | 19-28 |
+| 8 | ACTIVIDAD | 6 | 29-33 |
+| 9 | ACTIVIDAD | 6 | 34-38 |
+| 10 | PRUEBA_FINAL | 6 | 39-48 |
+| 11 | PRUEBA_FINAL | 1 | 1-6 |
+| 12 | PRUEBA_FINAL | 3 | 7-12 |
+
+Notas:
+
+- Cada asignatura tiene dos actividades formativas y una prueba final.
+- Las pruebas finales de Lenguaje (11) y Ciencias (12) reutilizan las preguntas
+  de las actividades formativas; Matemática (7) e Historia (10) usan un banco
+  propio de 10 preguntas.
+- El móvil no usa la tabla `recurso` (`pregunta.recurso_id` y
+  `alternativa.recurso_id` son `NULL`). Como el esquema PostgreSQL los exige,
+  V8 crea un recurso `DOCUMENTO` por contenido (`recurso_id` 1-6) y lo asigna a
+  las preguntas y alternativas de ese contenido.
+- El catálogo de OA del backend se conserva (8 OA) y sus vínculos se recrean con
+  los nuevos ids de contenido; no se importan los 36 OA del móvil.
+- El intento de ejemplo (estudiante 6, curso 1) se recrea sobre
+  `actividad_curso` 9 (actividad 5 de Matemática) con respuestas correctas a las
+  preguntas 13-15, para que el informe preliminar de la unidad 2 tenga datos.
+- Las unidades conservan los estados de V6 (`EN_REVISION`, `AUTORIZADO`,
+  `EN_REVISION`, `PUBLICADO`) porque pertenecen a otro dominio; contenidos y
+  actividades quedan en `PUBLICADO`.

@@ -10,6 +10,9 @@ Guía operativa para futuras sesiones. Léela antes de tocar código, migracione
 - **Seed implementado** en `V6__seed_demo.sql` y contenidos completos en
   `V7__seed_contenido_largo.sql`: roles, usuarios, catalogos, cursos, unidades,
   contenidos, actividades, preguntas, alternativas, un intento y un informe de ejemplo.
+- **Alineacion con el mobile** en `V8__alinear_contenido_actividades_pruebas_finales.sql`:
+  reconstruye contenidos, actividades, pruebas finales, preguntas y alternativas
+  con los ids y textos del seed final de `MPAZ_PRO_6` (Room v9). Ver §6.2 y §9.
 - **Tests implementados**: `JwtServiceTest`, `SeedPasswordTest` y `MobileContractIntegrationTest` (PostgreSQL embebido, sin Docker).
 - **Ya existen las 27 entidades JPA** de la capa `model`, organizadas por feature:
   - `identidad/model`: `Usuario`, `Rol`, `Curso`, `Nivel`, `Seccion`.
@@ -208,11 +211,12 @@ docker compose up -d --force-recreate
   `V3__actividad_curso_y_nivel_asignatura.sql`,
   `V4__asignatura_curso_docente.sql`,
   `V5__informe_pedagogico_fecha_corte.sql`,
-  `V6__seed_demo.sql` y `V7__seed_contenido_largo.sql` son las migraciones
+  `V6__seed_demo.sql`, `V7__seed_contenido_largo.sql` y
+  `V8__alinear_contenido_actividades_pruebas_finales.sql` son las migraciones
   vigentes. Todas están aplicadas en el entorno actual: **no se editan**. No se
   edita ninguna migración una vez aplicada en un entorno.
-- Todo cambio nuevo va en `V8__descripcion.sql`, `V9__...`, etc. (dialecto PostgreSQL).
-- Nombres: `V<n>__snake_case.sql` (por ejemplo `V8__ajuste_modelo.sql`).
+- Todo cambio nuevo va en `V9__descripcion.sql`, `V10__...`, etc. (dialecto PostgreSQL).
+- Nombres: `V<n>__snake_case.sql` (por ejemplo `V9__ajuste_modelo.sql`).
 - V2 es incremental y contiene lógica de datos: crea la tabla puente OA-unidad,
   migra la asignación 1:N existente, agrega columnas `NOT NULL`, sustituye FK
   simples por compuestas y crea el trigger de inmutabilidad. Si se parte de una
@@ -230,6 +234,19 @@ docker compose up -d --force-recreate
 - V7 reemplaza las descripciones resumidas por los Markdown completos del seed
   mobile. Ambas migraciones de seed respetan el orden de FK y reajustan
   secuencias.
+- V8 alinea el backend con el estado final del seed mobile (Room v9) en
+  contenidos, actividades y pruebas finales. Es destructiva sobre el dominio
+  pedagogico/evaluativo: borra en orden de FK `respuesta`, `intento`,
+  `alternativa_pregunta`, `pregunta_actividad`, `alternativa`, `pregunta`,
+  `actividad_curso`, `actividad`, `recurso`, `objetivo_aprendizaje_contenido` y
+  `contenido`, y reconstruye 6 contenidos (`1..6`), 12 actividades (`1..12`, 4
+  `PRUEBA_FINAL`), 24 `actividad_curso`, 48 preguntas, 192 alternativas, 192
+  `alternativa_pregunta` y 60 `pregunta_actividad`. No toca usuarios, roles,
+  cursos, unidades, OAs ni informes; solo recrea los vinculos OA-contenido con
+  los nuevos ids. Se crean 6 recursos (uno por contenido) porque
+  `pregunta.recurso_id` y `alternativa.recurso_id` son `NOT NULL` y el seed
+  mobile los deja en `NULL`. El bloque
+  final `DO $$` aborta si los conteos no coinciden con el mobile.
 - No usar `PRAGMA`, `.conf` de `executeInTransaction` ni sintaxis SQLite.
 - `spring.jpa.hibernate.ddl-auto: validate`: el esquema es propiedad de Flyway.
 - Para cambios destructivos o de datos, documentar el `up` y el impacto en `specs/`.
@@ -242,7 +259,8 @@ docker compose up -d --build
 ```
 
 `down -v` borra el volumen `postgres_data`; en el siguiente arranque Flyway aplica
-`V1` a `V7` desde cero, incluidos los datos de demo y los contenidos largos.
+`V1` a `V8` desde cero, incluidos los datos de demo, los contenidos largos y la
+alineacion con el seed del mobile.
 
 ## 7. Docker
 
@@ -405,8 +423,13 @@ Cada feature: `model/`, `repository/`, `dto/request/`, `dto/response/`, `mapper/
 - **Seed:** `V6__seed_demo.sql` crea roles, usuarios (`mpaz123`), catalogos,
   cursos, unidades, contenidos, actividades, preguntas, alternativas, un intento
   y un informe de ejemplo. `V7__seed_contenido_largo.sql` reemplaza las
-  descripciones resumen por los Markdown completos del seed mobile. Respetar el
-  orden de FK y reajustar secuencias.
+  descripciones resumen por los Markdown completos del seed mobile.
+  `V8__alinear_contenido_actividades_pruebas_finales.sql` reconstruye contenidos,
+  actividades y pruebas finales con los ids/textos del mobile: 6 contenidos,
+  12 actividades (4 `PRUEBA_FINAL`), 48 preguntas y 192 alternativas. El seed
+  mobile no usa recursos (`recurso_id = NULL`), pero el esquema backend los exige:
+  V8 crea 6 recursos `DOCUMENTO`, uno por contenido, y los asigna a preguntas y
+  alternativas. Respetar el orden de FK y reajustar secuencias.
 
 ## 10. Flujo de trabajo
 
